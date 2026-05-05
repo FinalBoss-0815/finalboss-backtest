@@ -891,6 +891,11 @@ input[type=number] { -moz-appearance:textfield }
     <div style="font-size:16px;font-weight:700;line-height:1.1" id="mcChange24h">--</div>
     <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">24h Change</div>
   </div>
+  <div style="width:1px;height:40px;background:var(--border)"></div>
+  <div title="Aktuelle Funding Rate des gewählten Symbols (Binance Perp). Positiv = Longs zahlen Shorts (bullische Stimmung, teuer für Longs). Negativ = Shorts zahlen Longs (bearisch). Zahlung erfolgt alle 8h.">
+    <div style="font-size:16px;font-weight:700;line-height:1.1" id="fundingRateLive">--</div>
+    <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Funding <span id="fundingRateSymbol" style="color:var(--text-muted)"></span></div>
+  </div>
   <span id="marketLastUpd" style="margin-left:auto;font-size:10px;color:var(--text-muted)"></span>
   <button onclick="loadMarketData()" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer" title="Aktualisieren">↻</button>
 </div>
@@ -1191,12 +1196,15 @@ input[type=number] { -moz-appearance:textfield }
   </div>
   <div class="control-group">
     <label style="display:flex;align-items:center;gap:4px;font-size:11px"><span data-i18n="lbl.fundingrate">Funding Rate</span>
-      <span class="info-icon" style="vertical-align:middle">i<span class="info-tip" data-i18n-html="tip.fundingrate">Funding-Rate für Perp-Futures (Krypto). Long-Positionen zahlen, Short-Positionen erhalten. Binance: alle 8h, durchschnittlich ~0.01% pro Periode. Setze 0 für Spot-Trading. Realistische Einstellung verhindert zu optimistische Long-Trade-Backtests bei Halten über mehrere Tage.</span></span>
+      <span class="info-icon" style="vertical-align:middle">i<span class="info-tip" data-i18n-html="tip.fundingrate">Funding-Rate für Perp-Futures (Krypto). Long-Positionen zahlen, Short-Positionen erhalten. Binance: alle 8h, durchschnittlich ~0.01% pro Periode. <strong>Auto-Fill:</strong> beim Symbol-Wechsel wird die aktuelle Funding-Rate eingetragen. <strong>Historische Modus:</strong> Checkbox aktivieren — Engine nutzt dann die echten zeitgenauen Funding-Daten pro Trade (maximaler Realismus). Setze 0 für Spot-Trading.</span></span>
     </label>
     <div style="display:flex;align-items:center;gap:4px">
       <input type="number" id="fundingRate" value="0" step="0.001" min="-0.1" max="0.1" style="width:60px" title="% pro 8h">
       <span style="font-size:11px;color:var(--text-muted)">%/8h</span>
     </div>
+    <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);margin-top:3px;cursor:pointer" title="Wenn aktiv: Engine holt historische Funding-Raten von Binance und wendet pro Trade die zeitgenaue Rate an (statt fixem Wert).">
+      <input type="checkbox" id="useHistoricalFunding" style="cursor:pointer"> Historisch
+    </label>
   </div>
   <div class="control-group">
     <label style="font-size:11px" data-i18n="lbl.nextbar">Next-Bar Entry</label>
@@ -8072,6 +8080,42 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
   // Long zahlt, Short erhaelt (bei positiver Funding Rate)
   const fundingRatePct = parseFloat(document.getElementById('fundingRate')?.value || 0) / 100; // z.B. 0.01% -> 0.0001
   const FUNDING_INTERVAL_MS = 8 * 60 * 60 * 1000; // 8h
+  // Historischer Funding-Modus: holt echte historische Funding-Raten und wendet sie zeitgenau an
+  const useHistoricalFunding = document.getElementById('useHistoricalFunding')?.checked === true;
+  let historicalFundingRates = null; // [{ts, rate}] sortiert nach ts
+  if (useHistoricalFunding) {
+    try {
+      const symEl = document.getElementById('symbolSelect');
+      const sym = symEl ? symEl.value : null;
+      if (sym && candles.length > 0) {
+        const startTs = candles[0].ts;
+        const endTs = candles[candles.length - 1].ts;
+        log(`Lade historische Funding-Raten für ${sym}...`);
+        historicalFundingRates = await fetchFundingRates(sym, new Date(startTs), new Date(endTs));
+        if (!historicalFundingRates || historicalFundingRates.length === 0) {
+          log('Keine historischen Funding-Daten — fallback auf manuellen Wert', 'error');
+          historicalFundingRates = null;
+        }
+      }
+    } catch (e) {
+      log(`Historische Funding-Daten konnten nicht geladen werden: ${e.message}`, 'error');
+      historicalFundingRates = null;
+    }
+  }
+  // Helper: gibt die zur ts passende historische Funding-Rate zurück (binary search)
+  // Falls historicalFundingRates leer/null → fallback auf festen fundingRatePct
+  function _getFundingRateAtTs(ts) {
+    if (!historicalFundingRates || historicalFundingRates.length === 0) return fundingRatePct;
+    // Binary search: finde den letzten Funding-Eintrag mit ts <= unsere ts
+    let lo = 0, hi = historicalFundingRates.length - 1, idx = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (historicalFundingRates[mid].ts <= ts) { idx = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    if (idx < 0) return historicalFundingRates[0].rate; // vor erstem Eintrag
+    return historicalFundingRates[idx].rate;
+  }
 
   // Initialize strategy indicators (may be async for external data)
   await Promise.resolve(strategy.init(candles, paramValues));
@@ -8127,12 +8171,17 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
     // Without bar replay: entries are checked first (below), then exits
     if (position && useBarReplay) {
       // Funding Rate alle 8h auf offene Positionen anwenden (Long zahlt, Short erhaelt bei positiver Rate)
-      if (fundingRatePct !== 0) {
+      // Historischer Modus: nutze echte zeitgenaue Funding-Rate; sonst: fixer Wert aus Input
+      if (fundingRatePct !== 0 || historicalFundingRates) {
         while (c.ts - position._lastFundingTs >= FUNDING_INTERVAL_MS) {
-          const positionSizeUsd = position.riskUsd / (Math.abs(position.entry - position.sl) / position.entry);
-          const fundingCost = positionSizeUsd * fundingRatePct * (position.dir === 'long' ? 1 : -1);
-          position._fundingCost += fundingCost;
-          position._lastFundingTs += FUNDING_INTERVAL_MS;
+          const fundingTs = position._lastFundingTs + FUNDING_INTERVAL_MS;
+          const rateAtTs = _getFundingRateAtTs(fundingTs);
+          if (rateAtTs !== 0) {
+            const positionSizeUsd = position.riskUsd / (Math.abs(position.entry - position.sl) / position.entry);
+            const fundingCost = positionSizeUsd * rateAtTs * (position.dir === 'long' ? 1 : -1);
+            position._fundingCost += fundingCost;
+          }
+          position._lastFundingTs = fundingTs;
         }
       }
       // Track MAE/MFE (intra-bar extremes)
@@ -8273,6 +8322,19 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
 
     // ── Without Bar Replay: check exits AFTER entries (same candle entry+exit possible) ──
     if (position && !useBarReplay) {
+      // Funding Rate alle 8h auf offene Positionen anwenden (auch im non-bar-replay-Modus)
+      if (fundingRatePct !== 0 || historicalFundingRates) {
+        while (c.ts - position._lastFundingTs >= FUNDING_INTERVAL_MS) {
+          const fundingTs = position._lastFundingTs + FUNDING_INTERVAL_MS;
+          const rateAtTs = _getFundingRateAtTs(fundingTs);
+          if (rateAtTs !== 0) {
+            const positionSizeUsd = position.riskUsd / (Math.abs(position.entry - position.sl) / position.entry);
+            const fundingCost = positionSizeUsd * rateAtTs * (position.dir === 'long' ? 1 : -1);
+            position._fundingCost += fundingCost;
+          }
+          position._lastFundingTs = fundingTs;
+        }
+      }
       // MAE/MFE tracking
       if (position.dir === "long") {
         const advPct = (c.low - position.entry) / position.entry * 100;
@@ -17708,7 +17770,61 @@ function _translateFGCls(cls) {
   return map[cls] || cls || '';
 }
 
+// Funding Rate für aktuelles Symbol holen — Binance Perp (premiumIndex endpoint)
+async function loadFundingRate(symbol) {
+  const el = document.getElementById('fundingRateLive');
+  const symEl = document.getElementById('fundingRateSymbol');
+  const inputEl = document.getElementById('fundingRate');
+  const useHistoricalEl = document.getElementById('useHistoricalFunding');
+  if (!el) return;
+  if (symEl) symEl.textContent = symbol ? `(${symbol.replace('USDT', '')})` : '';
+  try {
+    const url = `https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (j && typeof j.lastFundingRate !== 'undefined') {
+      const rate = parseFloat(j.lastFundingRate);
+      const ratePct = rate * 100;
+      el.textContent = (ratePct >= 0 ? '+' : '') + ratePct.toFixed(4) + '%';
+      // Farbe: hoch positiv = teuer für Longs (rot), moderat (gelb), nahe 0 (grau), negativ = Shorts zahlen (grün)
+      const abs = Math.abs(ratePct);
+      if (abs < 0.005) el.style.color = 'var(--text-muted)';
+      else if (ratePct > 0.05) el.style.color = '#ef4444';
+      else if (ratePct > 0) el.style.color = '#f59e0b';
+      else el.style.color = '#22c55e';
+      // Auto-Fill: ins Backtest-Funding-Rate-Feld eintragen (überschreibt nur den Default 0)
+      // — wenn User schon eigenen Wert eingetragen hat, NICHT überschreiben
+      // — wenn historisch-Modus aktiv ist, ebenfalls NICHT (Engine holt eh selbst)
+      if (inputEl && !(useHistoricalEl && useHistoricalEl.checked)) {
+        const currentVal = parseFloat(inputEl.value) || 0;
+        // Nur überschreiben wenn Wert noch unverändert (0 oder leer)
+        if (currentVal === 0) {
+          inputEl.value = ratePct.toFixed(4);
+        }
+      }
+    } else {
+      el.textContent = '—';
+      el.style.color = 'var(--text-muted)';
+    }
+  } catch (e) {
+    el.textContent = '—';
+    el.style.color = 'var(--text-muted)';
+  }
+}
+
+// Funding Rate auch bei Symbol-Wechsel im Hauptdropdown nachladen
+document.getElementById('symbolSelect')?.addEventListener('change', () => {
+  const sym = document.getElementById('symbolSelect').value;
+  if (sym && typeof loadFundingRate === 'function') loadFundingRate(sym);
+});
+
 async function loadMarketData() {
+  // Funding Rate des aktuell gewählten Symbols mitladen
+  try {
+    const sym = document.getElementById('symbolSelect')?.value;
+    if (sym) loadFundingRate(sym);
+  } catch (e) {}
   // Beide Quellen parallel — falls eine ausfällt, lebt die andere weiter
   let fgFailed = false, cgFailed = false;
   const fgPromise = fetch('https://api.alternative.me/fng/?limit=1')
@@ -19360,7 +19476,8 @@ const CHART_PATTERNS = [
     points: [{i:0,p:78},{i:1,p:84},{i:2,p:92},{i:3,p:88},{i:4,p:84},{i:5,p:90},{i:6,p:100},{i:7,p:90},{i:8,p:84},{i:9,p:88},{i:10,p:92},{i:11,p:86},{i:12,p:78},{i:13,p:72},{i:14,p:68}],
     annot: (ctx, isEn) => {
       const neck = 84; const headPx = ctx.yOf(100); const rsPx = ctx.yOf(92);
-      const breakX = ctx.xOf(11), breakY = ctx.yOf(neck);
+      // Entry am Close der Breakout-Kerze (i=12, p=78) — NICHT an der Neckline (84)
+      const breakX = ctx.xOf(12), breakY = ctx.yOf(78);
       const slY = ctx.yOf(94);
       const tpY = ctx.yOf(neck - (100 - neck)); // 84 - 16 = 68
       let s = '';
@@ -19392,7 +19509,8 @@ const CHART_PATTERNS = [
     points: [{i:0,p:100},{i:1,p:94},{i:2,p:88},{i:3,p:92},{i:4,p:96},{i:5,p:90},{i:6,p:80},{i:7,p:90},{i:8,p:96},{i:9,p:92},{i:10,p:88},{i:11,p:94},{i:12,p:100},{i:13,p:106},{i:14,p:110}],
     annot: (ctx, isEn) => {
       const neck = 96;
-      const breakX = ctx.xOf(11), breakY = ctx.yOf(neck);
+      // Entry am Close der Breakout-Kerze (i=12, p=100) — NICHT an der Neckline (96)
+      const breakX = ctx.xOf(12), breakY = ctx.yOf(100);
       let s = '';
       s += _hLineP(ctx.xOf(3), ctx.xOf(13), ctx.yOf(neck), '#9aa4b2', 'Neckline', 'left');
       s += _pointAnnot(ctx.xOf(2), ctx.yOf(88), 'LS', '#f0883e', 14);
@@ -19423,7 +19541,8 @@ const CHART_PATTERNS = [
       s += _hLineP(ctx.xOf(4), ctx.xOf(10), ctx.yOf(neck), '#9aa4b2', 'Neckline', 'left');
       s += _pointAnnot(ctx.xOf(2), ctx.yOf(96), 'Top 1', '#f85149', -8);
       s += _pointAnnot(ctx.xOf(6), ctx.yOf(96), 'Top 2', '#f85149', -8);
-      s += _entryArrowP(ctx.xOf(8), ctx.yOf(neck), false, 'Short');
+      // Entry am Close von Bar 8 (p=84, klar unter Neckline 86)
+      s += _entryArrowP(ctx.xOf(8), ctx.yOf(84), false, 'Short');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(98), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(neck - (96 - neck)), 'TP');
       return s;
@@ -19448,7 +19567,8 @@ const CHART_PATTERNS = [
       s += _hLineP(ctx.xOf(4), ctx.xOf(10), ctx.yOf(neck), '#9aa4b2', 'Neckline', 'left');
       s += _pointAnnot(ctx.xOf(2), ctx.yOf(80), 'Bottom 1', '#3fb950', 14);
       s += _pointAnnot(ctx.xOf(6), ctx.yOf(80), 'Bottom 2', '#3fb950', 14);
-      s += _entryArrowP(ctx.xOf(8), ctx.yOf(neck), true, 'Long');
+      // Entry am Close von Bar 8 (p=92, klar über Neckline 90)
+      s += _entryArrowP(ctx.xOf(8), ctx.yOf(92), true, 'Long');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(78), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(neck + (neck - 80)), 'TP');
       return s;
@@ -19469,9 +19589,10 @@ const CHART_PATTERNS = [
     annot: (ctx, isEn) => {
       let s = '';
       s += _hLineP(ctx.xOf(1), ctx.xOf(9), ctx.yOf(92), '#f85149', isEn ? 'Resistance' : 'Resistance', 'left');
-      // steigende Trendlinie durch Tiefs (i=0 p=78, i=8 p=90)
-      s += _tLineP(ctx.xOf(0), ctx.yOf(78), ctx.xOf(9), ctx.yOf(91), '#3fb950', isEn ? 'Higher Lows' : 'Higher Lows');
-      s += _entryArrowP(ctx.xOf(9), ctx.yOf(92), true, 'Long');
+      // steigende Trendlinie durch echte Tiefs (i=0 p=78 → i=8 p=90)
+      s += _tLineP(ctx.xOf(0), ctx.yOf(78), ctx.xOf(8), ctx.yOf(90), '#3fb950', isEn ? 'Higher Lows' : 'Higher Lows');
+      // Entry am Close von Bar 9 (p=99, klar über Resistance 92)
+      s += _entryArrowP(ctx.xOf(9), ctx.yOf(99), true, 'Long');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(88), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(92 + (92 - 78)), 'TP');
       return s;
@@ -19492,8 +19613,10 @@ const CHART_PATTERNS = [
     annot: (ctx, isEn) => {
       let s = '';
       s += _hLineP(ctx.xOf(1), ctx.xOf(9), ctx.yOf(88), '#3fb950', isEn ? 'Support' : 'Support', 'left');
-      s += _tLineP(ctx.xOf(0), ctx.yOf(100), ctx.xOf(9), ctx.yOf(89), '#f85149', isEn ? 'Lower Highs' : 'Lower Highs');
-      s += _entryArrowP(ctx.xOf(9), ctx.yOf(88), false, 'Short');
+      // Fallende Trendlinie durch echte Hochs (i=0 p=100 → i=8 p=90)
+      s += _tLineP(ctx.xOf(0), ctx.yOf(100), ctx.xOf(8), ctx.yOf(90), '#f85149', isEn ? 'Lower Highs' : 'Lower Highs');
+      // Entry am Close von Bar 9 (p=81, klar unter Support 88)
+      s += _entryArrowP(ctx.xOf(9), ctx.yOf(81), false, 'Short');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(92), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(88 - (100 - 88)), 'TP');
       return s;
@@ -19513,8 +19636,9 @@ const CHART_PATTERNS = [
     points: [{i:0,p:100},{i:1,p:80},{i:2,p:96},{i:3,p:84},{i:4,p:93},{i:5,p:87},{i:6,p:91},{i:7,p:89},{i:8,p:90},{i:9,p:97},{i:10,p:102}],
     annot: (ctx, isEn) => {
       let s = '';
-      s += _tLineP(ctx.xOf(0), ctx.yOf(100), ctx.xOf(8), ctx.yOf(91), '#f85149', isEn ? 'Lower Highs' : 'Lower Highs');
-      s += _tLineP(ctx.xOf(1), ctx.yOf(80), ctx.xOf(8), ctx.yOf(89), '#3fb950', isEn ? 'Higher Lows' : 'Higher Lows');
+      // Fallende Hochs (i=0 p=100 → i=6 p=91), steigende Tiefs (i=1 p=80 → i=7 p=89) — echte Swing-Punkte
+      s += _tLineP(ctx.xOf(0), ctx.yOf(100), ctx.xOf(6), ctx.yOf(91), '#f85149', isEn ? 'Lower Highs' : 'Lower Highs');
+      s += _tLineP(ctx.xOf(1), ctx.yOf(80), ctx.xOf(7), ctx.yOf(89), '#3fb950', isEn ? 'Higher Lows' : 'Higher Lows');
       s += _entryArrowP(ctx.xOf(9), ctx.yOf(97), true, isEn ? 'Breakout' : 'Ausbruch');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(86), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(110), 'TP');
@@ -19532,12 +19656,14 @@ const CHART_PATTERNS = [
       de: '<b>Entry:</b> Long beim Bruch der oberen Flaggenlinie.<br><b>SL:</b> unter der unteren Flaggenlinie / letztem Tief.<br><b>TP:</b> Breakout-Punkt plus Länge der Flagstange.',
       en: '<b>Entry:</b> Long on break of the upper flag line.<br><b>SL:</b> below the lower flag line / last swing low.<br><b>TP:</b> breakout plus the flagpole length.'
     },
-    points: [{i:0,p:70},{i:1,p:76},{i:2,p:84},{i:3,p:92},{i:4,p:100},{i:5,p:96},{i:6,p:99},{i:7,p:94},{i:8,p:97},{i:9,p:92},{i:10,p:101},{i:11,p:108},{i:12,p:115}],
+    // Saubere parallele Abwärts-Flagge: Highs auf top-line (99,97,95), Lows auf bottom-line (94,92)
+    points: [{i:0,p:70},{i:1,p:76},{i:2,p:84},{i:3,p:92},{i:4,p:100},{i:5,p:99},{i:6,p:94},{i:7,p:97},{i:8,p:92},{i:9,p:95},{i:10,p:101},{i:11,p:108},{i:12,p:115}],
     annot: (ctx, isEn) => {
       let s = '';
-      // Flag-Trendlinien
-      s += _tLineP(ctx.xOf(4), ctx.yOf(100), ctx.xOf(9), ctx.yOf(97), '#9aa4b2', isEn ? 'Flag top' : 'Flag-Oben');
-      s += _tLineP(ctx.xOf(5), ctx.yOf(96), ctx.xOf(9), ctx.yOf(92), '#9aa4b2', isEn ? 'Flag bottom' : 'Flag-Unten');
+      // Flag-Top verbindet die Highs i=5(99) und i=9(95), Slope -1
+      s += _tLineP(ctx.xOf(5), ctx.yOf(99), ctx.xOf(9), ctx.yOf(95), '#9aa4b2', isEn ? 'Flag top' : 'Flag-Oben');
+      // Flag-Bottom verbindet die Lows i=6(94) und i=8(92), Slope -1 — parallel zur Top
+      s += _tLineP(ctx.xOf(6), ctx.yOf(94), ctx.xOf(8), ctx.yOf(92), '#9aa4b2', isEn ? 'Flag bottom' : 'Flag-Unten');
       // Flagpole-Annotation
       s += `<text x="${ctx.xOf(2)}" y="${ctx.yOf(86)}" fill="#3fb950" font-size="10" font-weight="700">${isEn ? 'Flagpole' : 'Flagstange'}</text>`;
       s += _entryArrowP(ctx.xOf(10), ctx.yOf(101), true, 'Long');
@@ -19557,14 +19683,17 @@ const CHART_PATTERNS = [
       de: '<b>Entry:</b> Short beim Bruch der unteren Flaggenlinie.<br><b>SL:</b> über der oberen Flaggenlinie / letztem Hoch.<br><b>TP:</b> Breakout-Punkt minus Länge der Flagstange.',
       en: '<b>Entry:</b> Short on break of the lower flag line.<br><b>SL:</b> above the upper flag line / last swing high.<br><b>TP:</b> breakout minus the flagpole length.'
     },
-    points: [{i:0,p:120},{i:1,p:112},{i:2,p:102},{i:3,p:90},{i:4,p:80},{i:5,p:84},{i:6,p:81},{i:7,p:86},{i:8,p:82},{i:9,p:88},{i:10,p:79},{i:11,p:70},{i:12,p:62}],
+    // Saubere parallele Aufwärts-Flagge: Highs auf top-line (86,88,90), Lows auf bottom-line (83,85)
+    points: [{i:0,p:120},{i:1,p:112},{i:2,p:102},{i:3,p:90},{i:4,p:80},{i:5,p:86},{i:6,p:83},{i:7,p:88},{i:8,p:85},{i:9,p:90},{i:10,p:79},{i:11,p:70},{i:12,p:62}],
     annot: (ctx, isEn) => {
       let s = '';
-      s += _tLineP(ctx.xOf(4), ctx.yOf(80), ctx.xOf(9), ctx.yOf(88), '#9aa4b2', isEn ? 'Flag top' : 'Flag-Oben');
-      s += _tLineP(ctx.xOf(5), ctx.yOf(84), ctx.xOf(9), ctx.yOf(86), '#9aa4b2', isEn ? 'Flag bottom' : 'Flag-Unten');
+      // Flag-Top verbindet die Highs i=5(86) und i=9(90), Slope +1
+      s += _tLineP(ctx.xOf(5), ctx.yOf(86), ctx.xOf(9), ctx.yOf(90), '#9aa4b2', isEn ? 'Flag top' : 'Flag-Oben');
+      // Flag-Bottom verbindet die Lows i=6(83) und i=8(85), Slope +1 — parallel zur Top
+      s += _tLineP(ctx.xOf(6), ctx.yOf(83), ctx.xOf(8), ctx.yOf(85), '#9aa4b2', isEn ? 'Flag bottom' : 'Flag-Unten');
       s += `<text x="${ctx.xOf(2)}" y="${ctx.yOf(116)}" fill="#f85149" font-size="10" font-weight="700">${isEn ? 'Flagpole' : 'Flagstange'}</text>`;
       s += _entryArrowP(ctx.xOf(10), ctx.yOf(79), false, 'Short');
-      s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(90), 'SL');
+      s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(91), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(79 - (120 - 80)), 'TP');
       return s;
     }
@@ -19605,8 +19734,9 @@ const CHART_PATTERNS = [
     points: [{i:0,p:110},{i:1,p:100},{i:2,p:106},{i:3,p:94},{i:4,p:100},{i:5,p:90},{i:6,p:95},{i:7,p:88},{i:8,p:92},{i:9,p:87},{i:10,p:100},{i:11,p:108},{i:12,p:115}],
     annot: (ctx, isEn) => {
       let s = '';
-      s += _tLineP(ctx.xOf(0), ctx.yOf(110), ctx.xOf(9), ctx.yOf(92), '#f85149', isEn ? 'Resistance' : 'Resistance');
-      s += _tLineP(ctx.xOf(1), ctx.yOf(100), ctx.xOf(9), ctx.yOf(87), '#3fb950', isEn ? 'Support' : 'Support');
+      // Resistance verbindet echte Hochs (i=0 p=110 → i=8 p=92), Support echte Tiefs (i=3 p=94 → i=9 p=87)
+      s += _tLineP(ctx.xOf(0), ctx.yOf(110), ctx.xOf(8), ctx.yOf(92), '#f85149', isEn ? 'Resistance' : 'Resistance');
+      s += _tLineP(ctx.xOf(3), ctx.yOf(94), ctx.xOf(9), ctx.yOf(87), '#3fb950', isEn ? 'Support' : 'Support');
       s += _entryArrowP(ctx.xOf(10), ctx.yOf(100), true, 'Long');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(85), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(115), 'TP');
@@ -19630,7 +19760,8 @@ const CHART_PATTERNS = [
       s += _hLineP(ctx.xOf(0), ctx.xOf(13), ctx.yOf(100), '#9aa4b2', isEn ? 'Cup rim / Resistance' : 'Cup-Rand / Resistance', 'left');
       s += `<text x="${ctx.xOf(4)}" y="${ctx.yOf(72)}" fill="#58a6ff" font-size="10" font-weight="700" text-anchor="middle">Cup</text>`;
       s += `<text x="${ctx.xOf(11)}" y="${ctx.yOf(89)}" fill="#fbbf24" font-size="10" font-weight="700" text-anchor="middle">Handle</text>`;
-      s += _entryArrowP(ctx.xOf(13), ctx.yOf(100), true, 'Long');
+      // Entry am Close von Bar 13 (p=103, klar über Cup-Rand 100)
+      s += _entryArrowP(ctx.xOf(13), ctx.yOf(103), true, 'Long');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(93), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(100 + (100 - 76)), 'TP');
       return s;
@@ -19647,7 +19778,8 @@ const CHART_PATTERNS = [
       de: '<b>Range-Trade:</b> Long am Support, Short an der Resistance, jeweils enger SL knapp ausserhalb. <b>Breakout:</b> in Bruchrichtung, SL zurueck in die Range, TP = Range-Hoehe.',
       en: '<b>Range trade:</b> long at support, short at resistance, tight SL just outside. <b>Breakout:</b> in break direction, SL back into the range, TP = range height.'
     },
-    points: [{i:0,p:88},{i:1,p:96},{i:2,p:82},{i:3,p:96},{i:4,p:83},{i:5,p:96},{i:6,p:82},{i:7,p:96},{i:8,p:84},{i:9,p:104},{i:10,p:110}],
+    // Saubere Range: alle Lows exakt auf Support 82, alle Highs exakt auf Resistance 96
+    points: [{i:0,p:82},{i:1,p:96},{i:2,p:82},{i:3,p:96},{i:4,p:82},{i:5,p:96},{i:6,p:82},{i:7,p:96},{i:8,p:82},{i:9,p:104},{i:10,p:110}],
     annot: (ctx, isEn) => {
       let s = '';
       s += _hLineP(ctx.xOf(0), ctx.xOf(9), ctx.yOf(96), '#f85149', isEn ? 'Resistance' : 'Resistance', 'left');
@@ -19750,7 +19882,8 @@ const CANDLE_PATTERNS = [
     annot: (ctx) => {
       let s = '';
       s += _highlightCdl(ctx, 4, '#f85149', 'Engulfing');
-      s += _entryArrowP(ctx.xOf(5), ctx.yOf(91), false, 'Short');
+      // Entry am Close von Bar 5 (p=86) — nicht 91
+      s += _entryArrowP(ctx.xOf(5), ctx.yOf(86), false, 'Short');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(99), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(85), 'TP');
       return s;
@@ -20175,7 +20308,8 @@ const CANDLE_PATTERNS = [
       s += _highlightCdl(ctx, 2, '#9aa4b2');
       s += _highlightCdl(ctx, 3, '#9aa4b2', '3 red');
       s += _highlightCdl(ctx, 4, '#3fb950', 'Strike');
-      s += _entryArrowP(ctx.xOf(5), ctx.yOf(98), true, 'Long');
+      // Entry am Close von Bar 5 (p=100) — nicht 98
+      s += _entryArrowP(ctx.xOf(5), ctx.yOf(100), true, 'Long');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(89), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(104), 'TP');
       return s;
@@ -20203,7 +20337,8 @@ const CANDLE_PATTERNS = [
       s += _highlightCdl(ctx, 2, '#9aa4b2');
       s += _highlightCdl(ctx, 3, '#9aa4b2', '3 green');
       s += _highlightCdl(ctx, 4, '#f85149', 'Strike');
-      s += _entryArrowP(ctx.xOf(5), ctx.yOf(82), false, 'Short');
+      // Entry am Close von Bar 5 (p=80) — nicht 82
+      s += _entryArrowP(ctx.xOf(5), ctx.yOf(80), false, 'Short');
       s += _slP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(91), 'SL');
       s += _tpP(ctx.padX, ctx.W - ctx.padX, ctx.yOf(76), 'TP');
       return s;
