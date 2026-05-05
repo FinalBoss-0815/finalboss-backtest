@@ -1201,10 +1201,10 @@ input[type=number] { -moz-appearance:textfield }
     <div style="display:flex;align-items:center;gap:4px">
       <input type="number" id="fundingRate" value="0" step="0.001" min="-0.1" max="0.1" style="width:60px" title="% pro 8h">
       <span style="font-size:11px;color:var(--text-muted)">%/8h</span>
+      <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-muted);margin-left:4px;cursor:pointer" title="Wenn aktiv: Engine holt historische Funding-Raten von Binance und wendet pro Trade die zeitgenaue Rate an (statt fixem Wert).">
+        <input type="checkbox" id="useHistoricalFunding" style="cursor:pointer;margin:0"> Hist.
+      </label>
     </div>
-    <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);margin-top:3px;cursor:pointer" title="Wenn aktiv: Engine holt historische Funding-Raten von Binance und wendet pro Trade die zeitgenaue Rate an (statt fixem Wert).">
-      <input type="checkbox" id="useHistoricalFunding" style="cursor:pointer"> Historisch
-    </label>
   </div>
   <div class="control-group">
     <label style="font-size:11px" data-i18n="lbl.nextbar">Next-Bar Entry</label>
