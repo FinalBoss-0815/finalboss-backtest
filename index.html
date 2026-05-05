@@ -23001,23 +23001,29 @@ function acceptDisclaimerAndDemo() {
 }
 
 function runDemo() {
-  // Pre-konfigurierter Demo-Backtest: BTC 1h RSI Extreme Reversal, letzte ~120 Tage
+  // Pre-konfigurierter Demo-Backtest: BTC 1h Trend-Pullback, letzte 365 Tage
+  // Trend-Pullback feuert zuverlaessig — gut fuer Showcase
   try {
     const symSel = document.getElementById('symbolSelect');
     const tfSel = document.getElementById('tfSelect');
     const stratSel = document.getElementById('strategySelect');
     if (symSel) { symSel.value = 'BTCUSDT'; if (typeof csRebuild === 'function') try { csRebuild('symbolSelect'); } catch(e){} }
-    if (tfSel) tfSel.value = '1h';
-    // Find "RSI Extreme Reversal" or fallback to first strategy
+    if (tfSel) { tfSel.value = '1h'; window._userChangedTF = true; }
+    // Find "Trend-Pullback" — robuster als RSI Extreme fuer Demo
     if (stratSel) {
-      const idx = STRATEGIES.findIndex(s => s.name.includes('RSI Extreme'));
-      stratSel.value = String(idx >= 0 ? idx : 0);
-      if (typeof updateStrategyInfo === 'function') updateStrategyInfo(idx >= 0 ? idx : 0);
+      let idx = STRATEGIES.findIndex(s => s.name === 'Trend-Pullback');
+      if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Trend-Pullback'));
+      if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Bollinger Reversion'));
+      if (idx < 0) idx = 0;
+      stratSel.value = String(idx);
+      if (typeof csRebuild === 'function') try { csRebuild('strategySelect'); } catch(e){}
+      // WICHTIG: updateStrategyParams ruft den Param-Panel auf, nicht nur den Info-Text
+      if (typeof updateStrategyParams === 'function') updateStrategyParams();
     }
-    // Date range: ~120 Tage zurück
+    // Date range: letzte 365 Tage, Train/Test-Split bei 90 Tagen vor heute
     const today = new Date();
-    const start = new Date(today.getTime() - 120 * 86400000);
-    const split = new Date(today.getTime() - 30 * 86400000);
+    const start = new Date(today.getTime() - 365 * 86400000);
+    const split = new Date(today.getTime() - 90 * 86400000);
     const endStr = today.toISOString().slice(0,10);
     const startStr = start.toISOString().slice(0,10);
     const splitStr = split.toISOString().slice(0,10);
@@ -23027,8 +23033,8 @@ function runDemo() {
     if (trainStartEl) trainStartEl.value = startStr;
     if (splitEl) splitEl.value = splitStr;
     if (testEndEl) testEndEl.value = endStr;
-    log('🎬 Demo-Backtest wird gestartet (BTC 1h, RSI Extreme Reversal, 120 Tage)...', 'success');
-    setTimeout(() => { if (typeof runBacktest === 'function') runBacktest(); }, 200);
+    log('🎬 Demo-Backtest wird gestartet (BTC 1h, Trend-Pullback, 365 Tage)...', 'success');
+    setTimeout(() => { if (typeof runBacktest === 'function') runBacktest(); }, 300);
   } catch (e) {
     log(`Demo-Fehler: ${e.message}`, 'error');
   }
