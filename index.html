@@ -188,8 +188,9 @@ button.danger { background: var(--red); }
   border-radius: 8px;
   padding: 14px 16px;
   text-align: center;
-  overflow: hidden;          /* Text-Cutoff lieber sauber als Layout brechen */
   min-width: 0;              /* Erlaubt korrektes shrinking in grid */
+  /* overflow:hidden ENTFERNT — damit Info-Tooltips beim Hover sichtbar sind.
+     Das Text-Cutoff-Problem wird stattdessen unten direkt am .value/.sub gelöst. */
 }
 .metric-card {
   position: relative;
@@ -458,6 +459,9 @@ details[open] summary span:first-child { transform: rotate(90deg); display: inli
 .info-icon:hover .info-tip { display: block; }
 /* Tooltip variant for tab-bar info icons: open downward (so it's not clipped above) */
 .info-icon.info-down .info-tip { bottom: auto; top: 22px; }
+/* Auto-flip nach unten in Tab-Headers (h3 in fullscreen tab-content):
+   sonst werden Tooltips vom oberen Tab-Rand abgeschnitten. */
+.tab-content h3 .info-icon .info-tip { bottom: auto; top: 22px; }
 .tab-btn .info-icon { background: transparent; border-color: transparent; color: var(--text-muted); }
 .tab-btn .info-icon:hover { border-color: var(--blue); color: var(--blue); }
 
@@ -1649,7 +1653,7 @@ input[type=number] { -moz-appearance:textfield }
   <div class="tab-content" id="tab-journal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px">Trade Journal — MAE / MFE Analyse
-        <span class="info-icon">i<span class="info-tip" data-i18n-html="tip.journal.mae">Detaillierte Auswertung jedes Trades. <strong>MAE (Maximum Adverse Excursion)</strong> = wie weit ging der Trade gegen dich, bevor er endete (in %). <strong>MFE (Maximum Favorable Excursion)</strong> = wie viel Gewinn war zwischendurch maximal drin. <strong>Effizienz</strong> = wieviel vom maximal Möglichen wurde realisiert (höher = besser, idealerweise &gt;50%). Hilft Stops/Targets zu optimieren.</span></span>
+        <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.journal.mae">Detaillierte Auswertung jedes Trades. <strong>MAE (Maximum Adverse Excursion)</strong> = wie weit ging der Trade gegen dich, bevor er endete (in %). <strong>MFE (Maximum Favorable Excursion)</strong> = wie viel Gewinn war zwischendurch maximal drin. <strong>Effizienz</strong> = wieviel vom maximal Möglichen wurde realisiert (höher = besser, idealerweise &gt;50%). Hilft Stops/Targets zu optimieren.</span></span>
       </h3>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="journalTagFilter" onchange="_filterJournalByTag(this.value)" style="padding:6px 10px;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;font-size:12px">
@@ -10390,15 +10394,32 @@ async function loadOverlayCoin() {
 
   // Use live chart data if active, otherwise backtest data
   const sourceCandles = (liveChartActive && liveChartCandles) ? liveChartCandles : currentCandles;
-  if (!sourceCandles || sourceCandles.length < 2) return;
-  const startTs = sourceCandles[0].openTime;
-  const endTs = sourceCandles[sourceCandles.length - 1].openTime;
+  if (!sourceCandles || sourceCandles.length < 2) {
+    log('Overlay: keine Quell-Kerzen — erst Backtest oder Live-Chart laden', 'error');
+    return;
+  }
+  // Bug-Fix: Kerzen haben das Feld "ts" (timestamp), nicht "openTime"
+  const startTs = sourceCandles[0].ts;
+  const endTs = sourceCandles[sourceCandles.length - 1].ts;
+  if (!isFinite(startTs) || !isFinite(endTs)) {
+    log('Overlay: ungültige Zeit-Range', 'error');
+    return;
+  }
   const tf = liveChartActive ? (document.getElementById('liveTF').value) : document.getElementById('tfSelect').value;
 
   try {
     setStatus('Lade ' + symbol.replace('USDT', '') + ' Overlay...', 'loading');
-    const candles = await fetchCandles(symbol, tf, new Date(startTs), new Date(endTs));
+    // fetchCandles erwartet ISO-Datums-Strings (YYYY-MM-DD)
+    const startISO = new Date(startTs).toISOString().slice(0, 10);
+    const endISO = new Date(endTs + 86400000).toISOString().slice(0, 10); // +1 Tag damit endTs included
+    const candles = await fetchCandles(symbol, tf, startISO, endISO);
+    if (!candles || candles.length === 0) {
+      log(`Overlay ${symbol}: keine Daten erhalten`, 'error');
+      setStatus('Bereit', 'ready');
+      return;
+    }
     overlayCoinData = { symbol, candles, _scale: null };
+    log(`Overlay ${symbol}: ${candles.length} Kerzen geladen`, 'success');
     setStatus('Bereit', 'ready');
     if (liveChartActive && liveChartCandles) {
       drawCandleChart('tradeChart', liveChartCandles, backtestOverlayTrades || [], chartViewStart, chartViewEnd, false, chartYShift);
@@ -13905,9 +13926,12 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
   if (canvasId === 'tradeChart' && overlayCoinData && overlayCoinData.candles.length > 0) {
     const oc = overlayCoinData.candles;
 
-    // Build time-keyed map of overlay candles
+    // Build time-keyed map of overlay candles (Fallback openTime || ts für Kompat)
     let ocMap = {};
-    for (const c of oc) ocMap[c.openTime] = c;
+    for (const c of oc) {
+      const key = c.openTime || c.ts;
+      if (key !== undefined) ocMap[key] = c;
+    }
 
     // Calculate fixed price mapping: overlay prices → main chart prices
     // Use ALL candles (not just visible) to build a stable mapping
@@ -13943,7 +13967,7 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
     ctx.beginPath();
     let started = false;
     for (let i = startIdx; i < endIdx; i++) {
-      const t = candles[i].openTime;
+      const t = candles[i].openTime || candles[i].ts;
       if (ocMap[t]) {
         const x = xScale(i);
         const y = yScale(ocToMainPrice(ocMap[t].close));
@@ -14010,7 +14034,7 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
         ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + chartH); ctx.stroke();
         ctx.setLineDash([]);
         if (d.idx < candles.length) {
-          const dt = new Date(candles[d.idx].openTime);
+          const dt = new Date(candles[d.idx].openTime || candles[d.idx].ts);
           ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
           ctx.fillText(dt.toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit'}), x, pad.top + chartH + 12);
         }
@@ -16810,7 +16834,7 @@ window.addEventListener('resize', () => {
     octx.fillText(fmtPrice(hoverPrice), s.W - s.pad.right + 4, mouseY + 4);
 
     // Date label on bottom axis
-    const dt = new Date(candle.openTime);
+    const dt = new Date(candle.openTime || candle.ts);
     const dateStr = dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + dt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     octx.fillStyle = '#30363d';
     const tw = octx.measureText(dateStr).width + 8;
@@ -23007,7 +23031,12 @@ function runDemo() {
     const symSel = document.getElementById('symbolSelect');
     const tfSel = document.getElementById('tfSelect');
     const stratSel = document.getElementById('strategySelect');
-    if (symSel) { symSel.value = 'BTCUSDT'; if (typeof csRebuild === 'function') try { csRebuild('symbolSelect'); } catch(e){} }
+    // Symbol via csSelect setzen damit Custom-Dropdown-Label aktualisiert
+    if (symSel) {
+      if (typeof csSelect === 'function') {
+        try { csSelect('symbolSelect', 'BTCUSDT'); } catch(e) { symSel.value = 'BTCUSDT'; }
+      } else { symSel.value = 'BTCUSDT'; }
+    }
     if (tfSel) { tfSel.value = '1h'; window._userChangedTF = true; }
     // Find "Trend-Pullback" — robuster als RSI Extreme fuer Demo
     if (stratSel) {
@@ -23015,10 +23044,17 @@ function runDemo() {
       if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Trend-Pullback'));
       if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Bollinger Reversion'));
       if (idx < 0) idx = 0;
-      stratSel.value = String(idx);
-      if (typeof csRebuild === 'function') try { csRebuild('strategySelect'); } catch(e){}
-      // WICHTIG: updateStrategyParams ruft den Param-Panel auf, nicht nur den Info-Text
-      if (typeof updateStrategyParams === 'function') updateStrategyParams();
+      // csSelect synchronisiert nativ-select + custom-dropdown-label + dispatched change-event
+      // (das change-Event triggert updateStrategyParams automatisch)
+      if (typeof csSelect === 'function') {
+        try { csSelect('strategySelect', String(idx)); } catch(e) {
+          stratSel.value = String(idx);
+          if (typeof updateStrategyParams === 'function') updateStrategyParams();
+        }
+      } else {
+        stratSel.value = String(idx);
+        if (typeof updateStrategyParams === 'function') updateStrategyParams();
+      }
     }
     // Date range: letzte 365 Tage, Train/Test-Split bei 90 Tagen vor heute
     const today = new Date();
