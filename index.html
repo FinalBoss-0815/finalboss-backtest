@@ -471,6 +471,9 @@ details[open] summary span:first-child { transform: rotate(90deg); display: inli
 .tab-btn .info-icon { background: transparent; border-color: transparent; color: var(--text-muted); }
 .tab-btn .info-icon:hover { border-color: var(--blue); color: var(--blue); }
 
+/* Akademie: "Für Profis"-Button in der Summary nur sichtbar wenn die Karte aufgeklappt ist */
+details[open] > summary .academy-pro-btn { display: inline-flex !important; }
+
 /* ── Fullscreen Tab Overlay ── */
 .tab-fullscreen {
   position: fixed !important;
@@ -1925,10 +1928,6 @@ input[type=number] { -moz-appearance:textfield }
             <option value="smc" data-i18n="academy.cat.smc">Smart Money / SMC</option>
             <option value="advanced" data-i18n="academy.cat.advanced">Advanced / Crypto</option>
           </select>
-          <div id="academyModeToggle" style="display:flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:12px">
-            <button onclick="setAcademyMode('simple')" id="academyModeSimple" style="padding:7px 12px;background:var(--blue);color:#fff;border:none;cursor:pointer;font-weight:600">📖 Einfach</button>
-            <button onclick="setAcademyMode('detailed')" id="academyModeDetailed" style="padding:7px 12px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-weight:600">🔬 Für Profis</button>
-          </div>
         </div>
         <div id="academyContent" style="flex:1;overflow-y:auto;padding-right:8px"></div>
       </div>
@@ -22886,20 +22885,12 @@ function getAcademyMode() {
 }
 function setAcademyMode(mode) {
   try { localStorage.setItem('fb_academy_mode', mode); } catch(e) {}
-  // Buttons updaten
-  const sBtn = document.getElementById('academyModeSimple');
-  const dBtn = document.getElementById('academyModeDetailed');
-  if (sBtn && dBtn) {
-    if (mode === 'simple') {
-      sBtn.style.background = 'var(--blue)'; sBtn.style.color = '#fff';
-      dBtn.style.background = 'transparent'; dBtn.style.color = 'var(--text-muted)';
-    } else {
-      sBtn.style.background = 'transparent'; sBtn.style.color = 'var(--text-muted)';
-      dBtn.style.background = 'var(--blue)'; dBtn.style.color = '#fff';
-    }
-  }
-  // Re-render
+  // Re-render — die Per-Card-Pro-Buttons werden im neuen renderAcademy korrekt gestylt
   if (typeof renderAcademy === 'function') renderAcademy();
+}
+// Toggle-Funktion: schaltet zwischen 'simple' und 'detailed' um (für den Profi-Button)
+function toggleAcademyMode() {
+  setAcademyMode(getAcademyMode() === 'detailed' ? 'simple' : 'detailed');
 }
 
 function renderAcademy() {
@@ -22914,20 +22905,6 @@ function renderAcademy() {
   container.querySelectorAll('details[open][data-strat]').forEach(d => _openStrats.add(d.dataset.strat));
   const _scrollY = (window.scrollY || document.documentElement.scrollTop || 0);
   const _containerScroll = container.scrollTop || 0;
-  // Beim Erst-Render: Toggle-Button-State korrekt setzen
-  setAcademyMode._uiSync = setAcademyMode._uiSync || (() => {
-    const sBtn = document.getElementById('academyModeSimple');
-    const dBtn = document.getElementById('academyModeDetailed');
-    if (!sBtn || !dBtn) return;
-    if (mode === 'simple') {
-      sBtn.style.background = 'var(--blue)'; sBtn.style.color = '#fff';
-      dBtn.style.background = 'transparent'; dBtn.style.color = 'var(--text-muted)';
-    } else {
-      sBtn.style.background = 'transparent'; sBtn.style.color = 'var(--text-muted)';
-      dBtn.style.background = 'var(--blue)'; dBtn.style.color = '#fff';
-    }
-  });
-  setAcademyMode._uiSync();
   const detailedSrc = (isEn && typeof STRATEGY_INFO_EN !== 'undefined') ? STRATEGY_INFO_EN : STRATEGY_INFO;
   const simpleSrc = (typeof STRATEGY_INFO_SIMPLE !== 'undefined') ? STRATEGY_INFO_SIMPLE : {};
 
@@ -23036,17 +23013,19 @@ function renderAcademy() {
         </div>
         ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}`;
     }
-    // Per-Strategie Toggle (Einfach/Für Profis) — erscheint im Body, also nur wenn die Karte aufgeklappt ist
-    const lblSimple = isEn ? '📖 Simple' : '📖 Einfach';
-    const lblDetailed = isEn ? '🔬 Pros' : '🔬 Für Profis';
-    const lblView = isEn ? 'View:' : 'Ansicht:';
-    const bodyToggleHtml = `
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px;font-size:11px;color:var(--text-muted)">
-        <span>${lblView}</span>
-        <span style="display:inline-flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:5px;overflow:hidden;flex-shrink:0">
-          <button type="button" onclick="setAcademyMode('simple')" style="padding:5px 11px;background:${mode==='simple'?'var(--blue)':'transparent'};color:${mode==='simple'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:11px">${lblSimple}</button>
-          <button type="button" onclick="setAcademyMode('detailed')" style="padding:5px 11px;background:${mode==='detailed'?'var(--blue)':'transparent'};color:${mode==='detailed'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:11px">${lblDetailed}</button>
-        </span>
+    // Per-Strategie „Für Profis"-Toggle — sitzt in der Summary, ist aber nur sichtbar wenn die Karte offen ist (CSS unten)
+    const lblPro = isEn ? '🔬 Pros' : '🔬 Für Profis';
+    const proActive = (mode === 'detailed');
+    const proBtnHtml = `
+      <button type="button" class="academy-pro-btn" onclick="event.preventDefault();event.stopPropagation();toggleAcademyMode()"
+        title="${isEn ? 'Toggle pro details' : 'Profi-Details an/aus'}"
+        style="display:none;padding:3px 9px;background:${proActive?'#a855f7':'var(--bg-tertiary)'};color:${proActive?'#fff':'var(--text-muted)'};border:1px solid ${proActive?'#a855f7':'var(--border)'};border-radius:5px;cursor:pointer;font-weight:600;font-size:10px;letter-spacing:0.2px;flex-shrink:0;margin-left:4px">${lblPro}${proActive ? ' ✓' : ''}</button>`;
+    // X-Close-Button rechts oben im Body — schliesst die Karte
+    const closeBtnHtml = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button type="button" onclick="this.closest('details').open = false"
+          title="${isEn ? 'Close strategy' : 'Strategie schliessen'}"
+          style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">✕ <span style="font-size:11px">${isEn ? 'Close' : 'Schliessen'}</span></button>
       </div>`;
     // data-strat Attribut zum Wiedererkennen der offenen Karten beim Re-Render
     const stratAttr = strat.name.replace(/"/g, '&quot;');
@@ -23055,10 +23034,11 @@ function renderAcademy() {
         <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
           <span style="color:var(--blue);font-size:11px">▶</span>
           <span style="flex:1">${strat.name}</span>
+          ${proBtnHtml}
           <span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;background:var(--bg-tertiary);padding:2px 8px;border-radius:10px">${schema.replace('-', ' ')}</span>
         </summary>
         <div style="padding:0 16px 16px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
-          ${bodyToggleHtml}
+          ${closeBtnHtml}
           ${bodyHtml}
         </div>
       </details>`;
