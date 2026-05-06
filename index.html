@@ -22935,21 +22935,18 @@ function _academySvg(schema, isEn, seedKey) {
         body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.85"/>`;
         body += `<rect x="${W - rightPad - 110}" y="${yScale(tpPrice) - 9}" width="106" height="16" rx="3" fill="#58a6ff" opacity="0.95"/>`;
         body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🎯 TP ${fmtPrice(tpPrice)}</text>`;
-        // Entry-Preis-Tag (grün) ÜBER der Entry-Kerze + Pfeil-Linie nach unten + Kreis AN der Kerze
-        body += `<rect x="${cx(entryIdx) - 50}" y="${yScale(entryPrice) - 26}" width="100" height="16" rx="3" fill="#3fb950" opacity="0.95"/>`;
-        body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) - 14}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}</text>`;
-        // Pfeil von Pill zur Kerze
-        body += `<line x1="${cx(entryIdx)}" y1="${yScale(entryPrice) - 10}" x2="${cx(entryIdx)}" y2="${yScale(entryPrice) - 4}" stroke="#3fb950" stroke-width="2"/>`;
-        body += `<polygon points="${cx(entryIdx)},${yScale(entryPrice) - 1} ${cx(entryIdx) - 3},${yScale(entryPrice) - 6} ${cx(entryIdx) + 3},${yScale(entryPrice) - 6}" fill="#3fb950"/>`;
-        // Kleiner Kreis direkt AN der Entry-Kerze (klarer Hinweis WELCHE Kerze)
-        body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="4" fill="#3fb950" stroke="#0d1117" stroke-width="1.5"/>`;
-        // CRV unterhalb (grau, neutral)
+        // Vertikale grüne Linie an der Entry-Kerze (durchgehend, dünn) — markiert visuell welche Kerze
+        body += `<line x1="${cx(entryIdx)}" y1="${topPad + 24}" x2="${cx(entryIdx)}" y2="${H - bottomPad}" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>`;
+        // Heller grüner Punkt AM Entry-Close — exakte Kerze auf einen Blick
+        body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="5" fill="#3fb950" stroke="#0d1117" stroke-width="1.5"/>`;
+        // Entry-Preis-Banner ganz OBEN im Chart (außerhalb des Kerzenbereichs) — klar lesbar
         const risk = entryPrice - slPrice;
         const reward = tpPrice - entryPrice;
-        if (risk > 0 && reward > 0) {
-          const crv = reward / risk;
-          body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 26}" fill="#8b949e" font-size="10" text-anchor="middle">Risk: ${fmtPrice(risk)}  •  Reward: ${fmtPrice(reward)}  •  CRV 1 : ${crv.toFixed(2)}</text>`;
-        }
+        const crv = (risk > 0 && reward > 0) ? (reward / risk).toFixed(2) : '—';
+        const bannerW = 350;
+        const bannerX = Math.max(leftPad + 4, Math.min(cx(entryIdx) - bannerW/2, W - rightPad - bannerW - 4));
+        body += `<rect x="${bannerX}" y="${topPad + 24}" width="${bannerW}" height="20" rx="4" fill="#3fb950" opacity="0.95"/>`;
+        body += `<text x="${bannerX + bannerW/2}" y="${topPad + 38}" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}  •  Risk ${fmtPrice(risk)}  •  Reward ${fmtPrice(reward)}  •  CRV 1 : ${crv}</text>`;
         // "Echtdaten"-Caption falls real BTC
         if (fullCandles._realData && fullCandles._realTime) {
           body += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="180" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
