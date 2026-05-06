@@ -459,9 +459,15 @@ details[open] summary span:first-child { transform: rotate(90deg); display: inli
 .info-icon:hover .info-tip { display: block; }
 /* Tooltip variant for tab-bar info icons: open downward (so it's not clipped above) */
 .info-icon.info-down .info-tip { bottom: auto; top: 22px; }
-/* Auto-flip nach unten in Tab-Headers (h3 in fullscreen tab-content):
-   sonst werden Tooltips vom oberen Tab-Rand abgeschnitten. */
-.tab-content h3 .info-icon .info-tip { bottom: auto; top: 22px; }
+/* Auto-flip nach unten für ALLE Tooltips in geöffneten Tabs + Metric-Cards.
+   Default war "nach oben" — in fullscreen-Tabs werden die aber abgeschnitten.
+   Nach unten ist hier konsistenter und immer lesbar. */
+.tab-content .info-icon .info-tip,
+.metric-card .info-icon .info-tip,
+.chart-container .info-icon .info-tip {
+  bottom: auto;
+  top: 22px;
+}
 .tab-btn .info-icon { background: transparent; border-color: transparent; color: var(--text-muted); }
 .tab-btn .info-icon:hover { border-color: var(--blue); color: var(--blue); }
 
@@ -897,7 +903,10 @@ input[type=number] { -moz-appearance:textfield }
     <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px">Funding <span id="fundingRateSymbol" style="color:var(--text-muted)"></span></div>
   </div>
   <span id="marketLastUpd" style="margin-left:auto;font-size:10px;color:var(--text-muted)"></span>
-  <button onclick="loadMarketData()" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer" title="Aktualisieren">↻</button>
+  <button id="marketRefreshBtn" onclick="_marketRefresh()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);padding:6px 12px;font-size:13px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s" title="Aktualisieren">
+    <span id="marketRefreshIcon">↻</span>
+    <span id="marketRefreshLabel" style="font-size:11px">Aktualisieren</span>
+  </button>
 </div>
 
 <!-- ══════════════════════════ CONTROLS ══════════════════════════ -->
@@ -1916,6 +1925,10 @@ input[type=number] { -moz-appearance:textfield }
             <option value="smc" data-i18n="academy.cat.smc">Smart Money / SMC</option>
             <option value="advanced" data-i18n="academy.cat.advanced">Advanced / Crypto</option>
           </select>
+          <div id="academyModeToggle" style="display:flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:12px">
+            <button onclick="setAcademyMode('simple')" id="academyModeSimple" style="padding:7px 12px;background:var(--blue);color:#fff;border:none;cursor:pointer;font-weight:600">📖 Einfach</button>
+            <button onclick="setAcademyMode('detailed')" id="academyModeDetailed" style="padding:7px 12px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-weight:600">🔬 Detailliert</button>
+          </div>
         </div>
         <div id="academyContent" style="flex:1;overflow-y:auto;padding-right:8px"></div>
       </div>
@@ -9246,6 +9259,806 @@ const STRATEGY_INFO_EN = {
     exit: "TP = 1:2 R-multiple (default — used in the notebook as a CRV filter). Optionally bump the TP multiplier when the setup was found on a higher TF. SL just below the box low minus 0.5% buffer (parametrizable — notebook says +5%, dial it up if jittery / volatile). Each box triggers only ONE trade (used flag). When scalping on 1m/3m/5m: pull the SL to break-even after movement — that's risk-management.",
     market: "Works on every timeframe — pro tip from the notebook: scout LSOB on the higher TF (1h/4h/1d), trade on the lower TF (5m/15m) = better CRV from a tighter entry. Counter-trend friendly. Optional confluences with Fib 0.382/0.61/0.786, trendlines, RSI divergence, FVG (Fair Value Gap below box for shorts, above box for longs) lift the hit rate.",
     indicators: "Pivot highs/lows (default 5L/5R) for sweep detection, ATR(14) for sizing. Box tracking with full lifecycle logic: sweep -> reaction -> box definition -> breakout -> retest -> trade."
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// STRATEGY_INFO_SIMPLE — Anfänger-freundliche Texte ohne Abkürzungen
+// Format: { desc, steps: [...], market }
+// Wird im Akademie-"Einfach"-Modus statt STRATEGY_INFO genutzt.
+// ═══════════════════════════════════════════════════════════════
+const STRATEGY_INFO_SIMPLE = {
+  "Z-Score Mean Reversion": {
+    desc: "Diese Strategie misst wie weit der Preis vom Durchschnitt entfernt ist und wettet darauf dass er zum Durchschnitt zurückkehrt — wie ein Gummiband das zurückspringt.",
+    steps: [
+      "Berechne wo der Preis im Durchschnitt der letzten 20 Kerzen liegt (Mittelwert).",
+      "Schau wie weit der aktuelle Preis vom Mittelwert entfernt ist (in Standard-Schritten gemessen).",
+      "Wenn der Preis sehr weit unter dem Mittelwert ist (z.B. 2 Standard-Schritte): kaufe ein.",
+      "Wenn er sehr weit darüber ist: verkaufe (Short-Trade).",
+      "Schließe den Trade wenn der Preis fast wieder am Mittelwert ist — dort sollte er hingehen.",
+      "Setze deinen Stopp-Verlust knapp jenseits des Extrems falls es weiter abdriftet."
+    ],
+    market: "Seitwärtsmärkte ohne klaren Trend. Funktioniert NICHT bei starken Trendphasen — da bleibt der Preis lange weg vom Mittelwert."
+  },
+  "Trend-Pullback": {
+    desc: "Du wartest auf einen Aufwärts- oder Abwärtstrend und steigst dann ein wenn der Preis kurz zurückzieht — wie eine Welle die kurz zurückläuft bevor sie weiter geht.",
+    steps: [
+      "Prüfe ob ein klarer Trend läuft: Preis liegt deutlich über dem Durchschnitt der letzten 50 Kerzen, der 20-Kerzen-Durchschnitt ist über dem 50-Kerzen-Durchschnitt.",
+      "Warte auf einen Pullback — der Preis kommt kurz zurück bis zum 20-Kerzen-Durchschnitt.",
+      "Sobald eine grüne Kerze kommt die nach oben dreht: kaufe ein (oder spiegelbildlich für Abwärtstrend: verkaufe).",
+      "Setze deinen Stopp etwa 1.5 mal so weit weg wie die typische Kerzen-Schwankung beträgt.",
+      "Nimm Gewinn bei doppeltem Risiko mit — bei der Hälfte ziehe den Stopp auf Break-Even (kein Verlust mehr möglich)."
+    ],
+    market: "Klare Trendmärkte mit klaren Pullbacks. Nicht in Seitwärtsphasen — da gibt's keinen Trend zum Mitnehmen."
+  },
+  "Donchian-Breakout + ADX": {
+    desc: "Du kaufst wenn der Preis ein neues Hoch macht (höher als die letzten 20 Kerzen) — solange der Markt stark trended.",
+    steps: [
+      "Schau dir die letzten 20 Kerzen an. Findest du das höchste Hoch dieser Kerzen.",
+      "Prüfe ob der Markt stark trended (Trendstärke-Indikator über 25).",
+      "Sobald die aktuelle Kerze über diesem Hoch schließt: kaufe ein.",
+      "Spiegelbildlich für Short: tiefster Tief der letzten 20 Kerzen wird unterschritten.",
+      "Stopp etwa 2 mal so weit weg wie die typische Schwankung.",
+      "Gewinn-Ziel bei dreifachem Risiko."
+    ],
+    market: "Starke Trendmärkte mit Volatilität. Schlecht in ruhigen Seitwärtsphasen — da gibt's viele falsche Ausbrüche."
+  },
+  "Bollinger Reversion": {
+    desc: "Du nutzt zwei Linien (oben + unten) als Grenzen einer Range. Wenn der Preis eine Grenze erreicht, wettest du darauf dass er zurück in die Mitte geht.",
+    steps: [
+      "Zeichne zwei Linien um den Preis: eine 2 Standard-Schritte über dem Durchschnitt, eine 2 darunter.",
+      "Prüfe ob der Markt ruhig ist (Trendstärke unter 20) — sonst klappt die Strategie nicht.",
+      "Sobald der Preis die untere Linie berührt UND die Stärke-Anzeige extrem niedrig ist: kaufe.",
+      "Sobald er die obere Linie berührt UND die Stärke-Anzeige extrem hoch ist: verkaufe (Short).",
+      "Stopp knapp jenseits der Bollinger-Linie.",
+      "Schließe den Trade wenn der Preis wieder die mittlere Linie (den Durchschnitt) erreicht hat."
+    ],
+    market: "Ruhige Seitwärtsmärkte mit klaren Begrenzungen. NICHT in Trends einsetzen."
+  },
+  "Supertrend + ATR-Trail": {
+    desc: "Eine Linie folgt dem Preis und zeigt ob der Trend nach oben oder unten geht. Du folgst dem Trend und ziehst deinen Stopp automatisch nach.",
+    steps: [
+      "Zeichne die Supertrend-Linie ein (eine bewegte Linie unter dem Preis bei Aufwärtstrend, über dem Preis bei Abwärtstrend).",
+      "Sobald der Preis die Linie nach oben durchbricht: kaufe.",
+      "Sobald er sie nach unten durchbricht: verkaufe (Short).",
+      "Dein Stopp ist die Supertrend-Linie selbst — sie zieht automatisch mit dem Preis mit.",
+      "Trade läuft bis die Linie auf der anderen Seite gekreuzt wird (= Trend dreht)."
+    ],
+    market: "Starke, klare Trends. Bei choppy Märkten gibt's viele Fehlsignale."
+  },
+  "RSI Extreme Reversal": {
+    desc: "Du wartest auf extrem überkaufte oder überverkaufte Phasen und nutzt die Erholung dazwischen.",
+    steps: [
+      "Beobachte den RSI-Indikator. Er zeigt auf einer Skala 0-100 wie überkauft (>70) oder überverkauft (<30) der Markt ist.",
+      "Wenn der RSI unter 25 fällt: der Markt ist extrem überverkauft, eine Erholung ist wahrscheinlich.",
+      "Warte auf eine grüne Kerze die das vorherige Hoch überschreitet — das ist dein Kaufsignal.",
+      "Spiegelbildlich für Short: RSI über 75 + bearishe Wende-Kerze.",
+      "Stopp knapp unter dem Tief.",
+      "Schließe wenn der RSI wieder die Mitte (50) erreicht hat oder bei doppeltem Risiko-Gewinn."
+    ],
+    market: "Seitwärtsmärkte mit klaren Übertreibungen. Nicht in starken Trends."
+  },
+  "Triple EMA Cross": {
+    desc: "Drei verschieden schnelle Durchschnittslinien zeigen den Trend. Wenn alle drei in der richtigen Reihenfolge stehen, geht der Trend klar in eine Richtung.",
+    steps: [
+      "Zeichne drei Durchschnittslinien: schnell (9 Kerzen), mittel (21 Kerzen), langsam (55 Kerzen).",
+      "Bei einem Aufwärtstrend müssen sie übereinander stehen: schnell oben, mittel mitten, langsam unten.",
+      "Sobald der Preis bei dieser Konstellation einen Pullback zur mittleren Linie macht und dort dreht: kaufe.",
+      "Stopp knapp unter der langsamsten Linie.",
+      "Trade läuft bis die schnelle Linie unter die mittlere kreuzt — dann steigst du aus."
+    ],
+    market: "Klare Trendmärkte. Bei Seitwärts-Phasen kreuzen die Linien ständig — viele Fehlsignale."
+  },
+  "Heikin-Ashi Trend": {
+    desc: "Heikin-Ashi-Kerzen glätten den Chart und zeigen Trends klarer. Du tradest in Richtung der Mehrzahl gleichfarbiger Kerzen.",
+    steps: [
+      "Wechsle zur Heikin-Ashi-Darstellung (statt normaler Candles).",
+      "Wenn 3-4 grüne Heikin-Ashi-Kerzen hintereinander erscheinen: starker Aufwärtstrend → kaufe ein.",
+      "Spiegelbildlich für Short: 3-4 rote Kerzen.",
+      "Stopp unter dem letzten roten Heikin-Ashi-Tief (bzw. über letztem grünen Hoch bei Short).",
+      "Schließe sobald die erste Kerze in der Gegenrichtung erscheint — das ist der Trend-Wechsel."
+    ],
+    market: "Starke saubere Trends. Bei Seitwärtsmärkten ist Heikin-Ashi auch unklar."
+  },
+  "Parabolic SAR + ADX": {
+    desc: "Punkte unter dem Preis (Aufwärtstrend) oder darüber (Abwärtstrend) zeigen die Trendrichtung. Du tradest mit dem Trend solange er stark ist.",
+    steps: [
+      "Beobachte die Parabolic-SAR-Punkte. Sind sie unter dem Preis = Aufwärtstrend, darüber = Abwärtstrend.",
+      "Prüfe die Trendstärke: über 22 = Trend wert zu traden.",
+      "Sobald die SAR-Punkte von oben nach unten wechseln + Trend stark: kaufe.",
+      "Spiegelbildlich für Short.",
+      "Dein Stopp ist der jeweils aktuelle SAR-Punkt — er zieht mit dem Preis mit.",
+      "Trade läuft bis die Punkte die Seite wechseln."
+    ],
+    market: "Starke Trends mit klaren Wendungen. Choppy Märkte erzeugen ständige Wechsel = Fehlsignale."
+  },
+  "ADX Power Trend": {
+    desc: "Du tradest nur wenn der Markt extrem stark trended. Schwache Trends werden ignoriert.",
+    steps: [
+      "Beobachte die Trendstärke-Anzeige (ADX). Sie misst wie stark ein Trend ist (egal ob hoch oder runter).",
+      "Erst handeln wenn die Anzeige über 30 steigt = sehr starker Trend.",
+      "Prüfe die Richtung: Plus-Linie über Minus-Linie = Aufwärtstrend → kaufe; umgekehrt = Short.",
+      "Stopp etwa 2 mal so weit weg wie die typische Kerzen-Schwankung.",
+      "Schließe wenn die Trendstärke unter 20 fällt — der Trend stirbt ab."
+    ],
+    market: "Nur starke Trends. Bei niedriger Stärke (ADX < 20) bleibst du komplett raus."
+  },
+  "Bollinger Squeeze Breakout": {
+    desc: "Wenn der Markt sehr ruhig ist (die Bollinger-Bänder zusammengezogen), kommt oft ein heftiger Ausbruch. Du wartest auf den Ausbruch und steigst mit ein.",
+    steps: [
+      "Beobachte die zwei Bollinger-Linien um den Preis. Wenn sie sehr eng beieinander liegen = der Markt ist ruhig (\"Squeeze\").",
+      "Warte ab — meist folgt ein heftiger Ausbruch nach oben oder unten.",
+      "Sobald der Preis aus der engen Zone klar ausbricht (Schluss außerhalb der Bänder): tradest du in die Ausbruchsrichtung.",
+      "Stopp zurück in die Squeeze-Zone.",
+      "Trade läuft solange der Preis weiter in Richtung Ausbruch geht; schließe bei doppeltem Risiko."
+    ],
+    market: "Phasen wo nach Ruhe Volatilität explodiert. Funktioniert bei allen Coins, vor allem nach Konsolidierung."
+  },
+  "Keltner Channel Reversion": {
+    desc: "Ähnlich wie Bollinger, aber die Kanallinien basieren auf der durchschnittlichen Schwankung. Bei Berührung der Außenlinien wettest du auf die Rückkehr zur Mitte.",
+    steps: [
+      "Zeichne den Keltner-Kanal um den Preis (eine Mittellinie + Linien oberhalb/unterhalb basierend auf der typischen Schwankung).",
+      "Sobald der Preis die obere Linie berührt: verkaufe (Short).",
+      "Sobald er die untere berührt: kaufe.",
+      "Stopp knapp jenseits der Linie.",
+      "Schließe sobald der Preis die Mittellinie erreicht."
+    ],
+    market: "Seitwärtsmärkte mit klarer Schwankungs-Range. Nicht in Trends einsetzen."
+  },
+  "Engulfing at Key Level": {
+    desc: "Du wartest auf eine bullishe Engulfing-Kerze (eine grüne Kerze die die rote davor komplett umschließt) an einer wichtigen Unterstützungs-Linie.",
+    steps: [
+      "Zeichne wichtige Unterstützungs- und Widerstands-Linien ein.",
+      "Beobachte ob bei Berührung einer dieser Linien eine Engulfing-Kerze entsteht (eine grüne Kerze deren Body die rote Body davor komplett umfasst).",
+      "Bei bullisher Engulfing an Unterstützung: kaufe am Schluss der Kerze.",
+      "Stopp knapp unter dem Tief der Engulfing-Kerze.",
+      "Spiegelbildlich für Short an Widerständen mit bearisher Engulfing."
+    ],
+    market: "Coins mit klar erkennbaren Unterstützungs- und Widerstands-Linien. Funktioniert auf allen Timeframes."
+  },
+  "Order Block Retest (SMC)": {
+    desc: "Smart-Money-Trader hinterlassen 'Footprints' (große Kerzen vor einer starken Bewegung). Du wartest bis der Preis zu diesem Footprint zurückkommt und steigst dort ein.",
+    steps: [
+      "Such die letzte starke rote Kerze vor einem Aufwärts-Schub — das ist der bullishe Order Block.",
+      "Markiere den Bereich dieser Kerze (Hoch bis Tief).",
+      "Warte bis der Preis später zu diesem Bereich zurückkehrt (Retest).",
+      "Sobald eine grüne Reaktions-Kerze den Bereich verteidigt: kaufe.",
+      "Stopp knapp unter dem Order Block.",
+      "Spiegelbildlich für Short mit bearishem Order Block (grüne Kerze vor Abwärts-Schub)."
+    ],
+    market: "Coins mit klarer Marktstruktur. Funktioniert besonders gut auf höheren Timeframes (1h, 4h)."
+  },
+  "Liquidity Sweep + FVG (SMC)": {
+    desc: "Du wartest bis der Markt ein vorheriges Tief oder Hoch 'jagt' (Stop-Hunt) und dann scharf in die Gegenrichtung dreht. Das passiert oft an Liquiditäts-Zonen.",
+    steps: [
+      "Markiere ein vorheriges wichtiges Tief oder Hoch — dort liegen viele Stopps.",
+      "Warte bis der Preis dieses Level kurz unterschreitet (für Long-Setup) oder überschreitet (für Short).",
+      "Suche danach eine 'Fair Value Gap' — eine kleine Lücke zwischen drei aufeinander folgenden Kerzen.",
+      "Sobald der Preis zur Lücke zurückkommt und dreht: trade in Gegenrichtung des Sweeps.",
+      "Stopp jenseits des Sweep-Extrems."
+    ],
+    market: "Volatilen Markt mit klaren Liquiditäts-Zonen — vor allem nach Range-Phasen."
+  },
+  "ATR Breakout (Toby Crabel)": {
+    desc: "Eine klassische Strategie: zu Beginn einer Periode kauft man wenn der Preis ein bestimmtes Maß über die Eröffnung steigt — und verkauft (Short) wenn er entsprechend fällt.",
+    steps: [
+      "Notiere die Eröffnungs-Kerze des Tages oder einer neuen Periode.",
+      "Berechne ein bestimmtes Maß Volatilität (ungefähr halbe typische Schwankung).",
+      "Sobald der Preis Eröffnung + Maß überschreitet: kaufe.",
+      "Sobald er Eröffnung - Maß unterschreitet: verkaufe.",
+      "Stopp auf der Gegenseite der Eröffnung.",
+      "Schließe am Ende des Tages oder bei Erreichen des Gewinn-Ziels."
+    ],
+    market: "Asien- oder Frühe-EU-Sessions wo nach Eröffnung oft scharfe Bewegungen kommen."
+  },
+  "VCP (Minervini)": {
+    desc: "Ein Aktien-Klassiker: der Preis konsolidiert in immer engeren Schwankungen, bis er schließlich nach oben ausbricht. Du steigst beim Ausbruch ein.",
+    steps: [
+      "Beobachte einen Coin der seitwärts läuft, aber mit sich verengender Range (jede Schwankung kleiner als die vorige).",
+      "Warte bis das Volumen während der Konsolidierung sinkt.",
+      "Sobald der Preis aus der engen Zone klar nach oben ausbricht (mit hohem Volumen): kaufe.",
+      "Stopp knapp unter der letzten Konsolidierungs-Kante.",
+      "Lass den Trade laufen — VCP-Ausbrüche bringen oft große Bewegungen."
+    ],
+    market: "Coins die nach einem Aufwärtstrend in eine Konsolidierung gehen. Klassisch aus der Aktienanalyse, funktioniert auch in Krypto."
+  },
+  "Day-of-Week Effect": {
+    desc: "Manche Wochentage zeigen historisch bessere oder schlechtere Performance. Du tradest nur an statistisch profitablen Wochentagen.",
+    steps: [
+      "Backtest erst: an welchen Wochentagen war die Strategie historisch profitabel?",
+      "Trade nur an diesen Tagen.",
+      "Halte dich an deine normalen Entry/Exit-Regeln, aber filtere nach Wochentag."
+    ],
+    market: "Coins mit klaren Wochentags-Mustern (z.B. wenn Wochenende oft Volatilität-arm ist)."
+  },
+  "MTF Confluence": {
+    desc: "Du schaust mehrere Zeit-Ebenen gleichzeitig an. Ein Signal zählt nur wenn es auf allen Zeit-Ebenen bestätigt ist.",
+    steps: [
+      "Schau dir den Tageschart an: ist der Trend nach oben? (Höhere Hochs und Tiefs)",
+      "Schau dir den 4-Stunden-Chart an: zeigt er denselben Trend?",
+      "Schau dir den 1-Stunden-Chart an: gibt's dort gerade ein Long-Setup (Pullback, Breakout etc.)?",
+      "Nur wenn alle drei Zeit-Ebenen einig sind: trade.",
+      "Stopp basierend auf der niedrigsten Zeit-Ebene; Gewinn-Ziel auf der höchsten."
+    ],
+    market: "Funktioniert auf allen Coins mit klaren Trends. Viele bestätigte Signale = wenige aber starke Trades."
+  },
+  "Wyckoff Spring/Upthrust": {
+    desc: "Klassische Smart-Money-Trick: der Markt durchbricht kurz eine Range nach unten (Spring) oder oben (Upthrust) und dreht dann scharf zurück. Du tradest die Drehung.",
+    steps: [
+      "Markiere eine klar erkennbare Range (Unterstützung + Widerstand).",
+      "Bei einem 'Spring' bricht der Preis kurz unter die Unterstützung — viele Stopps werden ausgelöst.",
+      "Sobald der Preis schnell zurück über die Unterstützung kommt + die nächste Kerze grün schließt: kaufe.",
+      "Stopp knapp unter dem Spring-Tief.",
+      "Spiegelbildlich für Upthrust an Widerständen — Short."
+    ],
+    market: "Coins die in klaren Ranges traden — typisch nach einem Trend bei Konsolidierung."
+  },
+  "VWAP Mean Reversion": {
+    desc: "VWAP ist der durchschnittliche Preis gewichtet mit Volumen. Bei großen Abweichungen von VWAP wettest du auf die Rückkehr.",
+    steps: [
+      "Zeichne die VWAP-Linie ein (volumen-gewichteter Durchschnitt seit Tagesbeginn).",
+      "Sobald der Preis 1-2% über VWAP steht UND der Markt eher seitwärts läuft: verkaufe (Short).",
+      "Sobald er 1-2% unter VWAP steht: kaufe.",
+      "Stopp jenseits des Extrems.",
+      "Schließe wenn der Preis VWAP wieder erreicht."
+    ],
+    market: "Intraday-Trading auf liquiden Coins. Funktioniert besonders innerhalb einer Trading-Session."
+  },
+  "SMC Multi-Layer Confluence": {
+    desc: "Eine Premium-Strategie: mehrere Smart-Money-Konzepte (Order Block, Liquidity, Fair Value Gap, BOS) müssen gleichzeitig zutreffen. Selten, aber sehr hochwertig.",
+    steps: [
+      "Identifiziere einen klaren Trend mit Strukturbruch (BOS = Break of Structure).",
+      "Markiere alle Order Blocks, Fair Value Gaps und Liquiditäts-Zonen.",
+      "Warte bis Preis zu einem Punkt zurückkommt wo mehrere dieser Zonen zusammenfallen (Confluence).",
+      "Sobald eine Reaktions-Kerze den Bereich verteidigt: trade in Trend-Richtung.",
+      "Stopp jenseits aller Zonen.",
+      "Gewinn-Ziel: nächste Liquiditäts-Zone in Trend-Richtung."
+    ],
+    market: "Höhere Timeframes (4h, 1d) mit klarer Marktstruktur. Wenige aber qualitativ hochwertige Trades."
+  },
+  "Funding Rate Momentum": {
+    desc: "Krypto-spezifisch: wenn die Funding-Rate (Gebühr für Long-Positionen) extrem hoch ist, zahlen Longs viel — der Markt ist überhitzt. Du wettest auf die Korrektur.",
+    steps: [
+      "Beobachte die Funding-Rate des Coins (alle 8 Stunden veröffentlicht).",
+      "Bei sehr hoher positiver Rate (>0.05%): Markt ist long-überfüllt — kurzfristig oft Korrektur-Signal.",
+      "Sobald eine bearishe Kerze (rotes Engulfing oder Shooting Star) auftritt: verkaufe (Short).",
+      "Spiegelbildlich bei sehr negativer Rate: Markt ist short-überfüllt → potential für Squeeze nach oben → kaufe bei bullishem Signal.",
+      "Stopp knapp jenseits des Setup-Extrems."
+    ],
+    market: "Perpetual-Futures auf Krypto-Börsen. Funktioniert nur dort wo Funding existiert."
+  },
+  "OI + Price Action": {
+    desc: "Open Interest zeigt wieviele offene Futures-Positionen es gibt. Steigender OI bei steigendem Preis = neuer Trend mit echtem Geld dahinter.",
+    steps: [
+      "Beobachte parallel Preis und Open Interest (OI).",
+      "Steigt der OI während der Preis steigt: echter Aufwärtstrend mit neuen Long-Positionen.",
+      "Sobald ein bullishes Setup auftritt (Pullback + Reversal-Kerze): kaufe.",
+      "Spiegelbildlich für Short: OI steigt + Preis fällt = echter Abwärtstrend.",
+      "Stopp basierend auf der Setup-Struktur."
+    ],
+    market: "Krypto-Perpetuals. Funktioniert besonders bei Trend-Fortsetzungen mit klaren Volumen-Bewegungen."
+  },
+  "Liquidation Reversal": {
+    desc: "Wenn ein heftiger Crash oder Pump passiert, werden viele gehebelte Positionen liquidiert. Oft folgt eine scharfe Gegenbewegung. Du tradest diese Gegenbewegung.",
+    steps: [
+      "Beobachte plötzliche Preis-Schübe von 3-5% in kurzer Zeit (oft mit Liquidations-Spikes).",
+      "Warte auf eine klare Reversal-Kerze (z.B. Hammer nach unten oder Shooting Star nach oben).",
+      "Sobald die nächste Kerze in Gegenrichtung schließt: trade gegen den Crash/Pump.",
+      "Stopp knapp jenseits des Liquidations-Extrems.",
+      "Schließe bei 50-70% Retracement der Liquidations-Bewegung."
+    ],
+    market: "Volatile Krypto-Märkte mit hohem Hebel. Vor allem in Bull-Cycle-Spitzen oder Bear-Capitulation."
+  },
+  "Regime-Switch Master": {
+    desc: "Diese Strategie erkennt ob der Markt gerade trended oder seitwärts läuft, und schaltet automatisch zwischen Trend- und Reversion-Logik um.",
+    steps: [
+      "Prüfe die Trendstärke (ADX): über 25 = Trend, unter 20 = Range.",
+      "Im Trend-Modus: nutze eine einfache Trend-Pullback-Strategie.",
+      "Im Range-Modus: nutze eine Mean-Reversion-Strategie an den Rändern.",
+      "Stopp je nach aktivem Modus.",
+      "Übergänge zwischen Modi werden automatisch erkannt — du musst nichts manuell schalten."
+    ],
+    market: "Universell — funktioniert in beiden Marktphasen weil sie sich anpasst."
+  },
+  "Multi-Strategy Voting": {
+    desc: "Mehrere Strategien laufen gleichzeitig. Ein Trade wird nur eröffnet wenn die Mehrheit der Strategien das gleiche Signal gibt — wie eine demokratische Abstimmung.",
+    steps: [
+      "Wähle 3-5 verschiedene Strategien (z.B. RSI-Reversal, Trend-Pullback, Bollinger).",
+      "Bei jeder Kerze fragst du jede Strategie: \"Long, Short oder kein Signal?\"",
+      "Trade nur wenn die Mehrheit (z.B. 3 von 5) das gleiche Signal gibt.",
+      "Stopp und Gewinn-Ziel als Durchschnitt aller beteiligten Strategien.",
+      "Selten aber qualitativ hochwertige Signale."
+    ],
+    market: "Universell. Sehr robust weil mehrere Bestätigungen nötig — wenige aber starke Trades."
+  },
+  "ML Feature Classifier": {
+    desc: "Eine Machine-Learning-Logik: aus historischen Mustern (Volumen, Volatilität, RSI, Trendstärke) wird gelernt welche Kombinationen profitable Trades waren. Sie erkennt diese Muster im Live-Markt.",
+    steps: [
+      "Beim Backtest-Start lernt die Strategie aus den ersten 50% der Daten welche Feature-Kombinationen funktionieren.",
+      "Auf den restlichen 50% (Test-Bereich) tradet sie nach diesen gelernten Mustern.",
+      "Long wenn die Feature-Kombination einem profitablen Long-Muster entspricht.",
+      "Stopp basierend auf typischer Marktschwankung."
+    ],
+    market: "Funktioniert wenn der Markt stabile Muster hat. Bei Strukturbrüchen werden alte Muster ungültig — re-trainieren nötig."
+  },
+  "FinalBoss Zonen": {
+    desc: "Die hauseigene Strategie kombiniert mehrere Konzepte: 3-Zonen-Analyse, EMA-Filter, Wide-SL und Sniper-Entry. Komplex, aber für aktive Trader gut konfigurierbar.",
+    steps: [
+      "Identifiziere 3 wichtige Preiszonen (Support/Resistance).",
+      "Prüfe den EMA-Filter: trendet der Markt klar?",
+      "Bei Berührung einer Zone in Trend-Richtung: warte auf Reversal-Kerze.",
+      "Wide-SL hinter die nächst-tiefere Zone für Sicherheit.",
+      "Sniper-Entry direkt nach Bestätigungs-Kerze."
+    ],
+    market: "Volatile Krypto-Märkte mit klaren Zonen. Erfordert manuelles Tuning der Parameter."
+  },
+  "MACD Crossover": {
+    desc: "Zwei Linien (eine schnellere, eine langsamere) bewegen sich um einen Nullpunkt. Wenn die schnelle die langsame kreuzt, ist das ein Trend-Wechsel-Signal.",
+    steps: [
+      "Beobachte die zwei MACD-Linien (Schnell + Langsam) und das Histogramm.",
+      "Sobald die schnelle Linie die langsame nach oben kreuzt: kaufe (Bullish Crossover).",
+      "Sobald sie nach unten kreuzt: verkaufe (Bearish Crossover).",
+      "Stopp etwa 2 mal die typische Schwankung.",
+      "Schließe beim nächsten Gegenkreuz."
+    ],
+    market: "Trendmärkte. In Seitwärtsphasen kreuzt der MACD ständig — viele Fehlsignale."
+  },
+  "Stochastic K/D Cross": {
+    desc: "Zwei Linien (K und D) bewegen sich zwischen 0 und 100. Kreuzungen in Extremzonen sind Reversal-Signale.",
+    steps: [
+      "Beobachte die K- und D-Linien.",
+      "Bei K kreuzt D nach oben unter 20: starkes Long-Signal (überverkauft).",
+      "Bei K kreuzt D nach unten über 80: Short-Signal (überkauft).",
+      "Stopp jenseits des Setup-Extrems.",
+      "Schließe wenn die Linien bei 50 wieder kreuzen oder beim Erreichen der gegenüberliegenden Extremzone."
+    ],
+    market: "Seitwärtsmärkte mit klaren Extremen. In Trends bleiben die Linien lange in einer Zone."
+  },
+  "Williams %R Reversal": {
+    desc: "Ähnlich wie Stochastic, aber auf negativer Skala (-100 bis 0). Bei Extremwerten kommt oft eine Umkehr.",
+    steps: [
+      "Beobachte den Williams %R Indikator (Skala -100 bis 0).",
+      "Wert unter -80 = überverkauft → bei Drehung nach oben kaufe.",
+      "Wert über -20 = überkauft → bei Drehung nach unten verkaufe.",
+      "Stopp jenseits des Extrems.",
+      "Schließe bei Mittelwert -50 oder beim entgegengesetzten Extrem."
+    ],
+    market: "Seitwärtsmärkte. In starken Trends bleibt der Indikator lange im Extrem."
+  },
+  "CCI Trend": {
+    desc: "Der Commodity Channel Index zeigt überstarke Bewegungen über/unter ±100 an. Du tradest in Richtung der Ausbruchsbewegung.",
+    steps: [
+      "Beobachte den CCI-Indikator.",
+      "Bricht er über +100: starker Aufwärtsschub → kaufe.",
+      "Bricht er unter -100: starker Abwärtsschub → verkaufe.",
+      "Stopp etwa 2 mal typische Schwankung.",
+      "Schließe wenn CCI wieder unter 0 (long) bzw. über 0 (short) fällt."
+    ],
+    market: "Klare Trendphasen. Bei Choppy Markt zu viele Fehlsignale."
+  },
+  "Ichimoku Kumo Breakout": {
+    desc: "Ichimoku zeichnet eine 'Wolke' (Kumo) um den Preis. Bricht der Preis aus der Wolke aus, ist das ein starkes Trend-Signal.",
+    steps: [
+      "Beobachte die Ichimoku-Wolke um den Preis (Kumo).",
+      "Bricht der Schluss klar über die Wolke + Tenkan über Kijun: kaufe.",
+      "Spiegelbildlich für Short: unter die Wolke + Tenkan unter Kijun.",
+      "Stopp innerhalb der Wolke.",
+      "Trade läuft solange Preis auf der Ausbruchs-Seite bleibt."
+    ],
+    market: "Mittel- bis langfristige Trends auf 4h und 1d. Robuster japanischer Klassiker."
+  },
+  "Hull MA Cross": {
+    desc: "Hull-Durchschnitte reagieren viel schneller als normale gleitende Durchschnitte. Kreuzungen sind frühe Trend-Wechsel-Signale.",
+    steps: [
+      "Zeichne zwei Hull-MAs: schnell (9 Kerzen) und langsam (21).",
+      "Schnell kreuzt langsam nach oben: kaufe.",
+      "Schnell kreuzt langsam nach unten: verkaufe.",
+      "Stopp basierend auf typischer Schwankung.",
+      "Schließe beim Gegenkreuz."
+    ],
+    market: "Trends mit Pullbacks. Wegen schneller Reaktion gut für kürzere Timeframes."
+  },
+  "MFI Mean Reversion": {
+    desc: "MFI ist wie RSI, aber mit Volumen gewichtet. Extremwerte zeigen ungewöhnliche Volumen-Aktivität — oft Umkehr-Signale.",
+    steps: [
+      "Beobachte den MFI-Indikator (0-100).",
+      "MFI unter 20 = überverkauft mit Volumen-Bestätigung → kaufe bei Drehung.",
+      "MFI über 80 = überkauft → verkaufe bei Drehung.",
+      "Stopp jenseits des Setup-Extrems.",
+      "Schließe wenn MFI 50 erreicht hat."
+    ],
+    market: "Range-Märkte mit Volumen-Spikes. Funktioniert auf liquideren Coins."
+  },
+  "CMF Trend": {
+    desc: "Chaikin Money Flow zeigt ob Geld in den Coin fließt (positiv) oder rausfließt (negativ). Du tradest in Richtung des Geldflusses.",
+    steps: [
+      "Beobachte den CMF-Indikator.",
+      "CMF über +0.05 + Preis über Durchschnitt: starker Geld-Zufluss → kaufe.",
+      "CMF unter -0.05 + Preis unter Durchschnitt: Geld-Abfluss → verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe wenn CMF Vorzeichen wechselt."
+    ],
+    market: "Mittel-fristige Trends mit klarer Volumen-Bestätigung."
+  },
+  "TRIX Zero Cross": {
+    desc: "TRIX ist eine dreifach geglättete Rendite-Kurve. Kreuzt sie die Null-Linie, ist das ein verspätetes aber zuverlässiges Trend-Signal.",
+    steps: [
+      "Beobachte die TRIX-Linie um die Null-Linie.",
+      "Kreuzt nach oben über 0: kaufe.",
+      "Kreuzt nach unten: verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe beim Gegenkreuz."
+    ],
+    market: "Mittel- bis langfristige Trends (4h+). Wegen Glättung wenige aber sichere Signale."
+  },
+  "StochRSI Reversal": {
+    desc: "Eine Kombination aus Stochastik und RSI — sehr reaktiv. Gut um in Range-Märkten extremes Über-/Unterverkauft zu erkennen.",
+    steps: [
+      "Beobachte K- und D-Linie des StochRSI.",
+      "K kreuzt D unter 0.2: kaufe (extrem überverkauft).",
+      "K kreuzt D über 0.8: verkaufe (extrem überkauft).",
+      "Stopp jenseits des Setup-Extrems.",
+      "Schließe beim Gegenextrem oder bei 0.5."
+    ],
+    market: "Range / Mean-Reversion-Märkte. Sehr empfindlich, viele Signale."
+  },
+  "Awesome Oscillator": {
+    desc: "Eine einfache Histogramm-Anzeige der Marktstärke. Wechselt es Vorzeichen, ist das ein Trend-Wechsel.",
+    steps: [
+      "Beobachte das Awesome-Oscillator-Histogramm um die Null-Linie.",
+      "Histogramm wechselt von rot zu grün: kaufe.",
+      "Wechselt von grün zu rot: verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe beim nächsten Vorzeichen-Wechsel."
+    ],
+    market: "Trends. Einfach und sehr beliebt bei Bill Williams-Tradern."
+  },
+  "EMA Ribbon Trend": {
+    desc: "Mehrere Durchschnittslinien (z.B. 5, 10, 15, 20) bilden ein Band. Wenn alle parallel laufen, ist der Trend sehr stabil.",
+    steps: [
+      "Zeichne 4-6 Durchschnittslinien mit verschiedenen Perioden.",
+      "Liegen sie alle in der richtigen Reihenfolge übereinander: starker Trend.",
+      "Beim nächsten Pullback zur obersten Linie und Bounce: kaufe.",
+      "Stopp unter der untersten Linie.",
+      "Schließe wenn Linien sich überschneiden — Trend stirbt."
+    ],
+    market: "Klare langfristige Trends. Ribbon ist visuell sehr deutlich."
+  },
+  "Pivot Point Bounce": {
+    desc: "Pivot-Punkte (mathematisch berechnete Niveaus aus dem Vortag) sind klassische Tagesziele. Trader handeln Bounces an diesen Levels.",
+    steps: [
+      "Berechne die Pivot-Punkte für den aktuellen Tag aus dem Vortag (Hoch + Tief + Schluss / 3, plus Support/Resistance daraus).",
+      "Sobald der Preis einen dieser Pivot-Levels berührt + dort bouncet: trade in Bounce-Richtung.",
+      "Stopp knapp jenseits des Pivots.",
+      "Gewinn-Ziel: nächster Pivot."
+    ],
+    market: "Intraday-Trading auf liquiden Märkten. Klassisch im Aktien- und Forex-Trading."
+  },
+  "Volume Spike Reversal": {
+    desc: "Plötzlich extremes Volumen ist oft ein Signal für eine Umkehr — meistens war's der letzte Pump/Dump bevor's dreht.",
+    steps: [
+      "Berechne das Durchschnitts-Volumen der letzten 20 Kerzen.",
+      "Sobald eine Kerze dreifaches Volumen hat: Volume Spike.",
+      "Wenn diese Spike-Kerze rot ist nach Aufwärtstrend: verkaufe.",
+      "Wenn grün nach Abwärtstrend: kaufe.",
+      "Stopp jenseits des Spike-Extrems.",
+      "Schließe bei 50% Retracement."
+    ],
+    market: "Coins mit Volumen-Explosionen — oft nach News oder Liquidations-Events."
+  },
+  "Choppiness + Trend": {
+    desc: "Der Choppiness-Index zeigt ob der Markt trended (niedrig) oder seitwärts läuft (hoch). Du tradest nur in echten Trendphasen.",
+    steps: [
+      "Beobachte den Choppiness-Index (0-100).",
+      "Wert unter 38 = klarer Trend → handle nach Standard-Trend-Regeln.",
+      "Wert über 62 = Seitwärtsphase → bleib raus.",
+      "Stopp typische Schwankung.",
+      "Trade läuft solange der Markt im Trend-Modus bleibt."
+    ],
+    market: "Filter für Trend-Strategien — vermeidet Fehlsignale in choppy Phasen."
+  },
+  "Linear Regression Reversion": {
+    desc: "Eine 'Best-Fit-Linie' durch den Preis zeigt den fairen Trendpfad. Bei großen Abweichungen wettest du auf die Rückkehr zur Linie.",
+    steps: [
+      "Zeichne die Linear-Regression-Linie durch die letzten 50 Kerzen.",
+      "Sobald der Preis 2 Standard-Schritte unter der Linie steht: kaufe.",
+      "Sobald 2 Schritte darüber: verkaufe.",
+      "Stopp jenseits.",
+      "Schließe wenn der Preis die Regressions-Linie erreicht."
+    ],
+    market: "Märkte mit klarem statistischem Trendpfad. Gut bei Mean-Reversion."
+  },
+  "ROC Momentum": {
+    desc: "Rate-of-Change misst wie stark sich der Preis in einer bestimmten Periode verändert hat. Hohe positive Werte = starkes Momentum nach oben.",
+    steps: [
+      "Beobachte den ROC-Indikator.",
+      "Steigt ROC über +5 (= Preis stieg 5% in Periode): starkes Up-Momentum → kaufe.",
+      "Fällt unter -5: kaufe Short.",
+      "Stopp typische Schwankung.",
+      "Schließe wenn ROC zur Null-Linie zurückkehrt."
+    ],
+    market: "Momentum-getriebene Coins, vor allem nach News oder Listings."
+  },
+  "Golden / Death Cross": {
+    desc: "Klassiker: 50-Tages-Durchschnitt kreuzt 200-Tages-Durchschnitt. Nach oben = Golden Cross (Bullisch), nach unten = Death Cross (Bearisch).",
+    steps: [
+      "Zeichne den 50-Tages-Durchschnitt + 200-Tages-Durchschnitt.",
+      "50 kreuzt 200 nach oben: Golden Cross → langfristiges Long-Signal.",
+      "50 kreuzt 200 nach unten: Death Cross → langfristiges Short-Signal.",
+      "Stopp basierend auf höherem Timeframe.",
+      "Trade kann Wochen bis Monate laufen."
+    ],
+    market: "Langfristige Trader. Funktioniert auf Tageschart bei großen Coins (BTC, ETH)."
+  },
+  "Three Soldiers / Crows": {
+    desc: "Drei aufeinanderfolgende grüne Kerzen (Soldiers) = sehr bullisch. Drei rote Kerzen (Crows) = sehr bearisch.",
+    steps: [
+      "Beobachte die letzten drei Kerzen.",
+      "Drei klar grüne Kerzen mit höherer Schluss + minimalem oberen Docht: kaufe am Close der dritten.",
+      "Drei klar rote Kerzen mit niedrigerem Schluss: verkaufe.",
+      "Stopp unter der ersten der drei Kerzen.",
+      "Schließe bei doppeltem Risiko."
+    ],
+    market: "Klare Trend-Beginn-Phasen oder Reversal an Extremen."
+  },
+  "Inside Bar Breakout": {
+    desc: "Eine Kerze die komplett innerhalb der vorherigen liegt = Konsolidierung. Du tradest den Ausbruch der Inside-Bar.",
+    steps: [
+      "Such eine Inside-Bar (deren Hoch + Tief liegen beide innerhalb der vorherigen Kerze).",
+      "Sobald der Preis das Hoch der vorherigen Kerze (= Mother Bar) bricht: kaufe.",
+      "Bricht er das Tief: verkaufe.",
+      "Stopp am gegenüberliegenden Ende der Mother Bar.",
+      "Zeit-Exit nach 8 Kerzen wenn nichts läuft."
+    ],
+    market: "Universell, vor allem bei klaren Konsolidierungen vor Ausbrüchen."
+  },
+  "DMI Crossover": {
+    desc: "Plus-DI und Minus-DI zeigen die Kraft der Käufer und Verkäufer. Ein Crossover signalisiert einen Macht-Wechsel.",
+    steps: [
+      "Beobachte +DI und -DI Linien.",
+      "+DI kreuzt -DI nach oben + Trendstärke (ADX) > 20: kaufe.",
+      "-DI kreuzt +DI nach oben: verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe beim nächsten Gegenkreuz."
+    ],
+    market: "Trendmärkte. Choppy macht zu viele Fehlsignale, deshalb ADX-Filter."
+  },
+  "Bollinger Bandwidth Squeeze": {
+    desc: "Eine extreme Verengung der Bollinger-Bänder zeigt dass nach Ruhe oft heftige Bewegung kommt. Du wartest auf den Ausbruch.",
+    steps: [
+      "Beobachte die Breite der Bollinger-Bänder über die letzten 100 Kerzen.",
+      "Wenn aktuelle Breite die niedrigste der letzten 100 ist: extremer Squeeze.",
+      "Bei nächstem klaren Schluss außerhalb der Bänder: trade in Ausbruchsrichtung.",
+      "Stopp zurück in die Squeeze-Zone.",
+      "Lass den Trade laufen — Squeeze-Ausbrüche bringen oft große Bewegungen."
+    ],
+    market: "Phasen extremer Konsolidierung — oft nach längerer Range. Sehr selten aber meistens explosiv."
+  },
+  "Donchian Mean Reversion": {
+    desc: "Anders als der Donchian-Breakout: hier wettest du dass der Preis nach Berührung der Donchian-Extreme wieder zur Mitte zurück geht.",
+    steps: [
+      "Zeichne die Donchian-Channels (höchstes Hoch + tiefstes Tief der letzten 20 Kerzen).",
+      "Sobald der Preis das Donchian-Tief berührt UND der Markt seitwärts läuft: kaufe.",
+      "Sobald er das Hoch berührt: verkaufe.",
+      "Stopp jenseits des Donchian-Extrems.",
+      "Schließe an der Donchian-Mitte."
+    ],
+    market: "Range-Märkte. Nicht bei Breakout-Phasen — da läuft der Preis weiter."
+  },
+  "VWAP Bands Reversion": {
+    desc: "Wie VWAP-Reversion, aber mit Bändern um die VWAP-Linie (Standardabweichung). Bei Berührung der Bänder ist Umkehr wahrscheinlich.",
+    steps: [
+      "Zeichne VWAP plus 1 und 2 Standard-Schritte als Bänder.",
+      "Berührt der Preis das untere 2-Sigma-Band: starkes Long-Signal.",
+      "Berührt er das obere 2-Sigma-Band: Short-Signal.",
+      "Stopp jenseits des Bands.",
+      "Schließe an der VWAP-Linie."
+    ],
+    market: "Intraday Mean-Reversion. Vor allem bei liquiden Coins."
+  },
+  "Bollinger %B Reversal": {
+    desc: "%B zeigt wie weit der Preis innerhalb der Bollinger-Bänder steht (0 = unteres Band, 1 = oberes). Extremwerte = Reversal-Setup.",
+    steps: [
+      "Beobachte den %B Indikator.",
+      "%B unter 0 = Preis unter unterem Band → bei Drehung kaufe.",
+      "%B über 1 = Preis über oberem Band → bei Drehung verkaufe.",
+      "Stopp jenseits des Setup-Extrems.",
+      "Schließe wenn %B die 0.5 (Mittellinie) erreicht."
+    ],
+    market: "Range-Märkte. Sehr klassische Bollinger-Reversion-Variante."
+  },
+  "Connors RSI 2": {
+    desc: "Eine RSI-Variante mit nur 2 Perioden — extrem reaktiv. Larry Connors' Klassiker für Mean-Reversion.",
+    steps: [
+      "Beobachte den 2-Perioden-RSI.",
+      "Fällt der RSI unter 5 + Preis über 200-Tages-Durchschnitt: kaufe.",
+      "Steigt er über 95 + Preis unter 200-Tages-Durchschnitt: verkaufe.",
+      "Stopp basierend auf 200er-Durchschnitt.",
+      "Schließe wenn RSI 2 wieder bei 70 (long) oder 30 (short) ist."
+    ],
+    market: "Nur in klaren Trends mit kurzfristigen Pullbacks. Nicht in Ranges."
+  },
+  "DPO Reversal": {
+    desc: "Detrended Price Oscillator entfernt den Trend aus dem Preis und zeigt nur noch zyklische Schwankungen — gut für Cycle-Trading.",
+    steps: [
+      "Beobachte den DPO um die Null-Linie.",
+      "DPO unter -2: zyklisches Tief → kaufe bei Drehung nach oben.",
+      "DPO über +2: zyklisches Hoch → verkaufe.",
+      "Stopp jenseits des Extrems.",
+      "Schließe wenn DPO die Null-Linie erreicht."
+    ],
+    market: "Coins mit klaren Zyklen (z.B. wöchentliche Schwankungen)."
+  },
+  "Ultimate Oscillator": {
+    desc: "Eine Kombination aus drei Zeit-Ebenen (kurz/mittel/lang) zu einem einzigen Indikator. Robuster als einzelne Oszillatoren.",
+    steps: [
+      "Beobachte den Ultimate Oscillator.",
+      "Wert unter 30 + bullishe Divergenz mit dem Preis: kaufe.",
+      "Wert über 70 + bearishe Divergenz: verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe an der Mittellinie 50."
+    ],
+    market: "Mehr-Zeit-Ebenen Reversal. Gut bei klaren Divergenzen."
+  },
+  "KAMA Trend": {
+    desc: "Kaufman's adaptiver Durchschnitt passt seine Geschwindigkeit dem Markt an: schnell bei Trends, langsam in Ranges. Sehr robust.",
+    steps: [
+      "Zeichne die KAMA-Linie.",
+      "Steigt der Preis klar über KAMA + KAMA selbst geht nach oben: kaufe.",
+      "Fällt er klar darunter + KAMA fällt: verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe wenn Preis KAMA in Gegenrichtung kreuzt."
+    ],
+    market: "Universell — passt sich automatisch an. Gut für gemischte Märkte."
+  },
+  "Vortex Crossover": {
+    desc: "Zwei Linien (VI+ und VI-) zeigen ob die positive oder negative Bewegung dominiert. Crossover = Trend-Wechsel.",
+    steps: [
+      "Beobachte VI+ und VI- Linien.",
+      "VI+ kreuzt VI- nach oben: bullisch → kaufe.",
+      "VI- kreuzt VI+ nach oben: bearisch → verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe beim Gegenkreuz."
+    ],
+    market: "Trends mit klaren Wendepunkten."
+  },
+  "Klinger Volume Oscillator": {
+    desc: "Ein Volumen-Indikator der unterscheidet zwischen 'echten' Volumen-Bewegungen (mit Trend) und 'Schein'-Volumen.",
+    steps: [
+      "Beobachte den Klinger Volume Oscillator.",
+      "Bullishe Divergenz (Preis fällt, KVO steigt): kaufe.",
+      "Bearishe Divergenz (Preis steigt, KVO fällt): verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe wenn KVO Vorzeichen wechselt."
+    ],
+    market: "Volumen-getriebene Märkte. Vor allem bei Reversal-Signalen mit Divergenz."
+  },
+  "HA Strong Continuation": {
+    desc: "Heikin-Ashi-Spezialität: starke einfarbige Kerzen ohne Gegen-Docht zeigen Trend-Fortsetzung. Du steigst mitten im Trend ein.",
+    steps: [
+      "Beobachte Heikin-Ashi-Kerzen.",
+      "Sobald 2-3 starke grüne Kerzen ohne unteren Docht erscheinen: starker Aufwärtstrend → kaufe am nächsten Pullback.",
+      "Spiegelbildlich für Short.",
+      "Stopp unter der letzten roten HA-Kerze.",
+      "Lass den Trade laufen — solange einfarbige Kerzen kommen."
+    ],
+    market: "Sehr starke Trends. Bei Wechseln viele Stopouts."
+  },
+  "Schaff Trend Cycle": {
+    desc: "STC ist eine MACD-Variante die zusätzlich Zyklus-Analyse einsetzt. Reagiert schneller als MACD, weniger Lag.",
+    steps: [
+      "Beobachte den STC-Indikator (0-100).",
+      "STC steigt über 25 nach Tief: kaufe.",
+      "STC fällt unter 75 nach Hoch: verkaufe.",
+      "Stopp typische Schwankung.",
+      "Schließe wenn STC wieder das Gegenextrem erreicht."
+    ],
+    market: "Mittelfristige Trends. Schneller als MACD aber stabiler als reine Oszillatoren."
+  },
+  "Chandelier Exit Trend": {
+    desc: "Ein Trailing-Stop der mit dem Preis mitläuft. Der Stopp 'hängt' an einem Maß über/unter dem Preis und zieht nach.",
+    steps: [
+      "Berechne den Chandelier Exit (typisch 22 Kerzen Hoch minus 3x typische Schwankung für Long).",
+      "Bei Aufwärtstrend + Preis über 50er Durchschnitt: kaufe wenn Preis Chandelier nach oben durchbricht.",
+      "Stopp = aktueller Chandelier-Wert (zieht mit).",
+      "Spiegelbildlich für Short.",
+      "Schließe wenn Preis den Chandelier-Stopp trifft."
+    ],
+    market: "Klare Trends mit starker Volatilität. Gut zum Profit-Mitnehmen."
+  },
+  "TTM Squeeze": {
+    desc: "Ein Squeeze entsteht wenn die Bollinger-Bänder INNERHALB des Keltner-Channels liegen — extreme Konsolidierung. Wenn er aufbricht, kommt heftige Bewegung.",
+    steps: [
+      "Beobachte ob Bollinger-Bänder innerhalb des Keltner-Channels sind = Squeeze aktiv.",
+      "Squeeze löst sich + Momentum-Histogramm grün: kaufe.",
+      "Squeeze löst sich + Histogramm rot: verkaufe.",
+      "Stopp am Squeeze-Bereich.",
+      "Schließe wenn Histogramm Vorzeichen wechselt."
+    ],
+    market: "Konsolidierungs-Phasen vor Ausbrüchen. Klassiker von John Carter."
+  },
+  "Engulfing + Volume": {
+    desc: "Eine Engulfing-Kerze (umschließende Body) ist nur dann zuverlässig wenn sie mit hohem Volumen kommt — sonst Fehlsignal.",
+    steps: [
+      "Beobachte ob eine bullishe Engulfing-Kerze (grün, umschließt vorherige rote Body) erscheint.",
+      "Prüfe ob das Volumen 1.5x über dem Durchschnitt liegt.",
+      "Plus: Preis muss über dem 50er-Durchschnitt sein (Trendfilter).",
+      "Wenn alles passt: kaufe am Schluss der Engulfing-Kerze.",
+      "Stopp unter Engulfing-Tief.",
+      "Spiegelbildlich für Short."
+    ],
+    market: "Universell mit Trendfilter. Volumen + Engulfing ist deutlich besser als Engulfing alleine."
+  },
+  "21 EMA Bounce/Retest": {
+    desc: "Die 21-Perioden-EMA ist die meist-respektierte Durchschnittslinie im Krypto. Wenn der Preis sie als Support/Resistance behandelt und retestet, kannst du gezielt einsteigen.",
+    steps: [
+      "Beobachte ob der Preis die 21er-EMA von unten nach oben durchbricht (Cross).",
+      "Innerhalb der nächsten 30 Kerzen muss der Preis zur EMA zurückkommen (Retest).",
+      "Die Retest-Kerze muss die EMA mit dem Docht berühren, aber MIT der Body über der EMA schließen — kein Slice durch.",
+      "Sie muss bullisch (grün) sein, mit unterem Docht und vernünftiger Größe — kein Doji.",
+      "Sicherstellen: die 200er EMA liegt darüber als Gewinnziel und keine Resistance dazwischen.",
+      "Kaufen am Schluss der Retest-Kerze, Stopp unter dem Tief, Gewinn-Ziel an der 200er EMA."
+    ],
+    market: "Klare Trend-Phasen mit respektierter 21er EMA. 1h-Timeframe ideal."
+  },
+  "Delphin (EMA Fakeout)": {
+    desc: "Ein Setup nur für Short-Trades im Abwärtstrend: der Preis poppt kurz über die 21 oder 50 EMA (Fakeout), kommt zurück darunter, und du verkaufst beim Retest.",
+    steps: [
+      "Prüfe ob ein klarer Abwärtstrend läuft (21er EMA unter 50er unter 200er).",
+      "Aktueller Preis ist unter der 21er EMA.",
+      "In den letzten 15 Kerzen gab's einen kurzen Pop ÜBER die 21er oder 50er EMA, gefolgt von einer Drehung darunter.",
+      "Innerhalb 15 weiterer Kerzen kommt der Preis zurück zur EMA von unten — Retest.",
+      "Wenn die Retest-Kerze bearisch ist + Docht die EMA berührt + Body unter EMA schließt: verkaufe.",
+      "Stopp knapp über dem Retest-Hoch, Gewinn-Ziel: das Tief vor dem Fakeout."
+    ],
+    market: "Klare Downtrends mit gestaffelten EMAs."
+  },
+  "Advancing/Retracing Wicks (Scalping)": {
+    desc: "Zwei Kerzen mit langen Dochten an der 21er EMA — die Stopps der Trader werden zweimal getestet. Die zweite Kerze ist etwas schwächer.",
+    steps: [
+      "Aktueller Preis muss über (für Long) bzw. unter (für Short) der 21er EMA sein.",
+      "Marktstärke (ADX) muss über 18 sein — kein Seitwärts.",
+      "Beide Kerzen müssen einen langen Docht haben (mind. 30% der Kerzen-Range).",
+      "Die Dochte berühren die 21er EMA, aber der Body bleibt darüber.",
+      "Bei Long: das zweite Tief muss leicht höher sein als das erste (Käufer werden stärker).",
+      "Kaufen am Schluss der zweiten Kerze, Stopp unter dem tiefsten Wick, Gewinn = 1.5x Risiko."
+    ],
+    market: "Scalping auf 5m oder 15m mit klar respektierter 21 EMA."
+  },
+  "Old Money Stacks Breakout": {
+    desc: "Eine S/R-Breakout-Strategie mit strikten Filtern. Ein Trade nur wenn der Breakout sauber durch eine Resistance schließt + 1:2 Risk-Reward möglich ist.",
+    steps: [
+      "Wähle einen Coin mit mind. 5 Mio Tagesvolumen.",
+      "Zeichne die 3 wichtigsten Support- und Resistance-Linien manuell ein.",
+      "Bei einem Long-Breakout: Body schließt zu mind. 50% über der Resistance, oberer Docht max. 30% des Body, Kerze nicht zu groß.",
+      "Die nächste Resistance darüber muss mindestens 1:2 Gewinn-Risiko bieten.",
+      "Kaufen am Schluss der Breakout-Kerze, Stopp unter Tief, Gewinn-Ziel: nächste Resistance."
+    ],
+    market: "Liquide Coins mit klaren Pivot-Strukturen. 1h und 4h."
+  },
+  "LSOB (Liquidity Sweep Order Block)": {
+    desc: "Smart Money jagt zuerst Stopps (Sweep), dann reagiert der Markt scharf. Du tradest die Reaktion — eine der hochwertigsten SMC-Strategien.",
+    steps: [
+      "Such ein Pivot-Tief im Chart das vom Preis kurz unterschritten wurde (Wick darunter), aber dann zurückgeholt wurde (Body schließt drüber) = Sweep.",
+      "Innerhalb 5 Kerzen muss eine bullishe Reaktions-Kerze kommen.",
+      "Markiere die Kerze mit dem TIEFSTEN Tief im Sweep-Bereich (high-to-low) als Box.",
+      "Warte bis der Preis aus der Box nach oben ausbricht.",
+      "Wenn er später zur Box zurückkommt + die Box bullisch verteidigt: kaufe.",
+      "Stopp unter dem Box-Tief, Gewinn-Ziel: 1:2 Risk-Reward."
+    ],
+    market: "Universell auf höheren Timeframes (1h-4h). Setups sind selten aber qualitativ stark."
+  },
+  "Custom Builder": {
+    desc: "Dein eigener Bauplan: kombiniere Indikator-Bausteine zu deiner persönlichen Strategie. Du wählst was an deine Bedürfnisse passt.",
+    steps: [
+      "Geh in den Strategy-Builder-Tab.",
+      "Wähle aus den Bausteinen: RSI, EMA, MACD, Bollinger, Volumen usw.",
+      "Definiere Entry-Bedingungen (z.B. RSI < 30 UND Preis über EMA50).",
+      "Definiere Exit-Bedingungen (z.B. RSI > 70 ODER Stop-Loss erreicht).",
+      "Speichere und teste die Strategie im Backtest.",
+      "Tune Parameter mit dem Optimizer."
+    ],
+    market: "Hängt von deinen Bausteinen ab. Maximaler Flexibilität — wenn du weißt was du willst."
   }
 };
 
@@ -17770,6 +18583,62 @@ function _translateFGCls(cls) {
   return map[cls] || cls || '';
 }
 
+// Refresh-Button-Wrapper mit Status-Animation (Lade-Spinner, OK-Check, Error)
+async function _marketRefresh() {
+  const btn = document.getElementById('marketRefreshBtn');
+  const icon = document.getElementById('marketRefreshIcon');
+  const label = document.getElementById('marketRefreshLabel');
+  if (!btn || !icon || !label) return;
+  // Loading-State
+  btn.disabled = true;
+  btn.style.background = 'var(--bg-tertiary)';
+  btn.style.borderColor = 'var(--blue)';
+  btn.style.color = 'var(--blue)';
+  icon.textContent = '⟳';
+  icon.style.display = 'inline-block';
+  icon.style.animation = 'spin 1s linear infinite';
+  label.textContent = 'Lädt...';
+  try {
+    await loadMarketData();
+    // Success-State (kurz)
+    icon.style.animation = 'none';
+    icon.textContent = '✓';
+    btn.style.borderColor = '#22c55e';
+    btn.style.color = '#22c55e';
+    label.textContent = 'Aktualisiert';
+    setTimeout(() => {
+      icon.textContent = '↻';
+      icon.style.animation = 'none';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color = 'var(--text-muted)';
+      label.textContent = 'Aktualisieren';
+      btn.disabled = false;
+    }, 1800);
+  } catch (e) {
+    // Error-State
+    icon.style.animation = 'none';
+    icon.textContent = '⚠';
+    btn.style.borderColor = '#ef4444';
+    btn.style.color = '#ef4444';
+    label.textContent = 'Fehler';
+    setTimeout(() => {
+      icon.textContent = '↻';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color = 'var(--text-muted)';
+      label.textContent = 'Aktualisieren';
+      btn.disabled = false;
+    }, 2500);
+  }
+}
+
+// Spinner-Animation (CSS-Keyframe per Style-Tag injizieren falls noch nicht da)
+if (!document.getElementById('_marketRefreshSpinStyle')) {
+  const s = document.createElement('style');
+  s.id = '_marketRefreshSpinStyle';
+  s.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+  document.head.appendChild(s);
+}
+
 // Funding Rate für aktuelles Symbol holen — Binance Perp (premiumIndex endpoint)
 async function loadFundingRate(symbol) {
   const el = document.getElementById('fundingRateLive');
@@ -20548,13 +21417,55 @@ document.addEventListener('click', (e) => {
   _academySwitchSection(section);
 });
 
+// Akademie-Modus: 'simple' (Anfänger) oder 'detailed' (Profi)
+function getAcademyMode() {
+  try { return localStorage.getItem('fb_academy_mode') || 'simple'; } catch(e) { return 'simple'; }
+}
+function setAcademyMode(mode) {
+  try { localStorage.setItem('fb_academy_mode', mode); } catch(e) {}
+  // Buttons updaten
+  const sBtn = document.getElementById('academyModeSimple');
+  const dBtn = document.getElementById('academyModeDetailed');
+  if (sBtn && dBtn) {
+    if (mode === 'simple') {
+      sBtn.style.background = 'var(--blue)'; sBtn.style.color = '#fff';
+      dBtn.style.background = 'transparent'; dBtn.style.color = 'var(--text-muted)';
+    } else {
+      sBtn.style.background = 'transparent'; sBtn.style.color = 'var(--text-muted)';
+      dBtn.style.background = 'var(--blue)'; dBtn.style.color = '#fff';
+    }
+  }
+  // Re-render
+  if (typeof renderAcademy === 'function') renderAcademy();
+}
+
 function renderAcademy() {
   const container = document.getElementById('academyContent');
   if (!container) return;
   const isEn = (typeof _currentLang !== 'undefined' && _currentLang === 'en');
   const search = ((document.getElementById('academySearch') || {}).value || '').toLowerCase().trim();
   const cat = ((document.getElementById('academyCategory') || {}).value || 'all');
-  const infoSrc = (isEn && typeof STRATEGY_INFO_EN !== 'undefined') ? STRATEGY_INFO_EN : STRATEGY_INFO;
+  const mode = getAcademyMode();
+  // Beim Erst-Render: Toggle-Button-State korrekt setzen
+  setAcademyMode._uiSync = setAcademyMode._uiSync || (() => {
+    const sBtn = document.getElementById('academyModeSimple');
+    const dBtn = document.getElementById('academyModeDetailed');
+    if (!sBtn || !dBtn) return;
+    if (mode === 'simple') {
+      sBtn.style.background = 'var(--blue)'; sBtn.style.color = '#fff';
+      dBtn.style.background = 'transparent'; dBtn.style.color = 'var(--text-muted)';
+    } else {
+      sBtn.style.background = 'transparent'; sBtn.style.color = 'var(--text-muted)';
+      dBtn.style.background = 'var(--blue)'; dBtn.style.color = '#fff';
+    }
+  });
+  setAcademyMode._uiSync();
+  const detailedSrc = (isEn && typeof STRATEGY_INFO_EN !== 'undefined') ? STRATEGY_INFO_EN : STRATEGY_INFO;
+  const simpleSrc = (typeof STRATEGY_INFO_SIMPLE !== 'undefined') ? STRATEGY_INFO_SIMPLE : {};
+  // Im Simple-Modus: simple Texte wenn vorhanden, sonst Fallback zu detailed
+  const infoSrc = (mode === 'simple') ? new Proxy({}, {
+    get: (_, key) => simpleSrc[key] || detailedSrc[key]
+  }) : detailedSrc;
 
   // Header mit Anzahl der angezeigten / total Strategien aktualisieren
   let totalAvailable = 0;
@@ -20579,6 +21490,42 @@ function renderAcademy() {
     const lblMarket = isEn ? 'Market:' : 'Markt:';
     const lblIndicators = isEn ? 'Indicators:' : 'Indikatoren:';
     const lblExample = isEn ? 'Schematic example:' : 'Schematisches Beispiel:';
+    const lblHowto = isEn ? 'How to trade it:' : 'So tradest du es:';
+    const lblWhen = isEn ? 'Works best in:' : 'Funktioniert am besten bei:';
+    // Simple-Modus zeigt Schritte als Liste statt Entry/Exit-Grid
+    const isSimpleFormat = (mode === 'simple') && Array.isArray(info.steps);
+    let bodyHtml = '';
+    if (isSimpleFormat) {
+      bodyHtml = `
+        <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${info.desc}</p>
+        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
+          ${_academySvg(schema, isEn)}
+        </div>
+        <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:8px">📖 ${lblHowto}</div>
+          <ol style="margin:0;padding-left:22px;line-height:1.8">
+            ${info.steps.map(s => `<li>${s}</li>`).join('')}
+          </ol>
+        </div>
+        ${info.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
+          <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${info.market}
+        </div>` : ''}`;
+    } else {
+      bodyHtml = `
+        <p style="margin:0 0 12px;color:var(--text-primary)">${info.desc}</p>
+        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
+          ${_academySvg(schema, isEn)}
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px">
+          <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${info.entry}</span>
+          <span style="color:var(--red);font-weight:600">${lblExit}</span><span>${info.exit}</span>
+          <span style="color:var(--yellow);font-weight:600">${lblMarket}</span><span>${info.market}</span>
+          <span style="color:var(--blue);font-weight:600">${lblIndicators}</span><span>${info.indicators}</span>
+        </div>
+        ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}`;
+    }
     html += `
       <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
         <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
@@ -20587,18 +21534,7 @@ function renderAcademy() {
           <span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;background:var(--bg-tertiary);padding:2px 8px;border-radius:10px">${schema.replace('-', ' ')}</span>
         </summary>
         <div style="padding:0 16px 16px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
-          <p style="margin:0 0 12px;color:var(--text-primary)">${info.desc}</p>
-          <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
-            ${_academySvg(schema, isEn)}
-          </div>
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px">
-            <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${info.entry}</span>
-            <span style="color:var(--red);font-weight:600">${lblExit}</span><span>${info.exit}</span>
-            <span style="color:var(--yellow);font-weight:600">${lblMarket}</span><span>${info.market}</span>
-            <span style="color:var(--blue);font-weight:600">${lblIndicators}</span><span>${info.indicators}</span>
-          </div>
-          ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}
+          ${bodyHtml}
         </div>
       </details>`;
   }
