@@ -22399,25 +22399,24 @@ function renderAcademy() {
   setAcademyMode._uiSync();
   const detailedSrc = (isEn && typeof STRATEGY_INFO_EN !== 'undefined') ? STRATEGY_INFO_EN : STRATEGY_INFO;
   const simpleSrc = (typeof STRATEGY_INFO_SIMPLE !== 'undefined') ? STRATEGY_INFO_SIMPLE : {};
-  // Im Simple-Modus: simple Texte wenn vorhanden, sonst Fallback zu detailed
-  const infoSrc = (mode === 'simple') ? new Proxy({}, {
-    get: (_, key) => simpleSrc[key] || detailedSrc[key]
-  }) : detailedSrc;
 
   // Header mit Anzahl der angezeigten / total Strategien aktualisieren
   let totalAvailable = 0;
-  for (const strat of STRATEGIES) if (infoSrc[strat.name]) totalAvailable++;
+  for (const strat of STRATEGIES) if (simpleSrc[strat.name] || detailedSrc[strat.name]) totalAvailable++;
 
   let html = '';
   let count = 0;
   for (const strat of STRATEGIES) {
-    const info = infoSrc[strat.name];
-    if (!info) continue;
+    const simpleInfo = simpleSrc[strat.name];
+    const detailedInfo = detailedSrc[strat.name];
+    if (!simpleInfo && !detailedInfo) continue;
+    const info = simpleInfo || detailedInfo;  // Fallback fuer desc/Suche
     const schema = ACADEMY_SCHEMAS[strat.name] || 'advanced';
     const stratCat = ACADEMY_CAT_OF_SCHEMA[schema] || 'advanced';
     if (cat !== 'all' && stratCat !== cat) continue;
     if (search) {
-      const blob = (strat.name + ' ' + info.desc + ' ' + info.indicators).toLowerCase();
+      const indStr = Array.isArray(info.indicators) ? info.indicators.join(' ') : (info.indicators || '');
+      const blob = (strat.name + ' ' + (info.desc || '') + ' ' + indStr).toLowerCase();
       if (!blob.includes(search)) continue;
     }
     count++;
@@ -22429,28 +22428,42 @@ function renderAcademy() {
     const lblExample = isEn ? 'Schematic example:' : 'Schematisches Beispiel:';
     const lblHowto = isEn ? 'How to trade it:' : 'So tradest du es:';
     const lblWhen = isEn ? 'Works best in:' : 'Funktioniert am besten bei:';
-    // Simple-Modus zeigt Schritte als Liste statt Entry/Exit-Grid
-    const isSimpleFormat = (mode === 'simple') && Array.isArray(info.steps);
+    // Wenn simple Daten vorhanden: immer Simple-Layout. Detailliert-Modus haengt eine zusaetzliche Profi-Box dran.
+    const useSimpleLayout = simpleInfo && Array.isArray(simpleInfo.steps);
     let bodyHtml = '';
-    if (isSimpleFormat) {
+    if (useSimpleLayout) {
       const lblIndicatorsBox = isEn ? 'Add these indicators to your chart:' : 'Indikatoren auf den Chart legen:';
       const lblGlossary = isEn ? 'What the terms mean' : 'Was die Begriffe bedeuten';
-      const indicatorsHtml = (Array.isArray(info.indicators) && info.indicators.length) ? `
+      const lblProDetails = isEn ? 'Pro Details (exact thresholds & technical conditions)' : 'Profi-Details (exakte Schwellenwerte & Bedingungen)';
+      const lblProSubtitle = isEn ? 'Same strategy as above, just with the precise numbers a pro would tune.' : 'Gleiche Strategie wie oben — nur mit den exakten Werten zum Tunen.';
+      const indicatorsHtml = (Array.isArray(simpleInfo.indicators) && simpleInfo.indicators.length) ? `
         <div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:12px 14px;border-radius:4px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📊 ${lblIndicatorsBox}</div>
           <ul style="margin:0;padding-left:22px;line-height:1.8">
-            ${info.indicators.map(s => `<li>${s}</li>`).join('')}
+            ${simpleInfo.indicators.map(s => `<li>${s}</li>`).join('')}
           </ul>
         </div>` : '';
-      const glossaryHtml = (Array.isArray(info.glossary) && info.glossary.length) ? `
+      const glossaryHtml = (Array.isArray(simpleInfo.glossary) && simpleInfo.glossary.length) ? `
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--text-muted)">
           <div style="font-weight:700;color:var(--text-secondary);margin-bottom:6px">📚 ${lblGlossary}</div>
           <ul style="margin:0;padding-left:18px;line-height:1.7">
-            ${info.glossary.map(g => `<li>${g}</li>`).join('')}
+            ${simpleInfo.glossary.map(g => `<li>${g}</li>`).join('')}
           </ul>
         </div>` : '';
+      // Profi-Details-Box — nur im Detailliert-Modus, mit den exakten Werten aus STRATEGY_INFO
+      const proDetailsHtml = (mode === 'detailed' && detailedInfo) ? `
+        <div style="background:rgba(168,85,247,0.08);border-left:3px solid #a855f7;padding:12px 14px;border-radius:4px;margin-top:12px">
+          <div style="font-size:12px;font-weight:700;color:#a855f7;margin-bottom:4px">🔬 ${lblProDetails}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-style:italic">${lblProSubtitle}</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;line-height:1.55">
+            <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${detailedInfo.entry || '—'}</span>
+            <span style="color:var(--red);font-weight:600">${lblExit}</span><span>${detailedInfo.exit || '—'}</span>
+            <span style="color:var(--blue);font-weight:600">${lblIndicators}</span><span>${detailedInfo.indicators || '—'}</span>
+          </div>
+          ${tips ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">${tips}</div>` : ''}
+        </div>` : '';
       bodyHtml = `
-        <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${info.desc}</p>
+        <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${simpleInfo.desc}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
           ${_academySvg(schema, isEn)}
@@ -22459,25 +22472,28 @@ function renderAcademy() {
         <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:8px">📖 ${lblHowto}</div>
           <ol style="margin:0;padding-left:22px;line-height:1.8">
-            ${info.steps.map(s => `<li>${s}</li>`).join('')}
+            ${simpleInfo.steps.map(s => `<li>${s}</li>`).join('')}
           </ol>
         </div>
-        ${info.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
-          <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${info.market}
+        ${simpleInfo.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
+          <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${simpleInfo.market}
         </div>` : ''}
-        ${glossaryHtml}`;
+        ${glossaryHtml}
+        ${proDetailsHtml}`;
     } else {
+      // Fallback fuer Strategien ohne simple-Daten (sollte aktuell keine geben — alle 71 sind drin)
+      const di = detailedInfo || simpleInfo;
       bodyHtml = `
-        <p style="margin:0 0 12px;color:var(--text-primary)">${info.desc}</p>
+        <p style="margin:0 0 12px;color:var(--text-primary)">${di.desc || ''}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
           ${_academySvg(schema, isEn)}
         </div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px">
-          <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${info.entry}</span>
-          <span style="color:var(--red);font-weight:600">${lblExit}</span><span>${info.exit}</span>
-          <span style="color:var(--yellow);font-weight:600">${lblMarket}</span><span>${info.market}</span>
-          <span style="color:var(--blue);font-weight:600">${lblIndicators}</span><span>${info.indicators}</span>
+          <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${di.entry || '—'}</span>
+          <span style="color:var(--red);font-weight:600">${lblExit}</span><span>${di.exit || '—'}</span>
+          <span style="color:var(--yellow);font-weight:600">${lblMarket}</span><span>${di.market || '—'}</span>
+          <span style="color:var(--blue);font-weight:600">${lblIndicators}</span><span>${di.indicators || '—'}</span>
         </div>
         ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}`;
     }
