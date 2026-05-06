@@ -20278,7 +20278,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ═══════════════════════════════════════════════
 // Mappt jede Strategie auf eine Schema-Kategorie (fuer SVG-Beispiel + Filter)
 const ACADEMY_SCHEMAS = {
-  'Z-Score Mean Reversion': 'mean-reversion',
+  'Z-Score Mean Reversion': 'channel-reversion',
   'Trend-Pullback': 'trend-pullback',
   'Donchian-Breakout + ADX': 'breakout',
   'Bollinger Reversion': 'channel-reversion',
@@ -20704,14 +20704,16 @@ function _academySvg(schema, isEn) {
     body += `<line x1="${leftPad}" y1="${yScale(rangeLow)}" x2="${cx(17) + cw/2}" y2="${yScale(rangeLow)}" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="3 2"/>`;
     body += `<text x="${leftPad + 4}" y="${yScale(rangeLow) + 12}" fill="#3fb950" font-size="10">${labels.support}</text>`;
   } else if (schema === 'channel-reversion') {
-    // BB-aehnliche obere/untere Bands
-    const bbUpper = 121, bbLower = 79;
+    // BB-aehnliche obere/untere Bands plus Mittellinie (SMA)
+    const bbUpper = 121, bbLower = 79, bbMid = 100;
     const upperPts = candles.map((c, i) => [cx(i), yScale(bbUpper)]);
     const lowerPts = candles.map((c, i) => [cx(i), yScale(bbLower)]);
+    body += `<line x1="${leftPad}" y1="${yScale(bbMid)}" x2="${W - rightPad}" y2="${yScale(bbMid)}" stroke="#8b949e" stroke-width="1" stroke-dasharray="4 3"/>`;
     body += `<polyline points="${upperPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="1" stroke-dasharray="3 2"/>`;
     body += `<polyline points="${lowerPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#3fb950" stroke-width="1" stroke-dasharray="3 2"/>`;
-    body += `<text x="${leftPad + 4}" y="${yScale(bbUpper) - 3}" fill="#f85149" font-size="10">Upper Band</text>`;
-    body += `<text x="${leftPad + 4}" y="${yScale(bbLower) + 12}" fill="#3fb950" font-size="10">Lower Band</text>`;
+    body += `<text x="${leftPad + 4}" y="${yScale(bbUpper) - 3}" fill="#f85149" font-size="10">${isEn ? 'Upper Band (+2σ)' : 'Oberes Band (+2σ)'}</text>`;
+    body += `<text x="${leftPad + 4}" y="${yScale(bbMid) - 3}" fill="#8b949e" font-size="10">${isEn ? 'SMA / Mid' : 'SMA / Mitte'}</text>`;
+    body += `<text x="${leftPad + 4}" y="${yScale(bbLower) + 12}" fill="#3fb950" font-size="10">${isEn ? 'Lower Band (−2σ)' : 'Unteres Band (−2σ)'}</text>`;
   } else if (schema === 'oscillator-reversal') {
     // Oszillator-Panel oben mit zwei Linien (K und D) — zeigt Crossover-Konzept
     body += `<rect x="${leftPad}" y="14" width="${chartW}" height="60" fill="none" stroke="#30363d" stroke-width="1"/>`;
