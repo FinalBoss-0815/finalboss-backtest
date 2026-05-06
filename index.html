@@ -25450,3 +25450,972 @@ function _paperInitTab() {
       o.textContent = opt.value.replace('USDT', '');
       coinSel.appendChild(o);
     }
+  }
+  // Vorbelegung
+  if (paperState.symbol && coinSel) coinSel.value = paperState.symbol;
+  if (paperState.tf) document.getElementById('paperTF').value = paperState.tf;
+  if (paperState.startBalance) document.getElementById('paperBalance').value = paperState.startBalance;
+  if (paperState.riskPct) document.getElementById('paperRisk').value = paperState.riskPct;
+  // Strategie-Display aktualisieren
+  _paperUpdateStrategyDisplay();
+  // Wenn aktiv → UI rendern
+  if (paperState.active) {
+    _paperRenderUI();
+    _paperSetUIRunning(true);
+  } else {
+    _paperRenderUI();
+  }
+}
+
+function _paperUpdateStrategyDisplay() {
+  const stratIdx = parseInt(document.getElementById('strategySelect')?.value) || 0;
+  const strategy = STRATEGIES[stratIdx];
+  const dispEl = document.getElementById('paperStrategyDisplay');
+  if (dispEl) dispEl.value = strategy ? strategy.name : '—';
+}
+
+function _paperSetUIRunning(running) {
+  const dot = document.getElementById('paperStatusDot');
+  const txt = document.getElementById('paperStatusText');
+  const startBtn = document.getElementById('paperStartBtn');
+  const stopBtn = document.getElementById('paperStopBtn');
+  const cards = document.getElementById('paperStatusCards');
+  const inputs = ['paperCoin', 'paperTF', 'paperBalance', 'paperRisk'];
+  if (running) {
+    if (dot) { dot.style.background = '#22c55e'; dot.style.boxShadow = '0 0 8px #22c55e'; }
+    if (txt) { txt.textContent = `— LIVE auf ${paperState.symbol} ${paperState.tf} (${paperState.strategyName})`; }
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'inline-block';
+    if (cards) cards.style.display = 'block';
+    inputs.forEach(id => { const e = document.getElementById(id); if (e) e.disabled = true; });
+  } else {
+    if (dot) { dot.style.background = '#666'; dot.style.boxShadow = 'none'; }
+    if (txt) { txt.textContent = '— gestoppt'; }
+    if (startBtn) startBtn.style.display = 'inline-block';
+    if (stopBtn) stopBtn.style.display = 'none';
+    inputs.forEach(id => { const e = document.getElementById(id); if (e) e.disabled = false; });
+  }
+}
+
+async function paperStart() {
+  if (paperState.active) return;
+  const stratIdx = parseInt(document.getElementById('strategySelect').value);
+  const strategy = STRATEGIES[stratIdx];
+  if (!strategy) { alert('Bitte Strategie wählen!'); return; }
+  const symbol = document.getElementById('paperCoin').value;
+  const tf = document.getElementById('paperTF').value;
+  const startBalance = parseFloat(document.getElementById('paperBalance').value) || 10000;
+  const riskPct = parseFloat(document.getElementById('paperRisk').value) || 1;
+
+  // Wenn andere Konfig als gespeichert: Reset
+  if (paperState.symbol && (paperState.symbol !== symbol || paperState.tf !== tf || paperState.strategyName !== strategy.name)) {
+    if (paperState.closedTrades.length > 0 || paperState.openPosition) {
+      if (!confirm('Andere Konfig erkannt. Bestehenden Paper-State (Trades + Equity) verwerfen und neu starten?')) return;
+    }
+    paperReset(false);
+  }
+
+  // State init (wenn nicht resumed)
+  if (!paperState.active && paperState.closedTrades.length === 0 && !paperState.openPosition) {
+    paperState.symbol = symbol;
+    paperState.tf = tf;
+    paperState.strategyName = strategy.name;
+    paperState.startBalance = startBalance;
+    paperState.balance = startBalance;
+    paperState.riskPct = riskPct;
+    paperState.candles = [];
+    paperState.equity = [{ ts: Date.now(), value: startBalance }];
+    paperState.startedAt = Date.now();
+    // Snapshot der Strategie-Params
+    paperState.strategyParamsSnapshot = {};
+    for (const [k, p] of Object.entries(strategy.params)) {
+      const el = document.getElementById('param_' + k);
+      paperState.strategyParamsSnapshot[k] = { ...p, value: el ? parseFloat(el.value) : p.value };
+    }
+  } else {
+    // Resume: nur Symbol/TF/Strategy bleiben gleich, Balance/Trades behalten
+    log('Paper-Trading wird wieder aufgenommen', 'success');
+  }
+
+  paperState.active = true;
+  _paperSetUIRunning(true);
+  _paperRenderUI();
+
+  log(`=== Paper Trading gestartet: ${strategy.name} auf ${symbol} ${tf} ===`, 'success');
+
+  // Warmup-Kerzen laden
+  try {
+    document.getElementById('paperConnStatus').textContent = 'Lade Warmup-Daten...';
+    const now = Date.now();
+    // Berechne Start: ~PAPER_WARMUP * TF in ms zurück
+    const tfMs = _paperTfMs(tf);
+    const startMs = now - PAPER_WARMUP * tfMs;
+    const startDate = new Date(startMs).toISOString().slice(0, 10);
+    const endDate = new Date(now + tfMs).toISOString().slice(0, 10);
+    const warmup = await fetchCandles(symbol, tf, startDate, endDate);
+    if (warmup.length < 50) throw new Error(`Nur ${warmup.length} Warmup-Kerzen`);
+    paperState.candles = warmup.slice(-PAPER_WARMUP);
+    log(`  ${warmup.length} Warmup-Kerzen geladen`);
+  } catch (e) {
+    log(`Paper-Warmup-Fehler: ${e.message}`, 'error');
+    paperStop();
+    return;
+  }
+
+  // WebSocket starten
+  _paperConnectWS();
+  _paperSavePersist();
+}
+
+function paperStop() {
+  paperState.active = false;
+  if (paperState.ws) {
+    try { paperState.ws.close(); } catch(e) {}
+    paperState.ws = null;
+  }
+  if (paperState.reconnectTimer) {
+    clearTimeout(paperState.reconnectTimer);
+    paperState.reconnectTimer = null;
+  }
+  _paperSetUIRunning(false);
+  _paperSavePersist();
+  log('Paper Trading gestoppt');
+}
+
+function paperReset(confirmFirst = true) {
+  if (confirmFirst && (paperState.closedTrades.length > 0 || paperState.openPosition)) {
+    if (!confirm('Wirklich resetten? Alle Paper-Trades und Equity werden gelöscht.')) return;
+  }
+  paperStop();
+  paperState.candles = [];
+  paperState.openPosition = null;
+  paperState.closedTrades = [];
+  paperState.equity = [];
+  paperState.balance = paperState.startBalance;
+  paperState.startedAt = null;
+  paperState.symbol = null;
+  paperState.strategyParamsSnapshot = null;
+  try { localStorage.removeItem(PAPER_STATE_KEY); } catch(e) {}
+  _paperRenderUI();
+  log('Paper-State zurückgesetzt');
+}
+
+function _paperTfMs(tf) {
+  const map = { '1m': 60_000, '3m': 180_000, '5m': 300_000, '15m': 900_000, '30m': 1_800_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000 };
+  return map[tf] || 60_000;
+}
+
+function _paperConnectWS() {
+  const symLow = paperState.symbol.toLowerCase();
+  const tfStream = paperState.tf;
+  const url = `wss://stream.binance.com:9443/ws/${symLow}@kline_${tfStream}`;
+  try {
+    paperState.ws = new WebSocket(url);
+    paperState.ws.onopen = () => {
+      paperState.reconnectAttempts = 0;
+      const stat = document.getElementById('paperConnStatus');
+      if (stat) { stat.textContent = '🟢 Verbunden'; stat.style.color = '#22c55e'; }
+    };
+    paperState.ws.onmessage = (ev) => _paperHandleMessage(ev.data);
+    paperState.ws.onerror = () => {
+      const stat = document.getElementById('paperConnStatus');
+      if (stat) { stat.textContent = '⚠️ WS-Fehler'; stat.style.color = '#f59e0b'; }
+    };
+    paperState.ws.onclose = () => {
+      if (!paperState.active) return; // intentionally closed
+      const stat = document.getElementById('paperConnStatus');
+      if (stat) { stat.textContent = '🔴 Reconnecting...'; stat.style.color = '#ef4444'; }
+      paperState.reconnectAttempts++;
+      const delay = Math.min(30000, 1000 * Math.pow(2, paperState.reconnectAttempts));
+      paperState.reconnectTimer = setTimeout(_paperConnectWS, delay);
+    };
+  } catch(e) {
+    log(`Paper-WS-Fehler: ${e.message}`, 'error');
+  }
+}
+
+function _paperHandleMessage(data) {
+  let msg;
+  try { msg = JSON.parse(data); } catch(e) { return; }
+  if (!msg.k) return;
+  const k = msg.k;
+  const candle = {
+    ts: k.t,
+    open: parseFloat(k.o),
+    high: parseFloat(k.h),
+    low: parseFloat(k.l),
+    close: parseFloat(k.c),
+    volume: parseFloat(k.v)
+  };
+  // Update or append: letzte Kerze ist möglicherweise dieselbe (forming)
+  const last = paperState.candles[paperState.candles.length - 1];
+  if (last && last.ts === candle.ts) {
+    paperState.candles[paperState.candles.length - 1] = candle;
+  } else {
+    paperState.candles.push(candle);
+    // Trim zu PAPER_WARMUP * 1.5 falls über
+    if (paperState.candles.length > PAPER_WARMUP * 2) {
+      paperState.candles = paperState.candles.slice(-Math.floor(PAPER_WARMUP * 1.5));
+    }
+  }
+
+  // Open Position checken (intra-bar SL/TP via aktuellen high/low)
+  if (paperState.openPosition) {
+    _paperCheckSLTP(candle);
+  }
+
+  // Bei geschlossener Kerze (k.x === true): Strategie auswerten
+  if (k.x === true) {
+    _paperEvaluateStrategy();
+  }
+
+  _paperRenderUI();
+
+  // Periodisch persistieren (auf Close oder alle paar Ticks)
+  if (k.x === true) _paperSavePersist();
+}
+
+// Konvertiert Rich-Params {key:{value,min,...}} zu Flat {key:value} (analog runEngine)
+function _paperFlatParams(rich) {
+  const flat = {};
+  for (const [k, v] of Object.entries(rich || {})) {
+    flat[k] = (v && typeof v === 'object' && v.value !== undefined) ? v.value : v;
+  }
+  return flat;
+}
+
+function _paperEvaluateStrategy() {
+  const strategy = STRATEGIES.find(s => s.name === paperState.strategyName);
+  if (!strategy) return;
+  if (!paperState.strategyParamsSnapshot) return;
+  const params = _paperFlatParams(paperState.strategyParamsSnapshot);
+
+  try {
+    // Re-init mit allen Kerzen (state wird neu aufgebaut)
+    strategy.init.call(strategy, paperState.candles, params);
+    // Replay shouldEnter über alle PAST Kerzen damit stateful Strategien (z.B. _lastUpCross) korrekt aufbauen
+    const N = paperState.candles.length;
+    for (let i = 1; i < N - 1; i++) {
+      try { strategy.shouldEnter.call(strategy, paperState.candles, i, params); } catch(e) {}
+    }
+
+    // Wenn Position offen → Exit prüfen
+    if (paperState.openPosition && strategy.shouldExit) {
+      const i = N - 1;
+      try {
+        const exit = strategy.shouldExit.call(strategy, paperState.candles, i, paperState.openPosition, params);
+        if (exit) _paperClosePosition(paperState.candles[i].close, 'strategy-exit');
+      } catch(e) {}
+    }
+
+    // Letzte Kerze: Entry prüfen (wenn keine Position offen)
+    if (!paperState.openPosition) {
+      const i = N - 1;
+      const signal = strategy.shouldEnter.call(strategy, paperState.candles, i, params);
+      if (signal && signal.dir && isFinite(signal.sl)) {
+        const c = paperState.candles[i];
+        _paperOpenPosition(signal, c);
+      }
+    }
+  } catch (e) {
+    log(`Paper-Strategie-Fehler: ${e.message}`, 'error');
+  }
+}
+
+function _paperCheckSLTP(candle) {
+  const pos = paperState.openPosition;
+  if (!pos) return;
+  // Pessimistic: SL zuerst (worst case)
+  if (pos.dir === 'long') {
+    if (candle.low <= pos.sl) { _paperClosePosition(pos.sl, 'sl-hit'); return; }
+    if (pos.tp && candle.high >= pos.tp) { _paperClosePosition(pos.tp, 'tp-hit'); return; }
+  } else {
+    if (candle.high >= pos.sl) { _paperClosePosition(pos.sl, 'sl-hit'); return; }
+    if (pos.tp && candle.low <= pos.tp) { _paperClosePosition(pos.tp, 'tp-hit'); return; }
+  }
+}
+
+function _paperOpenPosition(signal, candle) {
+  const entry = candle.close;
+  const sl = signal.sl;
+  const tp = signal.tp || null;
+  const riskDist = Math.abs(entry - sl);
+  if (riskDist <= 0) return;
+  const riskUsd = paperState.balance * paperState.riskPct / 100;
+  paperState.openPosition = {
+    entryTs: candle.ts,
+    entry, sl, tp,
+    dir: signal.dir,
+    riskUsd,
+    riskDist
+  };
+  _paperNotify(`📥 ${signal.dir.toUpperCase()} ${paperState.symbol.replace('USDT','')} @ ${fmtPrice(entry)} | SL ${fmtPrice(sl)}${tp ? ' | TP ' + fmtPrice(tp) : ''}`, 'open');
+  log(`Paper: Position opened ${signal.dir} ${paperState.symbol} @ ${fmtPrice(entry)}`, 'success');
+}
+
+function _paperClosePosition(exitPrice, reason) {
+  const pos = paperState.openPosition;
+  if (!pos) return;
+  const move = pos.dir === 'long' ? (exitPrice - pos.entry) : (pos.entry - exitPrice);
+  const pnlUsd = pos.riskDist > 0 ? pos.riskUsd * (move / pos.riskDist) : 0;
+  const pnlPct = pnlUsd / paperState.balance * 100;
+  paperState.balance += pnlUsd;
+  const trade = {
+    entryTs: pos.entryTs,
+    exitTs: Date.now(),
+    dir: pos.dir,
+    entry: pos.entry,
+    exit: exitPrice,
+    sl: pos.sl,
+    tp: pos.tp,
+    pnlUsd,
+    pnlPct,
+    reason,
+    symbol: paperState.symbol
+  };
+  paperState.closedTrades.unshift(trade); // newest first
+  paperState.equity.push({ ts: Date.now(), value: paperState.balance });
+  paperState.openPosition = null;
+  const sgn = pnlUsd >= 0 ? '+' : '';
+  _paperNotify(`📤 ${pos.dir.toUpperCase()} ${paperState.symbol.replace('USDT','')} closed @ ${fmtPrice(exitPrice)} | PnL ${sgn}$${pnlUsd.toFixed(2)} (${reason})`, pnlUsd >= 0 ? 'win' : 'loss');
+  log(`Paper: Position closed ${pos.dir} @ ${fmtPrice(exitPrice)}, PnL ${sgn}$${pnlUsd.toFixed(2)} (${reason})`, pnlUsd >= 0 ? 'success' : 'error');
+  _paperSavePersist();
+}
+
+function _paperNotify(msg, type = 'open') {
+  // Toast oben rechts
+  const toast = document.createElement('div');
+  const colors = { open: '#06b6d4', win: '#22c55e', loss: '#ef4444' };
+  toast.style.cssText = `position:fixed;top:60px;right:20px;background:${colors[type]||'#06b6d4'};color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:10000;max-width:380px;animation:slideIn 0.3s`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, 5000);
+  setTimeout(() => toast.remove(), 5500);
+  // Sound
+  if (document.getElementById('paperSound')?.checked) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = type === 'win' ? 880 : type === 'loss' ? 220 : 440;
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(); osc.stop(ctx.currentTime + 0.3);
+    } catch(e) {}
+  }
+}
+
+function _paperRenderUI() {
+  // Status-Cards
+  const ret = paperState.startBalance > 0 ? (paperState.balance - paperState.startBalance) / paperState.startBalance * 100 : 0;
+  const balEl = document.getElementById('paperBalanceDisplay');
+  if (balEl) balEl.textContent = `$${paperState.balance.toFixed(2)}`;
+  const retEl = document.getElementById('paperReturnDisplay');
+  if (retEl) {
+    retEl.textContent = `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}% seit Start`;
+    retEl.style.color = ret >= 0 ? '#22c55e' : '#ef4444';
+  }
+  // Open Position
+  const posEl = document.getElementById('paperPosDisplay');
+  const posPnLEl = document.getElementById('paperPosPnL');
+  if (paperState.openPosition && posEl) {
+    const p = paperState.openPosition;
+    const last = paperState.candles[paperState.candles.length - 1];
+    const curPrice = last ? last.close : p.entry;
+    const move = p.dir === 'long' ? (curPrice - p.entry) : (p.entry - curPrice);
+    const liveR = p.riskDist > 0 ? move / p.riskDist : 0;
+    posEl.textContent = `${p.dir.toUpperCase()} @ ${fmtPrice(p.entry)}`;
+    posEl.style.color = p.dir === 'long' ? '#22c55e' : '#ef4444';
+    if (posPnLEl) {
+      posPnLEl.textContent = `Live: ${liveR >= 0 ? '+' : ''}${liveR.toFixed(2)}R | SL ${fmtPrice(p.sl)}${p.tp ? ' | TP ' + fmtPrice(p.tp) : ''}`;
+      posPnLEl.style.color = liveR >= 0 ? '#22c55e' : '#ef4444';
+    }
+  } else if (posEl) {
+    posEl.textContent = 'Keine';
+    posEl.style.color = 'var(--text-primary)';
+    if (posPnLEl) { posPnLEl.textContent = '—'; posPnLEl.style.color = 'var(--text-muted)'; }
+  }
+  // Trades
+  const tradesEl = document.getElementById('paperTradesCount');
+  if (tradesEl) tradesEl.textContent = String(paperState.closedTrades.length);
+  const wrEl = document.getElementById('paperWinRate');
+  if (wrEl) {
+    const wins = paperState.closedTrades.filter(t => t.pnlUsd > 0).length;
+    const wr = paperState.closedTrades.length > 0 ? wins / paperState.closedTrades.length * 100 : 0;
+    wrEl.textContent = paperState.closedTrades.length ? `WR ${wr.toFixed(1)}% (${wins}/${paperState.closedTrades.length})` : '—';
+  }
+  // Letzte Kerze
+  const lastCEl = document.getElementById('paperLastCandle');
+  const last = paperState.candles[paperState.candles.length - 1];
+  if (last && lastCEl) {
+    const d = new Date(last.ts);
+    lastCEl.textContent = `${fmtPrice(last.close)} @ ${d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}`;
+  }
+  // Journal
+  _paperRenderJournal();
+  // Equity-Chart
+  _paperDrawEquity();
+}
+
+function _paperRenderJournal() {
+  const tbody = document.getElementById('paperJournalBody');
+  if (!tbody) return;
+  let rows = '';
+  // Open position oben (laufender Trade)
+  if (paperState.openPosition) {
+    const p = paperState.openPosition;
+    const last = paperState.candles[paperState.candles.length - 1];
+    const curPrice = last ? last.close : p.entry;
+    const move = p.dir === 'long' ? (curPrice - p.entry) : (p.entry - curPrice);
+    const livePnl = p.riskDist > 0 ? p.riskUsd * (move / p.riskDist) : 0;
+    const livePct = livePnl / paperState.balance * 100;
+    const cls = livePnl >= 0 ? '#22c55e' : '#ef4444';
+    rows += `<tr style="background:rgba(6,182,212,0.08)">
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:700;color:#06b6d4">★</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600">${(paperState.symbol||'').replace('USDT','')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(p.entryTs).toLocaleString('de-DE', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:${p.dir==='long'?'#22c55e':'#ef4444'}">${p.dir.toUpperCase()}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(p.entry)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(p.sl)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${p.tp?fmtPrice(p.tp):'—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(curPrice)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls};font-weight:600">${livePnl>=0?'+':''}${livePnl.toFixed(2)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls}">${livePct>=0?'+':''}${livePct.toFixed(2)}%</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:#06b6d4">live</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><span style="background:#06b6d4;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">OPEN</span></td>
+    </tr>`;
+  }
+  // Closed trades
+  paperState.closedTrades.forEach((t, i) => {
+    const cls = t.pnlUsd >= 0 ? '#22c55e' : '#ef4444';
+    rows += `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border)">${paperState.closedTrades.length - i}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600">${(t.symbol||'').replace('USDT','')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(t.entryTs).toLocaleString('de-DE', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:${t.dir==='long'?'#22c55e':'#ef4444'}">${t.dir.toUpperCase()}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(t.entry)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(t.sl)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${t.tp?fmtPrice(t.tp):'—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(t.exit)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls};font-weight:700">${t.pnlUsd>=0?'+':''}${t.pnlUsd.toFixed(2)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls}">${t.pnlPct>=0?'+':''}${t.pnlPct.toFixed(2)}%</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-muted)">${t.reason}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><span style="color:${cls};font-weight:600">${t.pnlUsd>=0?'WIN':'LOSS'}</span></td>
+    </tr>`;
+  });
+  if (rows === '') {
+    rows = '<tr><td colspan="12" style="padding:30px;text-align:center;color:var(--text-muted)">Noch keine Trades. Sobald die Strategie ein Signal feuert, erscheint es hier.</td></tr>';
+  }
+  tbody.innerHTML = rows;
+}
+
+function _paperDrawEquity() {
+  const canvas = document.getElementById('paperEquityChart');
+  if (!canvas || paperState.equity.length === 0) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  canvas.width = rect.width * dpr;
+  canvas.height = 240 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 240;
+  ctx.clearRect(0, 0, W, H);
+
+  const eq = paperState.equity;
+  const allVals = eq.map(e => e.value);
+  const start = paperState.startBalance;
+  let minV = Math.min(...allVals, start), maxV = Math.max(...allVals, start);
+  const padY = (maxV - minV) * 0.1 || 100;
+  minV -= padY; maxV += padY;
+  const yRange = Math.max(0.01, maxV - minV);
+
+  const tsMin = eq[0].ts, tsMax = eq[eq.length - 1].ts;
+  const tsRange = Math.max(1, tsMax - tsMin);
+
+  const x = (ts) => ((ts - tsMin) / tsRange) * W;
+  const y = (v) => H - ((v - minV) / yRange) * H;
+
+  // Start-Reference-Linie
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, y(start)); ctx.lineTo(W, y(start));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Equity-Kurve
+  ctx.strokeStyle = paperState.balance >= start ? '#22c55e' : '#ef4444';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let i = 0; i < eq.length; i++) {
+    const px = x(eq[i].ts), py = y(eq[i].value);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+function paperExportTrades() {
+  if (paperState.closedTrades.length === 0) { alert('Keine Trades zum Exportieren!'); return; }
+  const header = 'Nr,Coin,Entry-Zeit,Exit-Zeit,Dir,Entry,SL,TP,Exit,PnL_USD,PnL_Pct,Grund\n';
+  const rows = paperState.closedTrades.slice().reverse().map((t, i) =>
+    `${i+1},${t.symbol||''},${new Date(t.entryTs).toISOString()},${new Date(t.exitTs).toISOString()},${t.dir},${t.entry},${t.sl},${t.tp||''},${t.exit},${t.pnlUsd.toFixed(2)},${t.pnlPct.toFixed(4)},${t.reason}`
+  ).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `paper_trades_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  log('Paper-Trades als CSV exportiert', 'success');
+}
+
+// Auto-Resume beim App-Start
+window.addEventListener('DOMContentLoaded', () => {
+  if (_paperLoadPersist()) {
+    if (paperState.active && paperState.symbol) {
+      // Auto-Resume nach Reload
+      setTimeout(() => {
+        log(`Paper-State geladen — ${paperState.closedTrades.length} closed Trades, ${paperState.openPosition ? '1 offene Position' : 'keine offene Position'}`);
+        // Resume erfordert keine Re-Init der Strategie weil das WS sich verbindet und neue Kerzen den State neu aufbauen
+        if (document.getElementById('paperCoin')) _paperConnectWS();
+        _paperSetUIRunning(true);
+        _paperRenderUI();
+      }, 500);
+    } else {
+      // Inactive load — nur State zeigen
+      setTimeout(() => _paperRenderUI(), 500);
+    }
+  }
+});
+
+// Tab-Switch-Hook
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  if (btn.dataset.tab === 'paper') setTimeout(_paperInitTab, 50);
+});
+
+// Animation für Toast
+const _paperStyleTag = document.createElement('style');
+_paperStyleTag.textContent = `@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
+document.head.appendChild(_paperStyleTag);
+
+// Strategie-Display bei Auswahl-Wechsel updaten
+document.getElementById('strategySelect')?.addEventListener('change', () => {
+  setTimeout(_paperUpdateStrategyDisplay, 100);
+});
+
+// Visibility-Handler: WS reconnecten wenn Tab zurück in Vordergrund
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && paperState.active) {
+    if (!paperState.ws || paperState.ws.readyState !== 1) {
+      // 1 = OPEN; alle anderen States = nicht verbunden, neu aufbauen
+      log('Paper-WS reconnecting nach Tab-Wechsel...');
+      _paperConnectWS();
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  APP VERSION + GITHUB LINK
+// ═══════════════════════════════════════════════
+const APP_VERSION = 'v1.0.0-beta';
+const GITHUB_REPO_URL = 'https://github.com/FinalBoss-0815/finalboss-backtest';
+const GITHUB_ISSUES_URL = GITHUB_REPO_URL + '/issues/new';
+
+// ═══════════════════════════════════════════════
+//  SMOKE TESTS — bei App-Start automatisch
+//  Determinismus-Checks für Engine + Strategien
+// ═══════════════════════════════════════════════
+function runSmokeTests() {
+  const results = [];
+
+  // Test 1: Alle Strategien haben init + shouldEnter Funktionen
+  let brokenStrategies = 0;
+  const brokenList = [];
+  for (const s of STRATEGIES) {
+    if (typeof s.init !== 'function' || typeof s.shouldEnter !== 'function' || typeof s.shouldExit !== 'function') {
+      brokenStrategies++;
+      brokenList.push(s.name);
+    }
+  }
+  results.push({
+    name: 'Alle Strategien aufrufbar',
+    pass: brokenStrategies === 0,
+    info: brokenStrategies === 0 ? `${STRATEGIES.length}/${STRATEGIES.length} OK` : `${brokenStrategies} broken: ${brokenList.join(', ')}`
+  });
+
+  // Test 2: Indikator-Sanity (EMA muss endliche Werte liefern)
+  try {
+    const ema = Indicators.ema([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 5);
+    const validEMA = ema && ema.length === 10 && isFinite(ema[ema.length - 1]) && ema[ema.length - 1] > 0;
+    results.push({ name: 'EMA-Berechnung', pass: !!validEMA, info: validEMA ? `letzter Wert ${ema[ema.length-1].toFixed(2)}` : 'NaN/Invalid' });
+  } catch (e) { results.push({ name: 'EMA-Berechnung', pass: false, info: e.message }); }
+
+  // Test 3: ATR liefert nicht-negative Werte
+  try {
+    const highs = [10, 12, 13, 14, 15, 16, 17];
+    const lows = [9, 10, 11, 12, 13, 14, 15];
+    const closes = [9.5, 11, 12.5, 13.5, 14.5, 15.5, 16.5];
+    const atr = Indicators.atr(highs, lows, closes, 3);
+    const allValid = atr && atr.every(v => !isFinite(v) || v >= 0);
+    results.push({ name: 'ATR nicht-negativ', pass: !!allValid });
+  } catch (e) { results.push({ name: 'ATR nicht-negativ', pass: false, info: e.message }); }
+
+  // Test 4: Engine-Integration auf synthetischen Sinus-Kerzen
+  try {
+    const candles = [];
+    for (let i = 0; i < 250; i++) {
+      const c = 100 + Math.sin(i * 0.12) * 18;
+      const o = c + Math.cos(i * 0.5) * 1.5;
+      const cl = c + Math.cos((i + 0.5) * 0.5) * 1.5;
+      candles.push({
+        ts: Date.UTC(2024, 0, 1) + i * 3600000,
+        open: o, close: cl,
+        high: Math.max(o, cl) + 1, low: Math.min(o, cl) - 1,
+        volume: 1000 + Math.random() * 100
+      });
+    }
+    // RSI-Strategie als Sanity-Check (ist robust + simpel)
+    const strat = STRATEGIES.find(s => s.name.includes('RSI Extreme'));
+    if (!strat) throw new Error('RSI Extreme Reversal nicht gefunden');
+    const params = {};
+    for (const [k, v] of Object.entries(strat.params)) params[k] = v.value !== undefined ? v.value : v;
+    strat.init.call(strat, candles, params);
+    let signals = 0, errors = 0;
+    for (let i = 30; i < candles.length; i++) {
+      try {
+        const sig = strat.shouldEnter.call(strat, candles, i, params);
+        if (sig) signals++;
+      } catch (e) { errors++; }
+    }
+    results.push({ name: 'Engine-Integration (synthetisch)', pass: errors === 0, info: `${signals} signals, ${errors} errors` });
+  } catch (e) { results.push({ name: 'Engine-Integration (synthetisch)', pass: false, info: e.message }); }
+
+  // Test 5: localStorage funktioniert (Persistenz-Voraussetzung)
+  try {
+    localStorage.setItem('_fb_smoke', 'ok');
+    const got = localStorage.getItem('_fb_smoke');
+    localStorage.removeItem('_fb_smoke');
+    results.push({ name: 'localStorage verfügbar', pass: got === 'ok' });
+  } catch (e) { results.push({ name: 'localStorage verfügbar', pass: false, info: 'Browser-Privacy-Mode?' }); }
+
+  // Test 6: WebSocket-Konstruktor verfügbar (für Paper-Trading)
+  results.push({ name: 'WebSocket verfügbar', pass: typeof WebSocket !== 'undefined' });
+
+  // Test 7: Look-Ahead-Audit (von oben)
+  try {
+    const issues = runStrategyAudit();
+    results.push({ name: 'Look-Ahead-Audit', pass: issues.length === 0, info: issues.length === 0 ? `${STRATEGIES.length}/${STRATEGIES.length} clean` : `${issues.length} issues` });
+  } catch (e) { results.push({ name: 'Look-Ahead-Audit', pass: false, info: e.message }); }
+
+  return results;
+}
+
+// Auto-Run beim Start (silent except auf Fehler)
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    try {
+      const results = runSmokeTests();
+      const failed = results.filter(r => !r.pass);
+      if (failed.length === 0) {
+        console.log(`%c✅ FinalBoss ${APP_VERSION} — Smoke-Tests: ${results.length}/${results.length} passed`, 'color:#22c55e;font-weight:bold;font-size:13px');
+      } else {
+        console.warn(`⚠️ FinalBoss ${APP_VERSION} — Smoke-Tests: ${failed.length} failed:`, failed);
+        // User-sichtbarer Toast bei kritischen Failures
+        if (failed.some(f => f.name.includes('Engine') || f.name.includes('Strategien'))) {
+          if (typeof _showErrorToast === 'function') {
+            _showErrorToast(`Smoke-Test-Fehler: ${failed[0].name} — bitte Bug melden`);
+          }
+        }
+      }
+      window.__fbSmokeResults = results; // für Debug verfügbar
+    } catch (e) {
+      console.error('Smoke-Test-Crash:', e);
+    }
+  }, 1500);
+});
+
+// ═══════════════════════════════════════════════
+//  WELCOME / DISCLAIMER MODAL — Erstbesuch
+// ═══════════════════════════════════════════════
+const DISCLAIMER_VERSION = 'v1';
+const DISCLAIMER_KEY = `fb_disclaimer_${DISCLAIMER_VERSION}`;
+
+function showDisclaimer() {
+  // Wenn schon akzeptiert, skip
+  if (localStorage.getItem(DISCLAIMER_KEY) === '1') return;
+  const overlay = document.createElement('div');
+  overlay.id = 'disclaimerOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s';
+  overlay.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:30px 28px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="font-size:32px">👋</div>
+        <h2 style="margin:0;font-size:22px">Willkommen bei FinalBoss</h2>
+        <span style="font-size:11px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:3px 10px;border-radius:10px">v1.0-beta</span>
+      </div>
+      <p style="margin:0 0 18px;color:var(--text-secondary);font-size:14px;line-height:1.6">
+        Ein Open-Source-Backtest-Tool für Krypto-Trading-Strategien. <strong>71 vorgefertigte Strategien</strong>, Walk-Forward, Monte-Carlo, Genetic-Optimizer, Portfolio-Backtest, Paper-Trading — alles in deinem Browser, ohne Server, ohne Account.
+      </p>
+      <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:14px 16px;margin-bottom:18px">
+        <div style="font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:8px">⚠️ Wichtige Hinweise — bitte lesen</div>
+        <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+          <li><strong>Keine Anlageberatung.</strong> Diese Software dient ausschließlich der Strategie-Recherche und -Analyse. Sie ist keine Empfehlung Geld einzusetzen.</li>
+          <li><strong>Backtest ≠ Zukunft.</strong> Historische Performance ist kein Indikator für zukünftige Ergebnisse. Strategien die in der Vergangenheit funktioniert haben, können in Zukunft Verluste erzeugen.</li>
+          <li><strong>Paper-Trading ≠ echtes Trading.</strong> Reale Märkte haben Slippage, Ausführungs-Verzögerungen, Liquiditätslücken und emotionale Faktoren die hier nicht simuliert werden.</li>
+          <li><strong>Du kannst Geld verlieren.</strong> Krypto-Trading ist hochriskant. Investiere nur was du dir leisten kannst zu verlieren.</li>
+          <li><strong>Software-Bugs sind möglich.</strong> Trotz Audit-Tool und Tests können Bugs in der Engine zu falschen Ergebnissen führen. Validiere wichtige Strategien immer mit einem zweiten Tool.</li>
+        </ul>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;cursor:pointer;font-size:13px;line-height:1.5">
+        <input id="disclaimerCheck" type="checkbox" onchange="document.getElementById('disclaimerStartBtn').disabled = !this.checked" style="margin-top:3px;cursor:pointer">
+        <span>Ich habe die Hinweise gelesen und verstanden. Ich nutze dieses Tool auf eigenes Risiko und mache niemanden außer mir selbst für Trading-Verluste verantwortlich.</span>
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="window.open('${GITHUB_REPO_URL}', '_blank')" style="padding:10px 18px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;font-size:13px;cursor:pointer">⭐ Quellcode auf GitHub</button>
+        <button onclick="acceptDisclaimerAndDemo()" style="padding:10px 18px;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;font-size:13px;cursor:pointer;font-weight:600">▶ Demo-Backtest starten</button>
+        <button id="disclaimerStartBtn" onclick="acceptDisclaimer()" disabled style="padding:10px 18px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;opacity:0.5">Loslegen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Disable interaction with rest of UI
+  document.body.style.overflow = 'hidden';
+}
+
+function acceptDisclaimer() {
+  localStorage.setItem(DISCLAIMER_KEY, '1');
+  const overlay = document.getElementById('disclaimerOverlay');
+  if (overlay) {
+    overlay.style.transition = 'opacity 0.3s';
+    overlay.style.opacity = '0';
+    setTimeout(() => { overlay.remove(); document.body.style.overflow = ''; }, 300);
+  }
+}
+
+function acceptDisclaimerAndDemo() {
+  // Auch wenn checkbox nicht gesetzt → noch nicht persistieren, aber Demo zeigen
+  const cb = document.getElementById('disclaimerCheck');
+  if (cb && cb.checked) {
+    acceptDisclaimer();
+    setTimeout(runDemo, 400);
+  } else {
+    // Show error
+    cb.parentElement.style.color = '#ef4444';
+    cb.parentElement.style.transition = 'color 0.3s';
+    setTimeout(() => { cb.parentElement.style.color = ''; }, 1500);
+  }
+}
+
+function runDemo() {
+  // Pre-konfigurierter Demo-Backtest: BTC 1h Trend-Pullback, letzte 365 Tage
+  // Trend-Pullback feuert zuverlaessig — gut fuer Showcase
+  try {
+    const symSel = document.getElementById('symbolSelect');
+    const tfSel = document.getElementById('tfSelect');
+    const stratSel = document.getElementById('strategySelect');
+    // Symbol via csSelect setzen damit Custom-Dropdown-Label aktualisiert
+    if (symSel) {
+      if (typeof csSelect === 'function') {
+        try { csSelect('symbolSelect', 'BTCUSDT'); } catch(e) { symSel.value = 'BTCUSDT'; }
+      } else { symSel.value = 'BTCUSDT'; }
+    }
+    if (tfSel) { tfSel.value = '1h'; window._userChangedTF = true; }
+    // Find "Trend-Pullback" — robuster als RSI Extreme fuer Demo
+    if (stratSel) {
+      let idx = STRATEGIES.findIndex(s => s.name === 'Trend-Pullback');
+      if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Trend-Pullback'));
+      if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Bollinger Reversion'));
+      if (idx < 0) idx = 0;
+      // csSelect synchronisiert nativ-select + custom-dropdown-label + dispatched change-event
+      // (das change-Event triggert updateStrategyParams automatisch)
+      if (typeof csSelect === 'function') {
+        try { csSelect('strategySelect', String(idx)); } catch(e) {
+          stratSel.value = String(idx);
+          if (typeof updateStrategyParams === 'function') updateStrategyParams();
+        }
+      } else {
+        stratSel.value = String(idx);
+        if (typeof updateStrategyParams === 'function') updateStrategyParams();
+      }
+    }
+    // Date range: letzte 365 Tage, Train/Test-Split bei 90 Tagen vor heute
+    const today = new Date();
+    const start = new Date(today.getTime() - 365 * 86400000);
+    const split = new Date(today.getTime() - 90 * 86400000);
+    const endStr = today.toISOString().slice(0,10);
+    const startStr = start.toISOString().slice(0,10);
+    const splitStr = split.toISOString().slice(0,10);
+    const trainStartEl = document.getElementById('trainStart');
+    const splitEl = document.getElementById('splitDate');
+    const testEndEl = document.getElementById('testEnd');
+    if (trainStartEl) trainStartEl.value = startStr;
+    if (splitEl) splitEl.value = splitStr;
+    if (testEndEl) testEndEl.value = endStr;
+    log('🎬 Demo-Backtest wird gestartet (BTC 1h, Trend-Pullback, 365 Tage)...', 'success');
+    setTimeout(() => { if (typeof runBacktest === 'function') runBacktest(); }, 300);
+  } catch (e) {
+    log(`Demo-Fehler: ${e.message}`, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  ABOUT / HELP MODAL
+// ═══════════════════════════════════════════════
+function showAboutModal() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:10px">ℹ️ Über FinalBoss + Hilfe
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:2px 8px;border-radius:10px">${APP_VERSION}</span>
+        </h2>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 10px">✕</button>
+      </div>
+
+      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;line-height:1.6">
+        <strong style="color:#f59e0b">🚧 Beta-Software</strong> — funktional umfangreich, aber noch nicht ausreichend cross-browser-getestet. Bitte Bugs melden via <a href="${GITHUB_ISSUES_URL}" target="_blank" style="color:#06b6d4;text-decoration:none">GitHub Issues</a>.
+      </div>
+
+      <h3 style="font-size:15px;margin:0 0 8px;color:var(--blue)">Was ist das?</h3>
+      <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
+        FinalBoss ist ein Open-Source-Backtest-Tool für Krypto-Trading-Strategien — komplett im Browser, ohne Server, ohne Account. Daten kommen direkt von der öffentlichen Binance-API.
+      </p>
+
+      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Empfohlener Workflow</h3>
+      <ol style="margin:0 0 16px;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+        <li><strong>Backtest:</strong> Strategie + Coin + Zeitraum wählen → Resultate prüfen</li>
+        <li><strong>Optimizer:</strong> Beste Parameter mit Grid- oder Genetic-Search finden</li>
+        <li><strong>Walk-Forward:</strong> Robustheit über mehrere Train/Test-Fenster prüfen</li>
+        <li><strong>Monte Carlo + Significance:</strong> Sind die Ergebnisse statistisch echt? Kreuzt die Sharpe-CI Null?</li>
+        <li><strong>Paper Trading:</strong> 2-4 Wochen live laufen lassen, OHNE Geld einzusetzen</li>
+        <li><strong>Echtes Geld</strong> — erst wenn Paper-Performance den Backtest bestätigt</li>
+      </ol>
+
+      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Tab-Übersicht</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:8px 16px;font-size:12px;color:var(--text-secondary);margin-bottom:16px">
+        <div>📊 <strong>Ergebnisse</strong> — Hauptmetriken + Equity-Kurve + Significance-CI</div>
+        <div>📈 <strong>Chart</strong> — Live-Chart + Trade-Marker</div>
+        <div>▶️ <strong>Replay</strong> — Bar-für-Bar-Wiedergabe</div>
+        <div>📋 <strong>Journal</strong> — Trade-Liste mit Tags + MAE/MFE</div>
+        <div>⏩ <strong>Walk-Forward</strong> — Robustheits-Test</div>
+        <div>🔥 <strong>Heatmap</strong> — 2D-Parameter-Suche</div>
+        <div>💧 <strong>Liquidation</strong> — Liquidations-Cluster (heuristisch)</div>
+        <div>🛠️ <strong>Builder</strong> — eigene Strategien aus Bausteinen</div>
+        <div>🎓 <strong>Akademie</strong> — Strategien + Pattern erklärt</div>
+        <div>⏰ <strong>Zeitanalyse</strong> — PnL nach Stunde + Wochentag</div>
+        <div>⚙️ <strong>Optimizer</strong> — Grid + Genetic Search</div>
+        <div>💼 <strong>Portfolio</strong> — Multi-Coin shared Balance</div>
+        <div>📊 <strong>Verteilung</strong> — R-Multiple + Streaks</div>
+        <div>🔗 <strong>Korrelation</strong> — Coin-Korrelations-Matrix</div>
+        <div>📉 <strong>Edge-Decay</strong> — Rolling Profit Factor</div>
+        <div>⚖️ <strong>Risiko</strong> — Risk-of-Ruin + Kelly</div>
+        <div>🔴 <strong>Paper</strong> — Live-Forward-Test</div>
+      </div>
+
+      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Glossar — die wichtigsten Metriken</h3>
+      <div style="font-size:13px;line-height:1.6;color:var(--text-secondary);margin-bottom:16px">
+        <p style="margin:0 0 6px"><strong>Profit Factor (PF):</strong> Brutto-Gewinn / Brutto-Verlust. PF &gt; 1.5 = solide, &gt; 2 = sehr gut.</p>
+        <p style="margin:0 0 6px"><strong>Sharpe Ratio:</strong> Risk-adjustierter Return. &gt; 1.0 = gut, &gt; 2.0 = exzellent. Negative Werte = verlierende Strategie.</p>
+        <p style="margin:0 0 6px"><strong>Max Drawdown (MaxDD):</strong> Größter Account-Einbruch vom Hoch. Eine Strategie mit -30% MaxDD ist emotional schwer haltbar.</p>
+        <p style="margin:0 0 6px"><strong>R-Multiple:</strong> PnL pro Trade in Vielfachen des Risikos. +2R = Gewinn doppelt so groß wie das Risiko.</p>
+        <p style="margin:0 0 6px"><strong>MAE / MFE:</strong> Wie weit ging der Trade gegen dich (MAE) bzw. wieviel war zwischendurch im Plus (MFE).</p>
+        <p style="margin:0 0 6px"><strong>Walk-Forward:</strong> Strategie auf Train-Daten optimiert + auf unbekanntem Test-Bereich getestet. Funktioniert sie nur auf Train = Overfitting.</p>
+      </div>
+
+      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Was das Tool NICHT kann</h3>
+      <ul style="margin:0 0 16px;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+        <li>Echtes Geld traden — keine Broker-Anbindung, nur Paper-Trading</li>
+        <li>Tick-Daten — kleinste Auflösung ist 1m (Binance-Limit)</li>
+        <li>Multi-Asset wie Aktien/Forex — nur Krypto via Binance</li>
+        <li>Garantieren dass die Engine 100% bug-frei ist — Validiere wichtige Strategien mit zweitem Tool</li>
+        <li>Slippage realistisch modellieren — feste %, nicht orderbook-basiert</li>
+      </ul>
+
+      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">FAQ</h3>
+      <div style="font-size:13px;line-height:1.6;color:var(--text-secondary);margin-bottom:16px">
+        <p style="margin:0 0 8px"><strong>Speichert die App meine Daten?</strong> Nein — alles lokal im Browser-localStorage. Kein Server, kein Account, kein Tracking. Browser-Cache löschen → alles weg (deshalb gibt's JSON-Export).</p>
+        <p style="margin:0 0 8px"><strong>Kann ich neue Strategien hinzufügen?</strong> Ja — entweder im Strategy-Builder-Tab (No-Code) oder direkt im Quellcode (siehe STRATEGIES-Array).</p>
+        <p style="margin:0 0 8px"><strong>Warum gibt es so viele Tabs?</strong> Verschiedene Aspekte der gleichen Strategie. Anfänger: Ergebnisse + Chart + Journal reichen. Fortgeschrittene: Walk-Forward + Optimizer + Significance + Edge-Decay sind die "Validierungs-Suite".</p>
+        <p style="margin:0 0 8px"><strong>Kann ich's offline nutzen?</strong> Teilweise — App selbst läuft offline (Service Worker), aber Backtest braucht Binance-API für Daten.</p>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="font-size:11px;color:var(--text-muted)">License: MIT · Open Source · ${APP_VERSION} · Made with ❤️</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="window.open('${GITHUB_ISSUES_URL}', '_blank')" style="padding:8px 14px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;font-size:12px;cursor:pointer">🐛 Bug melden</button>
+          <button onclick="window.open('${GITHUB_REPO_URL}', '_blank')" style="padding:8px 14px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;font-size:12px;cursor:pointer">⭐ GitHub</button>
+          <button onclick="runDemo();this.closest('div[style*=fixed]').remove()" style="padding:8px 14px;background:#06b6d4;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">▶ Demo-Backtest</button>
+        </div>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+// Disclaimer beim Start zeigen (vor allem anderen)
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(showDisclaimer, 200);
+});
+
+// ═══════════════════════════════════════════════
+//  GLOBAL ERROR BOUNDARY — User-friendly Errors
+// ═══════════════════════════════════════════════
+function _showErrorToast(msg, durationMs = 6000) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:60px;right:20px;background:#ef4444;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:10000;max-width:420px;animation:slideIn 0.3s';
+  toast.innerHTML = '⚠️ ' + msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, durationMs);
+  setTimeout(() => toast.remove(), durationMs + 500);
+}
+
+// Globale Fehler-Handler — fängt unbehandelte Exceptions ab
+window.addEventListener('error', (e) => {
+  // Nicht alle Fehler anzeigen (Browser-Extensions etc.) — nur wenn Stack auf unsere App verweist
+  if (e.error && e.error.stack && /finalboss|backtest_app/i.test(e.error.stack)) {
+    _showErrorToast(`Fehler: ${e.message}`);
+  }
+  console.error('Unhandled error:', e);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled promise rejection:', e.reason);
+  if (e.reason && e.reason.message) {
+    _showErrorToast(`Fehler: ${e.reason.message}`);
+  }
+});
+
+// fetchCandles wrappen mit besserem Error-Handling
+if (typeof fetchCandles === 'function') {
+  const _origFetchCandles = fetchCandles;
+  window.fetchCandles = async function(...args) {
+    try {
+      return await _origFetchCandles(...args);
+    } catch (e) {
+      const msg = e.message || String(e);
+      if (/network|fetch|failed|cors|timeout/i.test(msg)) {
+        _showErrorToast('Binance-API nicht erreichbar — Internet-Verbindung prüfen oder später erneut versuchen');
+      } else if (/rate.?limit|429/i.test(msg)) {
+        _showErrorToast('Binance-Rate-Limit erreicht — bitte 1 Minute warten');
+      } else {
+        _showErrorToast(`API-Fehler: ${msg}`);
+      }
+      throw e;
+    }
+  };
+}
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(() => {
+    console.log('Service Worker registered');
+  }).catch(err => console.log('SW registration failed:', err));
+}
+</script>
+</body>
+</html>
