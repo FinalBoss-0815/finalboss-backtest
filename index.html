@@ -20487,11 +20487,13 @@ function _drawCandle(x, candle, yScale, bw) {
   return svg;
 }
 
-// Erzeugt deterministische Candle-Daten je nach Schema (immer dasselbe Bild fuer dieselbe Strategie)
-function _academyCandles(schema) {
-  // Pseudo-Random mit fixem Seed pro Schema → reproduzierbar
+// Erzeugt deterministische Candle-Daten je nach Schema + Strategie-Name
+// (gleiches Schema mit unterschiedlichem Namen → unterschiedliches Bild = realistischer Look)
+function _academyCandles(schema, seedKey) {
+  // Pseudo-Random mit Seed aus Schema + Strategie-Name → jedes Chart sieht anders aus
+  const seedStr = schema + '|' + (seedKey || '');
   let seed = 0;
-  for (let i = 0; i < schema.length; i++) seed += schema.charCodeAt(i);
+  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) % 100000;
   let s = seed;
   const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   const candle = (open, close, wickUp, wickDn) => ({
@@ -20554,18 +20556,35 @@ function _academyCandles(schema) {
       p = c;
     }
   } else if (schema === 'trend-pullback') {
+    // Realistisches Setup: 55 Kerzen damit EMA50 valide ist. Aufwärtstrend → Pullback zur EMA20 → grüne Bounce-Kerze
+    const N = 55;
     let p = 80;
-    for (let i = 0; i < 26; i++) {
-      let move;
-      if (i >= 8 && i <= 12) move = -1.5 - rand() * 1.5; // Pullback rot
-      else move = 1.5 + rand() * 1.5;                    // Trend gruen
-      const o = p, c = p + move;
-      arr.push(candle(o, c, 0.8, 0.8));
+    for (let i = 0; i < N; i++) {
+      let o, c, wickU, wickD;
+      if (i < 25) {
+        // Phase 1: stetiger Aufwärtstrend (lange genug damit EMA50 stabil wird)
+        o = p; c = p + 0.7 + (rand() - 0.4) * 0.8;
+        wickU = 0.4; wickD = 0.3;
+      } else if (i < 35) {
+        // Phase 2: weiterer Aufstieg
+        o = p; c = p + 0.6 + (rand() - 0.4) * 0.8;
+        wickU = 0.4; wickD = 0.3;
+      } else if (i < 45) {
+        // Phase 3: Pullback (3-4 rote Kerzen Richtung EMA20)
+        o = p; c = p - 0.8 - rand() * 0.5;
+        wickU = 0.3; wickD = 0.5;
+      } else if (i === 45) {
+        // Bounce-Kerze: grosse grüne Reversal-Kerze direkt an der EMA20
+        o = p - 0.2; c = p + 2.0 + rand() * 0.5;
+        wickU = 0.3; wickD = 0.4;
+      } else {
+        // Recovery — Trend setzt sich fort
+        o = p; c = p + 0.7 + rand() * 0.6;
+        wickU = 0.4; wickD = 0.3;
+      }
+      arr.push(candle(o, c, wickU, wickD));
       p = c;
     }
-    // Bounce-Kerze (Index 13) explizit als grosse gruene Reversal-Kerze
-    const prev = arr[12];
-    arr[13] = candle(prev.close, prev.close + 4.5, 0.4, 0.3);
   } else if (schema === 'breakout') {
     // Phase 1: enge Konsolidierung in fester Range 97-103 (damit Resistance bei 105 NICHT gebrochen wird durch Wicks)
     for (let i = 0; i < 18; i++) {
@@ -20714,20 +20733,25 @@ function _academyCandles(schema) {
       p = c;
     }
   } else if (schema === 'supertrend') {
-    // Klarer Aufwaerts-Trend (i 0-12, gruene Kerzen, Supertrend-Linie unter dem Preis)
+    // 35 Kerzen — klarer Aufwärts-Trend mit anschliessendem Reversal damit Supertrend echt flippt
+    const N = 35;
     let p = 80;
-    for (let i = 0; i < 13; i++) {
-      const o = p, c = p + 1.6 + rand() * 1.4;
-      arr.push(candle(o, c, 0.6, 0.5));
-      p = c;
-    }
-    // Flip-Kerze (i=13) — grosse rote Reversal-Kerze, durchbricht den Supertrend
-    arr.push(candle(p, p - 5.5, 0.4, 0.6));
-    p = p - 5.5;
-    // Anschliessend klarer Abwaerts-Trend (i 14-25)
-    for (let i = 14; i < 26; i++) {
-      const o = p, c = p - 1.8 - rand() * 1.2;
-      arr.push(candle(o, c, 0.5, 0.7));
+    for (let i = 0; i < N; i++) {
+      let o, c, wickU, wickD;
+      if (i < 18) {
+        // klar steigender Trend — Supertrend bleibt unten
+        o = p; c = p + 1.4 + (rand() - 0.4) * 0.8;
+        wickU = 0.5; wickD = 0.3;
+      } else if (i === 18) {
+        // grosse rote Reversal-Kerze die durch den Supertrend bricht
+        o = p; c = p - 5.0;
+        wickU = 0.5; wickD = 0.3;
+      } else {
+        // klar fallender Trend — Supertrend flippt nach oben
+        o = p; c = p - 1.3 - (rand() - 0.4) * 0.8;
+        wickU = 0.4; wickD = 0.5;
+      }
+      arr.push(candle(o, c, wickU, wickD));
       p = c;
     }
   } else if (schema === 'parabolic-sar') {
@@ -20863,12 +20887,12 @@ function _academyCandles(schema) {
 }
 
 // SVG-Schema-Renderer: zeichnet je nach Schema ein illustratives Candlestick-Chart
-function _academySvg(schema, isEn) {
+function _academySvg(schema, isEn, seedKey) {
   const W = 560, H = 240;
   const labels = isEn
     ? { entry: 'Entry', sl: 'SL', tp: 'TP', signal: 'Signal', resistance: 'Resistance', support: 'Support', breakout: 'Breakout', pullback: 'Pullback', cross: 'Cross', bos: 'BOS', ob: 'Order Block' }
     : { entry: 'Entry', sl: 'SL', tp: 'TP', signal: 'Signal', resistance: 'Resistance', support: 'Support', breakout: 'Ausbruch', pullback: 'Pullback', cross: 'Cross', bos: 'BOS', ob: 'Order Block' };
-  const candles = _academyCandles(schema);
+  const candles = _academyCandles(schema, seedKey);
   // Y-Bereich automatisch
   let minP = Infinity, maxP = -Infinity;
   candles.forEach(c => { if (c.low < minP) minP = c.low; if (c.high > maxP) maxP = c.high; });
@@ -20899,24 +20923,54 @@ function _academySvg(schema, isEn) {
     body += `<polyline points="${emaPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 2"/>`;
     body += `<text x="${W - rightPad}" y="${yScale(candles[candles.length-1].close) + 12}" fill="#f0883e" font-size="10" text-anchor="end">EMA</text>`;
   } else if (schema === 'supertrend') {
-    // Supertrend: gruene Linie unter den Kerzen (bullisch), flippt auf rote Linie ueber den Kerzen
-    const flipIdx = 13;
-    const stPtsBull = [], stPtsBear = [];
-    for (let i = 0; i < candles.length; i++) {
-      if (i < flipIdx) stPtsBull.push([cx(i), yScale(candles[i].low - 3)]);
-      else stPtsBear.push([cx(i), yScale(candles[i].high + 3)]);
+    // ECHTER Supertrend(10, 3) + ATR(14) aus realen Kerzen
+    const closes = candles.map(c => c.close);
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const st = (typeof Indicators !== 'undefined' && Indicators.supertrend) ? Indicators.supertrend(highs, lows, closes, 10, 3) : null;
+    const atrArr = (typeof Indicators !== 'undefined' && Indicators.atr) ? Indicators.atr(highs, lows, closes, 14) : null;
+    if (st && st.direction) {
+      // Supertrend-Linie: Wert pro Kerze, Farbe je nach direction
+      const segs = []; // gruppierte Segmente nach direction
+      let curDir = null, curSeg = [];
+      for (let i = 0; i < candles.length; i++) {
+        const v = st.sar ? st.sar[i] : (st.value ? st.value[i] : NaN);
+        const d = st.direction[i];
+        if (isNaN(v) || isNaN(d)) continue;
+        if (curDir !== d) {
+          if (curSeg.length > 0) segs.push({ dir: curDir, pts: curSeg });
+          curDir = d; curSeg = [];
+        }
+        curSeg.push([cx(i), yScale(v)]);
+      }
+      if (curSeg.length > 0) segs.push({ dir: curDir, pts: curSeg });
+      for (const seg of segs) {
+        const color = seg.dir > 0 ? '#3fb950' : '#f85149';
+        if (seg.pts.length > 1) body += `<polyline points="${seg.pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>`;
+      }
+      // Labels: erstes bullisches und letztes bearisches Segment
+      const bullSeg = segs.find(s => s.dir > 0);
+      const bearSeg = segs.slice().reverse().find(s => s.dir < 0);
+      if (bullSeg && bullSeg.pts.length > 0) body += `<text x="${bullSeg.pts[Math.floor(bullSeg.pts.length/2)][0]}" y="${bullSeg.pts[Math.floor(bullSeg.pts.length/2)][1] + 16}" fill="#3fb950" font-size="10" text-anchor="middle">${isEn ? 'Supertrend bullish (below price)' : 'Supertrend bullisch (unter Preis)'}</text>`;
+      if (bearSeg && bearSeg.pts.length > 0) body += `<text x="${bearSeg.pts[Math.floor(bearSeg.pts.length/2)][0]}" y="${bearSeg.pts[Math.floor(bearSeg.pts.length/2)][1] - 6}" fill="#f85149" font-size="10" text-anchor="middle">${isEn ? 'Bearish (above price)' : 'Bearisch (über Preis)'}</text>`;
+      // Flip-Erkennung: erste Kerze nach Phase 1 wo direction von +1 auf -1 wechselt
+      let flipIdx = -1;
+      for (let i = 11; i < candles.length; i++) {
+        if (!isNaN(st.direction[i-1]) && !isNaN(st.direction[i]) && st.direction[i-1] > 0 && st.direction[i] < 0) {
+          flipIdx = i; break;
+        }
+      }
+      if (flipIdx > 0) {
+        const entryPrice = candles[flipIdx].close;
+        const atrVal = (atrArr && !isNaN(atrArr[flipIdx])) ? atrArr[flipIdx] : 1.5;
+        const slPrice = entryPrice + 2 * atrVal;
+        body += `<circle cx="${cx(flipIdx)}" cy="${yScale(entryPrice)}" r="6" fill="none" stroke="#f85149" stroke-width="2"/>`;
+        body += `<text x="${cx(flipIdx)}" y="${yScale(entryPrice) - 14}" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Short (Flip)</text>`;
+        body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.75"/>`;
+        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl} (Entry + 2× ATR)</text>`;
+        candles._academyEntryRendered = true;
+      }
     }
-    body += `<polyline points="${stPtsBull.map(p => p.join(',')).join(' ')}" fill="none" stroke="#3fb950" stroke-width="2"/>`;
-    body += `<polyline points="${stPtsBear.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="2"/>`;
-    body += `<text x="${cx(2)}" y="${stPtsBull[2][1] + 14}" fill="#3fb950" font-size="10">${isEn ? 'Supertrend bullish (below)' : 'Supertrend bullisch (unten)'}</text>`;
-    body += `<text x="${cx(candles.length - 3)}" y="${stPtsBear[stPtsBear.length-1][1] - 6}" fill="#f85149" font-size="10" text-anchor="end">${isEn ? 'Bearish (above)' : 'Bearisch (oben)'}</text>`;
-    // Flip-Marker (= Short-Entry-Signal beim Wechsel von gruen-unten auf rot-oben)
-    body += `<circle cx="${cx(flipIdx)}" cy="${yScale(candles[flipIdx].close)}" r="6" fill="none" stroke="#f85149" stroke-width="2"/>`;
-    body += `<text x="${cx(flipIdx)}" y="${yScale(candles[flipIdx].close) - 14}" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Short (Flip)</text>`;
-    // SL/TP
-    const slY = yScale(candles[flipIdx].high + 5);
-    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
-    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
   } else if (schema === 'parabolic-sar') {
     // Parabolic SAR: Punkte unter den Kerzen (bullisch) flippen auf Punkte oberhalb (bearisch)
     const flipIdx = 14;
@@ -21161,19 +21215,44 @@ function _academySvg(schema, isEn) {
       body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
     }
   } else if (schema === 'trend-pullback') {
-    // Zwei EMAs (20 schnell, 50 langsam) — bullische Staffelung EMA20 ueber EMA50
-    const ema20Pts = [], ema50Pts = [];
-    let v20 = candles[0].close, v50 = candles[0].close;
-    for (let i = 0; i < candles.length; i++) {
-      v20 = v20 * 0.80 + candles[i].close * 0.20;
-      v50 = v50 * 0.93 + candles[i].close * 0.07;
-      ema20Pts.push([cx(i), yScale(v20)]);
-      ema50Pts.push([cx(i), yScale(v50)]);
+    // ECHTE EMA20 + EMA50 + ATR aus realen Kerzen
+    const closes = candles.map(c => c.close);
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const ema20 = (typeof Indicators !== 'undefined' && Indicators.ema) ? Indicators.ema(closes, 20) : null;
+    const ema50 = (typeof Indicators !== 'undefined' && Indicators.ema) ? Indicators.ema(closes, 50) : null;
+    const atrArr = (typeof Indicators !== 'undefined' && Indicators.atr) ? Indicators.atr(highs, lows, closes, 14) : null;
+    if (ema20 && ema50) {
+      const buildLine = (vals) => vals.map((v, i) => isNaN(v) ? null : [cx(i), yScale(v)]).filter(p => p);
+      const ema20Pts = buildLine(ema20);
+      const ema50Pts = buildLine(ema50);
+      if (ema50Pts.length > 1) body += `<polyline points="${ema50Pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#bc8cff" stroke-width="1.5" stroke-dasharray="4 2"/>`;
+      if (ema20Pts.length > 1) body += `<polyline points="${ema20Pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 2"/>`;
+      if (ema20Pts.length > 0) body += `<text x="${ema20Pts[ema20Pts.length-1][0]}" y="${ema20Pts[ema20Pts.length-1][1] - 4}" fill="#f0883e" font-size="10" text-anchor="end">EMA 20</text>`;
+      if (ema50Pts.length > 0) body += `<text x="${ema50Pts[ema50Pts.length-1][0]}" y="${ema50Pts[ema50Pts.length-1][1] + 14}" fill="#bc8cff" font-size="10" text-anchor="end">EMA 50</text>`;
+      // Entry-Detection: nach Pullback-Phase, Tief touched EMA20, nächste Kerze grün
+      let entryIdx = -1;
+      for (let i = 50; i < candles.length - 1; i++) {
+        if (isNaN(ema20[i]) || isNaN(ema50[i])) continue;
+        const trendOK = ema20[i] > ema50[i] && closes[i] > ema50[i];
+        const pullbackTouch = lows[i] <= ema20[i] * 1.005 && lows[i] >= ema20[i] * 0.985;
+        const nextGreen = candles[i+1].close > candles[i+1].open && (candles[i+1].close - candles[i+1].open) > 0.4 * (candles[i+1].high - candles[i+1].low);
+        if (trendOK && pullbackTouch && nextGreen) { entryIdx = i + 1; break; }
+      }
+      if (entryIdx > 0) {
+        const entryPrice = candles[entryIdx].open;
+        const atrVal = (atrArr && !isNaN(atrArr[entryIdx])) ? atrArr[entryIdx] : 1.5;
+        const slPrice = entryPrice - 1.5 * atrVal;
+        const tpPrice = entryPrice + 2 * (entryPrice - slPrice);
+        body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+        body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (${labels.pullback})</text>`;
+        body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.75"/>`;
+        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl} (Entry − 1.5× ATR)</text>`;
+        body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="0.8" stroke-dasharray="2 4" opacity="0.7"/>`;
+        body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 12}" fill="#58a6ff" font-size="10" text-anchor="end">${labels.tp} (2R)</text>`;
+        candles._academyEntryRendered = true;
+      }
     }
-    body += `<polyline points="${ema50Pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#bc8cff" stroke-width="1.5" stroke-dasharray="4 2"/>`;
-    body += `<polyline points="${ema20Pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 2"/>`;
-    body += `<text x="${W - rightPad}" y="${ema20Pts[ema20Pts.length-1][1] - 4}" fill="#f0883e" font-size="10" text-anchor="end">EMA 20</text>`;
-    body += `<text x="${W - rightPad}" y="${ema50Pts[ema50Pts.length-1][1] + 14}" fill="#bc8cff" font-size="10" text-anchor="end">EMA 50</text>`;
   } else if (schema === 'breakout') {
     // Range-Linien ueber Konsolidierungs-Phase
     const rangeHigh = 105.5, rangeLow = 96.5;
@@ -21337,11 +21416,13 @@ function _academySvg(schema, isEn) {
     const lastClose = candles[candles.length - 1].close;
     drawTP(lastClose + 2, isEn ? 'TP (trail / opp. cross)' : 'TP (Trail / Gegen-Cross)', 'right');
   } else if (schema === 'trend-pullback') {
-    const idx = 13;
-    body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
-    body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (${labels.pullback})</text>`;
-    drawSL(candles[12].low - 1, 'right');
-    drawTP(candles[idx].close + (candles[idx].close - (candles[12].low - 1)) * 2, isEn ? 'TP (2R)' : 'TP (2R)', 'right');
+    if (!candles._academyEntryRendered) {
+      const idx = 13;
+      body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+      body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (${labels.pullback})</text>`;
+      drawSL(candles[12].low - 1, 'right');
+      drawTP(candles[idx].close + (candles[idx].close - (candles[12].low - 1)) * 2, isEn ? 'TP (2R)' : 'TP (2R)', 'right');
+    }
   } else if (schema === 'breakout') {
     const idx = 19;
     body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
@@ -23044,7 +23125,7 @@ function renderAcademy() {
         <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${simpleInfo.desc}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:8px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
-          ${_academySvg(schema, isEn)}
+          ${_academySvg(schema, isEn, strat.name)}
         </div>
         ${entryReasonHtml}
         ${indicatorsHtml}
@@ -23065,7 +23146,7 @@ function renderAcademy() {
         <p style="margin:0 0 12px;color:var(--text-primary)">${di.desc || ''}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
-          ${_academySvg(schema, isEn)}
+          ${_academySvg(schema, isEn, strat.name)}
         </div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px">
           <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${di.entry || '—'}</span>
