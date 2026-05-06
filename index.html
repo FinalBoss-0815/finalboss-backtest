@@ -13836,6 +13836,59 @@ const BUILDER_INDICATORS = [
   { id: 'candle_gap', label: 'Gap', params: [], valueType: 'pattern', hint: '1=Gap Up, -1=Gap Down' },
   { id: 'candle_bullish', label: 'Bullische Kerze', params: [], valueType: 'pattern', hint: '1=Close > Open' },
   { id: 'candle_bearish', label: 'Bärische Kerze', params: [], valueType: 'pattern', hint: '1=Close < Open' },
+
+  // ── Erweiterte Trend / Volatilität ──
+  { id: '_sep_trend2', label: '── Erweiterte Trend / Volatilität ──', params: [], valueType: 'separator' },
+  { id: 'donchian_upper', label: 'Donchian Upper', params: [{id:'period',label:'Period',def:20,min:5,max:200}], valueType: 'price' },
+  { id: 'donchian_lower', label: 'Donchian Lower', params: [{id:'period',label:'Period',def:20,min:5,max:200}], valueType: 'price' },
+  { id: 'donchian_mid', label: 'Donchian Mid', params: [{id:'period',label:'Period',def:20,min:5,max:200}], valueType: 'price' },
+  { id: 'psar', label: 'Parabolic SAR', params: [{id:'afStart',label:'AF Start',def:0.02,min:0.01,max:0.1,step:0.01}, {id:'afMax',label:'AF Max',def:0.2,min:0.1,max:0.5,step:0.05}], valueType: 'price' },
+  { id: 'psar_direction', label: 'Parabolic SAR Dir', params: [{id:'afStart',label:'AF Start',def:0.02,min:0.01,max:0.1,step:0.01}, {id:'afMax',label:'AF Max',def:0.2,min:0.1,max:0.5,step:0.05}], valueType: 'number', range:[-1,1], hint: '+1 = bullisch, -1 = bearisch' },
+  { id: 'kama', label: 'KAMA', params: [{id:'period',label:'Period',def:10,min:2,max:100}], valueType: 'price' },
+  { id: 'chandelier_long', label: 'Chandelier Exit Long', params: [{id:'period',label:'Period',def:22,min:5,max:100}, {id:'mult',label:'Mult',def:3,min:1,max:5,step:0.5}], valueType: 'price' },
+  { id: 'chandelier_short', label: 'Chandelier Exit Short', params: [{id:'period',label:'Period',def:22,min:5,max:100}, {id:'mult',label:'Mult',def:3,min:1,max:5,step:0.5}], valueType: 'price' },
+  { id: 'linreg_value', label: 'Linear Regression', params: [{id:'period',label:'Period',def:20,min:5,max:100}], valueType: 'price' },
+  { id: 'linreg_upper', label: 'LinReg Upper Band', params: [{id:'period',label:'Period',def:20,min:5,max:100}], valueType: 'price' },
+  { id: 'linreg_lower', label: 'LinReg Lower Band', params: [{id:'period',label:'Period',def:20,min:5,max:100}], valueType: 'price' },
+
+  // ── Pivot Points ──
+  { id: '_sep_pivot', label: '── Pivot Points (Daily) ──', params: [], valueType: 'separator' },
+  { id: 'pivot_pp', label: 'Pivot Point (PP)', params: [], valueType: 'price' },
+  { id: 'pivot_r1', label: 'Pivot R1 (Resistance)', params: [], valueType: 'price' },
+  { id: 'pivot_r2', label: 'Pivot R2 (Resistance)', params: [], valueType: 'price' },
+  { id: 'pivot_s1', label: 'Pivot S1 (Support)', params: [], valueType: 'price' },
+  { id: 'pivot_s2', label: 'Pivot S2 (Support)', params: [], valueType: 'price' },
+
+  // ── Ichimoku Kinko Hyo ──
+  { id: '_sep_ichi', label: '── Ichimoku Kinko Hyo ──', params: [], valueType: 'separator' },
+  { id: 'ichi_tenkan', label: 'Ichimoku Tenkan', params: [{id:'tenkanP',label:'Tenkan',def:9,min:5,max:30}], valueType: 'price' },
+  { id: 'ichi_kijun', label: 'Ichimoku Kijun', params: [{id:'kijunP',label:'Kijun',def:26,min:10,max:60}], valueType: 'price' },
+  { id: 'ichi_senkouA', label: 'Ichimoku Senkou A (Kumo)', params: [], valueType: 'price' },
+  { id: 'ichi_senkouB', label: 'Ichimoku Senkou B (Kumo)', params: [{id:'senkouBP',label:'Senkou B',def:52,min:26,max:120}], valueType: 'price' },
+
+  // ── Erweiterte Oszillatoren ──
+  { id: '_sep_osc2', label: '── Erweiterte Oszillatoren ──', params: [], valueType: 'separator' },
+  { id: 'stochrsi_k', label: 'StochRSI %K', params: [{id:'rsiP',label:'RSI Period',def:14,min:5,max:50}, {id:'stochP',label:'Stoch Period',def:14,min:5,max:50}], valueType: 'number', range:[0,100] },
+  { id: 'stochrsi_d', label: 'StochRSI %D', params: [{id:'rsiP',label:'RSI Period',def:14,min:5,max:50}, {id:'stochP',label:'Stoch Period',def:14,min:5,max:50}], valueType: 'number', range:[0,100] },
+  { id: 'awesome_osc', label: 'Awesome Oscillator', params: [], valueType: 'number', hint: 'Nullkreuz = Trendwechsel' },
+  { id: 'choppiness', label: 'Choppiness Index', params: [{id:'period',label:'Period',def:14,min:5,max:50}], valueType: 'number', range:[0,100], hint: '<38.2 = Trend, >61.8 = Range' },
+  { id: 'roc', label: 'ROC (Rate of Change)', params: [{id:'period',label:'Period',def:12,min:2,max:100}], valueType: 'number', hint: 'in % — Momentum' },
+  { id: 'connors_rsi', label: 'Connors RSI', params: [], valueType: 'number', range:[0,100], hint: 'kurzfristig: <10/>90 = Extrem' },
+  { id: 'dpo', label: 'DPO (Detrended Price Osc)', params: [{id:'period',label:'Period',def:20,min:5,max:100}], valueType: 'number', hint: 'um 0 oszillierend' },
+  { id: 'ultimate_osc', label: 'Ultimate Oscillator', params: [], valueType: 'number', range:[0,100] },
+  { id: 'trix', label: 'TRIX', params: [{id:'period',label:'Period',def:15,min:5,max:50}], valueType: 'number', hint: 'um 0 — Nullkreuz wichtig' },
+  { id: 'vortex_pos', label: 'Vortex VI+', params: [{id:'period',label:'Period',def:14,min:5,max:50}], valueType: 'number' },
+  { id: 'vortex_neg', label: 'Vortex VI-', params: [{id:'period',label:'Period',def:14,min:5,max:50}], valueType: 'number' },
+  { id: 'klinger_kvo', label: 'Klinger Volume Osc', params: [], valueType: 'number' },
+  { id: 'klinger_signal', label: 'Klinger Signal', params: [], valueType: 'number' },
+  { id: 'stc', label: 'Schaff Trend Cycle (STC)', params: [{id:'period',label:'Period',def:10,min:5,max:50}], valueType: 'number', range:[0,100] },
+  { id: 'squeeze_momentum', label: 'TTM Squeeze Momentum', params: [], valueType: 'number', hint: '+/- = Richtung' },
+  { id: 'squeeze_on', label: 'TTM Squeeze (On/Off)', params: [], valueType: 'number', range:[0,1], hint: '1 = Squeeze aktiv' },
+
+  // ── Volumen ──
+  { id: '_sep_vol', label: '── Volumen ──', params: [], valueType: 'separator' },
+  { id: 'volume', label: 'Volumen (aktuell)', params: [], valueType: 'number' },
+  { id: 'volume_sma', label: 'Volume SMA', params: [{id:'period',label:'Period',def:20,min:5,max:100}], valueType: 'number', hint: 'für Volume-Spike-Filter' },
 ];
 
 const BUILDER_COMPARATORS = [
@@ -14095,6 +14148,49 @@ function activateBuilderStrategy() {
           case 'candle_gap': this._cache[key] = Indicators.gapDetect(this._candles); break;
           case 'candle_bullish': this._cache[key] = this._candles.map(c => c.close > c.open ? 1 : 0); break;
           case 'candle_bearish': this._cache[key] = this._candles.map(c => c.close < c.open ? 1 : 0); break;
+          // ── Erweiterte Trend / Volatilität ──
+          case 'donchian_upper': { const d = Indicators.donchian(highs, lows, params.period || 20); this._cache[key] = d.upper; break; }
+          case 'donchian_lower': { const d = Indicators.donchian(highs, lows, params.period || 20); this._cache[key] = d.lower; break; }
+          case 'donchian_mid': { const d = Indicators.donchian(highs, lows, params.period || 20); this._cache[key] = d.mid; break; }
+          case 'psar': { const p = Indicators.parabolicSar(highs, lows, closes, params.afStart || 0.02, 0.02, params.afMax || 0.2); this._cache[key] = p.sar; break; }
+          case 'psar_direction': { const p = Indicators.parabolicSar(highs, lows, closes, params.afStart || 0.02, 0.02, params.afMax || 0.2); this._cache[key] = p.direction; break; }
+          case 'kama': this._cache[key] = Indicators.kama(closes, params.period || 10); break;
+          case 'chandelier_long': { const c = Indicators.chandelierExit(highs, lows, closes, params.period || 22, params.mult || 3); this._cache[key] = c.longExit; break; }
+          case 'chandelier_short': { const c = Indicators.chandelierExit(highs, lows, closes, params.period || 22, params.mult || 3); this._cache[key] = c.shortExit; break; }
+          case 'linreg_value': { const l = Indicators.linearRegression(closes, params.period || 20); this._cache[key] = l.value; break; }
+          case 'linreg_upper': { const l = Indicators.linearRegression(closes, params.period || 20); this._cache[key] = l.upper; break; }
+          case 'linreg_lower': { const l = Indicators.linearRegression(closes, params.period || 20); this._cache[key] = l.lower; break; }
+          // ── Pivot Points ──
+          case 'pivot_pp': { const p = Indicators.pivotPoints(this._candles); this._cache[key] = p.pp; break; }
+          case 'pivot_r1': { const p = Indicators.pivotPoints(this._candles); this._cache[key] = p.r1; break; }
+          case 'pivot_r2': { const p = Indicators.pivotPoints(this._candles); this._cache[key] = p.r2; break; }
+          case 'pivot_s1': { const p = Indicators.pivotPoints(this._candles); this._cache[key] = p.s1; break; }
+          case 'pivot_s2': { const p = Indicators.pivotPoints(this._candles); this._cache[key] = p.s2; break; }
+          // ── Ichimoku ──
+          case 'ichi_tenkan': { const ic = Indicators.ichimoku(highs, lows, closes, params.tenkanP || 9, 26, 52); this._cache[key] = ic.tenkan; break; }
+          case 'ichi_kijun': { const ic = Indicators.ichimoku(highs, lows, closes, 9, params.kijunP || 26, 52); this._cache[key] = ic.kijun; break; }
+          case 'ichi_senkouA': { const ic = Indicators.ichimoku(highs, lows, closes, 9, 26, 52); this._cache[key] = ic.senkouA; break; }
+          case 'ichi_senkouB': { const ic = Indicators.ichimoku(highs, lows, closes, 9, 26, params.senkouBP || 52); this._cache[key] = ic.senkouB; break; }
+          // ── Erweiterte Oszillatoren ──
+          case 'stochrsi_k': { const s = Indicators.stochRsi(closes, params.rsiP || 14, params.stochP || 14); this._cache[key] = s.k; break; }
+          case 'stochrsi_d': { const s = Indicators.stochRsi(closes, params.rsiP || 14, params.stochP || 14); this._cache[key] = s.d; break; }
+          case 'awesome_osc': this._cache[key] = Indicators.awesomeOscillator(highs, lows); break;
+          case 'choppiness': this._cache[key] = Indicators.choppiness(highs, lows, closes, params.period || 14); break;
+          case 'roc': this._cache[key] = Indicators.roc(closes, params.period || 12); break;
+          case 'connors_rsi': this._cache[key] = Indicators.connorsRsi(closes); break;
+          case 'dpo': this._cache[key] = Indicators.dpo(closes, params.period || 20); break;
+          case 'ultimate_osc': this._cache[key] = Indicators.ultimateOscillator(highs, lows, closes); break;
+          case 'trix': this._cache[key] = Indicators.trix(closes, params.period || 15); break;
+          case 'vortex_pos': { const v = Indicators.vortex(highs, lows, closes, params.period || 14); this._cache[key] = v.vip; break; }
+          case 'vortex_neg': { const v = Indicators.vortex(highs, lows, closes, params.period || 14); this._cache[key] = v.vim; break; }
+          case 'klinger_kvo': { const k = Indicators.klinger(highs, lows, closes, volumes); this._cache[key] = k.kvo; break; }
+          case 'klinger_signal': { const k = Indicators.klinger(highs, lows, closes, volumes); this._cache[key] = k.signal; break; }
+          case 'stc': this._cache[key] = Indicators.schaffTrendCycle(closes, params.period || 10); break;
+          case 'squeeze_momentum': { const s = Indicators.squeezeMomentum(highs, lows, closes); this._cache[key] = s.momentum; break; }
+          case 'squeeze_on': { const s = Indicators.squeezeMomentum(highs, lows, closes); this._cache[key] = s.squeeze; break; }
+          // ── Volumen ──
+          case 'volume': this._cache[key] = volumes; break;
+          case 'volume_sma': this._cache[key] = Indicators.volumeSma(volumes, params.period || 20); break;
           default: this._cache[key] = new Array(closes.length).fill(NaN);
         }
       }
@@ -20282,12 +20378,12 @@ const ACADEMY_SCHEMAS = {
   'Trend-Pullback': 'trend-pullback',
   'Donchian-Breakout + ADX': 'breakout',
   'Bollinger Reversion': 'channel-reversion',
-  'Supertrend + ATR-Trail': 'trend-following',
+  'Supertrend + ATR-Trail': 'supertrend',
   'RSI Extreme Reversal': 'oscillator-reversal',
   'Triple EMA Cross': 'triple-ma',
-  'Heikin-Ashi Trend': 'trend-following',
-  'Parabolic SAR + ADX': 'trend-following',
-  'ADX Power Trend': 'trend-following',
+  'Heikin-Ashi Trend': 'heikin-ashi',
+  'Parabolic SAR + ADX': 'parabolic-sar',
+  'ADX Power Trend': 'adx-panel',
   'Bollinger Squeeze Breakout': 'breakout',
   'Keltner Channel Reversion': 'channel-reversion',
   'Engulfing at Key Level': 'pattern',
@@ -20311,35 +20407,35 @@ const ACADEMY_SCHEMAS = {
   'Stochastic K/D Cross': 'oscillator-reversal',
   'Williams %R Reversal': 'oscillator-reversal',
   'CCI Trend': 'oscillator-reversal',
-  'Ichimoku Kumo Breakout': 'breakout',
+  'Ichimoku Kumo Breakout': 'ichimoku-cloud',
   'Hull MA Cross': 'ma-cross',
   'MFI Mean Reversion': 'oscillator-reversal',
   'CMF Trend': 'trend-following',
-  'TRIX Zero Cross': 'trend-following',
+  'TRIX Zero Cross': 'histogram-panel',
   'StochRSI Reversal': 'oscillator-reversal',
-  'Awesome Oscillator': 'trend-following',
-  'EMA Ribbon Trend': 'trend-following',
-  'Pivot Point Bounce': 'channel-reversion',
+  'Awesome Oscillator': 'histogram-panel',
+  'EMA Ribbon Trend': 'ribbon-trend',
+  'Pivot Point Bounce': 'pivot-levels',
   'Volume Spike Reversal': 'volume-spike',
   'Choppiness + Trend': 'trend-following',
   'Linear Regression Reversion': 'channel-reversion',
-  'ROC Momentum': 'breakout',
+  'ROC Momentum': 'histogram-panel',
   'Golden / Death Cross': 'ma-cross',
   'Three Soldiers / Crows': 'pattern',
   'Inside Bar Breakout': 'pattern',
-  'DMI Crossover': 'trend-following',
+  'DMI Crossover': 'adx-panel',
   'Bollinger Bandwidth Squeeze': 'breakout',
   'Donchian Mean Reversion': 'channel-reversion',
   'VWAP Bands Reversion': 'channel-reversion',
   'Bollinger %B Reversal': 'oscillator-reversal',
   'Connors RSI 2': 'oscillator-reversal',
-  'DPO Reversal': 'oscillator-reversal',
+  'DPO Reversal': 'histogram-panel',
   'Ultimate Oscillator': 'oscillator-reversal',
   'KAMA Trend': 'trend-following',
-  'Vortex Crossover': 'trend-following',
-  'Klinger Volume Oscillator': 'trend-following',
-  'HA Strong Continuation': 'trend-following',
-  'Schaff Trend Cycle': 'trend-following',
+  'Vortex Crossover': 'two-line-cross',
+  'Klinger Volume Oscillator': 'two-line-cross',
+  'HA Strong Continuation': 'heikin-ashi',
+  'Schaff Trend Cycle': 'oscillator-reversal',
   'Chandelier Exit Trend': 'trend-following',
   'TTM Squeeze': 'breakout',
   'Engulfing + Volume': 'pattern',
@@ -20355,12 +20451,21 @@ const ACADEMY_SCHEMAS = {
 const ACADEMY_CAT_OF_SCHEMA = {
   'mean-reversion': 'reversion',
   'channel-reversion': 'reversion',
+  'pivot-levels': 'reversion',
+  'ribbon-trend': 'trend',
+  'heikin-ashi': 'trend',
   'oscillator-reversal': 'oscillator',
+  'histogram-panel': 'oscillator',
+  'two-line-cross': 'oscillator',
   'trend-following': 'trend',
+  'supertrend': 'trend',
+  'parabolic-sar': 'trend',
+  'adx-panel': 'trend',
   'trend-pullback': 'trend',
   'ma-cross': 'trend',
   'triple-ma': 'trend',
   'breakout': 'breakout',
+  'ichimoku-cloud': 'breakout',
   'pattern': 'pattern',
   'volume-spike': 'pattern',
   'smc': 'smc',
@@ -20582,6 +20687,143 @@ function _academyCandles(schema) {
       arr.push(candle(o, c, 0.6, 0.5));
       p = c;
     }
+  } else if (schema === 'supertrend') {
+    // Klarer Aufwaerts-Trend (i 0-12, gruene Kerzen, Supertrend-Linie unter dem Preis)
+    let p = 80;
+    for (let i = 0; i < 13; i++) {
+      const o = p, c = p + 1.6 + rand() * 1.4;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
+    // Flip-Kerze (i=13) — grosse rote Reversal-Kerze, durchbricht den Supertrend
+    arr.push(candle(p, p - 5.5, 0.4, 0.6));
+    p = p - 5.5;
+    // Anschliessend klarer Abwaerts-Trend (i 14-25)
+    for (let i = 14; i < 26; i++) {
+      const o = p, c = p - 1.8 - rand() * 1.2;
+      arr.push(candle(o, c, 0.5, 0.7));
+      p = c;
+    }
+  } else if (schema === 'parabolic-sar') {
+    // Wie supertrend: Aufwaerts dann Reversal — SAR-Punkte unter (bullisch) flippen oben (bearisch)
+    let p = 78;
+    for (let i = 0; i < 14; i++) {
+      const o = p, c = p + 1.5 + rand() * 1.3;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
+    // Reversal-Kerze (i=14) — klar rot, durchbricht alles
+    arr.push(candle(p, p - 4.5, 0.4, 0.7));
+    p = p - 4.5;
+    for (let i = 15; i < 26; i++) {
+      const o = p, c = p - 1.6 - rand() * 1.2;
+      arr.push(candle(o, c, 0.5, 0.7));
+      p = c;
+    }
+  } else if (schema === 'ribbon-trend') {
+    // Konsolidierung dann starker Aufwärts-Trend (alle EMAs fächern auf)
+    let p = 92;
+    for (let i = 0; i < 7; i++) {
+      const o = p, c = p + (rand() - 0.5) * 1.5;
+      arr.push(candle(o, c, 0.7, 0.7));
+      p = c;
+    }
+    for (let i = 7; i < 26; i++) {
+      const o = p, c = p + 1.4 + rand() * 1.0;
+      arr.push(candle(o, c, 0.5, 0.4));
+      p = c;
+    }
+  } else if (schema === 'heikin-ashi') {
+    // Heikin-Ashi: glatter Aufwärtstrend ohne Mischfarben (alle Kerzen gleichgerichtet)
+    let p = 88;
+    for (let i = 0; i < 26; i++) {
+      const o = p, c = p + 1.3 + rand() * 0.6;  // immer gruen
+      // wickUp klein, wickDown sehr klein/null um HA-Look zu simulieren
+      arr.push(candle(o, c, 0.3 + rand() * 0.4, i < 13 ? 0.05 : 0.4));
+      p = c;
+    }
+  } else if (schema === 'ichimoku-cloud') {
+    // Preis chopt unter der Wolke, durchbricht sie nach oben bei i=18
+    let p = 90;
+    for (let i = 0; i < 18; i++) {
+      const o = p, c = p + (rand() - 0.45) * 2.5 + i * 0.35;
+      arr.push(candle(o, c, 0.7, 0.7));
+      p = c;
+    }
+    // Breakout-Kerze über die Wolke
+    arr.push(candle(p, p + 4.5, 0.4, 0.4));
+    p = p + 4.5;
+    for (let i = 19; i < 26; i++) {
+      const o = p, c = p + 1.0 + rand() * 0.8;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
+  } else if (schema === 'histogram-panel') {
+    // Preis fällt erst leicht, dann starker Aufschwung — Histogramm flippt mit
+    let p = 105;
+    for (let i = 0; i < 13; i++) {
+      const o = p, c = p - 0.7 + (rand() - 0.5) * 1.5;
+      arr.push(candle(o, c, 0.7, 0.7));
+      p = c;
+    }
+    // Cross-Kerze: starker grüner Reversal
+    arr.push(candle(p, p + 4.0, 0.3, 0.4));
+    p = p + 4.0;
+    for (let i = 14; i < 26; i++) {
+      const o = p, c = p + 1.4 + rand() * 0.9;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
+  } else if (schema === 'adx-panel') {
+    // Sideways Phase, dann starker Trend (ADX bricht aus)
+    let p = 100;
+    for (let i = 0; i < 11; i++) {
+      const o = p, c = p + (rand() - 0.5) * 2;
+      arr.push(candle(o, c, 0.8, 0.8));
+      p = c;
+    }
+    // Breakout: ADX > 25, +DI > -DI, Long-Entry
+    arr.push(candle(p, p + 3.5, 0.3, 0.4));
+    p = p + 3.5;
+    for (let i = 12; i < 26; i++) {
+      const o = p, c = p + 1.5 + rand() * 1.0;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
+  } else if (schema === 'two-line-cross') {
+    // Preis fällt, dann Trendwechsel mit Linien-Cross
+    let p = 110;
+    for (let i = 0; i < 13; i++) {
+      const o = p, c = p - 1.2 + (rand() - 0.4) * 1.5;
+      arr.push(candle(o, c, 0.7, 0.7));
+      p = c;
+    }
+    // Cross-Kerze
+    arr.push(candle(p, p + 3.5, 0.3, 0.5));
+    p = p + 3.5;
+    for (let i = 14; i < 26; i++) {
+      const o = p, c = p + 1.3 + rand() * 0.9;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
+  } else if (schema === 'pivot-levels') {
+    // Preis oszilliert in der Range PP=100 +/- 16, faellt zu S1=92, bouncebt dort kraeftig
+    for (let i = 0; i < 13; i++) {
+      // i=0..12: Drift von PP nach unten Richtung S1
+      const target = 100 - i * 0.6;  // 100 → 92.8
+      const o = target + (rand() - 0.5) * 2;
+      const c = target + (rand() - 0.5) * 2;
+      arr.push(candle(o, c, 0.8, 0.8));
+    }
+    // Bounce-Kerze (i=13) — grosse gruene Reversal-Kerze direkt an S1=92
+    arr.push(candle(92.2, 96.8, 0.3, 1.2));
+    // i=14..25: starker Aufschwung Richtung PP
+    let p = 96.8;
+    for (let i = 14; i < 26; i++) {
+      const o = p, c = p + 0.8 + rand() * 0.7;
+      arr.push(candle(o, c, 0.6, 0.5));
+      p = c;
+    }
   } else {
     // advanced / fallback
     let p = 100;
@@ -20630,6 +20872,206 @@ function _academySvg(schema, isEn) {
     const emaPts = candles.map((c, i) => [cx(i), yScale(c.close - 3)]);
     body += `<polyline points="${emaPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 2"/>`;
     body += `<text x="${W - rightPad}" y="${yScale(candles[candles.length-1].close) + 12}" fill="#f0883e" font-size="10" text-anchor="end">EMA</text>`;
+  } else if (schema === 'supertrend') {
+    // Supertrend: gruene Linie unter den Kerzen (bullisch), flippt auf rote Linie ueber den Kerzen
+    const flipIdx = 13;
+    const stPtsBull = [], stPtsBear = [];
+    for (let i = 0; i < candles.length; i++) {
+      if (i < flipIdx) stPtsBull.push([cx(i), yScale(candles[i].low - 3)]);
+      else stPtsBear.push([cx(i), yScale(candles[i].high + 3)]);
+    }
+    body += `<polyline points="${stPtsBull.map(p => p.join(',')).join(' ')}" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<polyline points="${stPtsBear.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="2"/>`;
+    body += `<text x="${cx(2)}" y="${stPtsBull[2][1] + 14}" fill="#3fb950" font-size="10">${isEn ? 'Supertrend bullish (below)' : 'Supertrend bullisch (unten)'}</text>`;
+    body += `<text x="${cx(candles.length - 3)}" y="${stPtsBear[stPtsBear.length-1][1] - 6}" fill="#f85149" font-size="10" text-anchor="end">${isEn ? 'Bearish (above)' : 'Bearisch (oben)'}</text>`;
+    // Flip-Marker (= Short-Entry-Signal beim Wechsel von gruen-unten auf rot-oben)
+    body += `<circle cx="${cx(flipIdx)}" cy="${yScale(candles[flipIdx].close)}" r="6" fill="none" stroke="#f85149" stroke-width="2"/>`;
+    body += `<text x="${cx(flipIdx)}" y="${yScale(candles[flipIdx].close) - 14}" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Short (Flip)</text>`;
+    // SL/TP
+    const slY = yScale(candles[flipIdx].high + 5);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'parabolic-sar') {
+    // Parabolic SAR: Punkte unter den Kerzen (bullisch) flippen auf Punkte oberhalb (bearisch)
+    const flipIdx = 14;
+    for (let i = 0; i < candles.length; i++) {
+      const isBull = (i < flipIdx);
+      const dotY = isBull ? yScale(candles[i].low) + 8 : yScale(candles[i].high) - 8;
+      const dotColor = isBull ? '#3fb950' : '#f85149';
+      body += `<circle cx="${cx(i)}" cy="${dotY}" r="2" fill="${dotColor}"/>`;
+    }
+    body += `<text x="${cx(2)}" y="${yScale(candles[2].low) + 22}" fill="#3fb950" font-size="9">${isEn ? 'SAR dots below = bullish' : 'SAR-Punkte unten = bullisch'}</text>`;
+    body += `<text x="${cx(candles.length - 3)}" y="${yScale(candles[candles.length-3].high) - 14}" fill="#f85149" font-size="9" text-anchor="end">${isEn ? 'Above = bearish' : 'oben = bearisch'}</text>`;
+    body += `<circle cx="${cx(flipIdx)}" cy="${yScale(candles[flipIdx].close)}" r="6" fill="none" stroke="#f85149" stroke-width="2"/>`;
+    body += `<text x="${cx(flipIdx)}" y="${yScale(candles[flipIdx].close) - 14}" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Short (SAR-Flip)</text>`;
+    const slY = yScale(candles[flipIdx].high + 5);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'ribbon-trend') {
+    // 5 EMAs gefächert (8/13/21/34/55) — perfekte Aufwärts-Staffelung
+    const periods = [8, 13, 21, 34, 55];
+    const colors = ['#3fb950', '#7ee787', '#f0883e', '#bc8cff', '#a371f7'];
+    const ribbon = periods.map(() => []);
+    const vals = candles[0].close ? periods.map(() => candles[0].close) : periods.map(() => 100);
+    for (let i = 0; i < candles.length; i++) {
+      for (let k = 0; k < periods.length; k++) {
+        const alpha = 2 / (periods[k] + 1);
+        vals[k] = vals[k] * (1 - alpha) + candles[i].close * alpha;
+        ribbon[k].push([cx(i), yScale(vals[k])]);
+      }
+    }
+    for (let k = ribbon.length - 1; k >= 0; k--) {
+      body += `<polyline points="${ribbon[k].map(p => p.join(',')).join(' ')}" fill="none" stroke="${colors[k]}" stroke-width="${k === 0 ? 1.8 : 1.2}" stroke-dasharray="${k === 0 ? '' : '3 2'}"/>`;
+    }
+    body += `<text x="${W - rightPad}" y="${ribbon[0][ribbon[0].length-1][1] - 4}" fill="${colors[0]}" font-size="10" text-anchor="end">EMA 8</text>`;
+    body += `<text x="${W - rightPad}" y="${ribbon[4][ribbon[4].length-1][1] + 14}" fill="${colors[4]}" font-size="10" text-anchor="end">EMA 55</text>`;
+    // Entry beim Auffächern (i=12)
+    const entryIdx = 12;
+    body += `<circle cx="${cx(entryIdx)}" cy="${yScale(candles[entryIdx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(entryIdx)}" y="${yScale(candles[entryIdx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (Ribbon ↑)</text>`;
+    const slY = yScale(candles[entryIdx].low - 3);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'heikin-ashi') {
+    // Heikin-Ashi: glatte Trend-Sequenz, keine Reversal-Kerzen — Label macht klar dass es HA-Modus ist
+    body += `<rect x="${leftPad}" y="14" width="100" height="20" fill="rgba(63,185,80,0.12)" stroke="#3fb950" stroke-width="0.8" rx="3"/>`;
+    body += `<text x="${leftPad + 50}" y="28" fill="#3fb950" font-size="10" font-weight="600" text-anchor="middle">Heikin-Ashi Modus</text>`;
+    body += `<text x="${leftPad}" y="48" fill="#8b949e" font-size="9">Diese Kerzen sind geglättet — keine Mischfarben, klarer Trend</text>`;
+    // Entry: dritte gruene HA-Kerze in Folge mit haOpen == haLow (kein unterer Schatten — pure Aufwärts-Kraft)
+    const entryIdx = 13;
+    body += `<circle cx="${cx(entryIdx)}" cy="${yScale(candles[entryIdx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(entryIdx)}" y="${yScale(candles[entryIdx].close) - 14}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (3 grüne HA in Folge)</text>`;
+    const slY = yScale(candles[entryIdx].low - 4);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'ichimoku-cloud') {
+    // Ichimoku: Tenkan (schnell, blau), Kijun (langsam, rot), Kumo-Wolke gefärbt zwischen Senkou A/B
+    const tenkanPts = [], kijunPts = [], senAPts = [], senBPts = [];
+    for (let i = 0; i < candles.length; i++) {
+      const tenkan = 90 + Math.sin(i * 0.30) * 6 + i * 0.6;
+      const kijun = 90 + Math.sin(i * 0.20) * 4 + i * 0.55;
+      const senA = (tenkan + kijun) / 2;
+      const senB = 90 + i * 0.45;
+      tenkanPts.push([cx(i), yScale(tenkan)]);
+      kijunPts.push([cx(i), yScale(kijun)]);
+      senAPts.push([cx(i), yScale(senA)]);
+      senBPts.push([cx(i), yScale(senB)]);
+    }
+    // Kumo-Wolke (Polygon zwischen senA und senB)
+    const cloudPath = [];
+    for (let i = 0; i < senAPts.length; i++) cloudPath.push(senAPts[i].join(','));
+    for (let i = senBPts.length - 1; i >= 0; i--) cloudPath.push(senBPts[i].join(','));
+    body += `<polygon points="${cloudPath.join(' ')}" fill="rgba(63,185,80,0.18)" stroke="none"/>`;
+    body += `<polyline points="${senAPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#3fb950" stroke-width="0.8" stroke-dasharray="2 2"/>`;
+    body += `<polyline points="${senBPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#bc8cff" stroke-width="0.8" stroke-dasharray="2 2"/>`;
+    body += `<polyline points="${tenkanPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#58a6ff" stroke-width="1.5"/>`;
+    body += `<polyline points="${kijunPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="1.5"/>`;
+    body += `<text x="${W - rightPad}" y="${tenkanPts[tenkanPts.length-1][1] - 4}" fill="#58a6ff" font-size="10" text-anchor="end">Tenkan (9)</text>`;
+    body += `<text x="${W - rightPad}" y="${kijunPts[kijunPts.length-1][1] + 12}" fill="#f85149" font-size="10" text-anchor="end">Kijun (26)</text>`;
+    body += `<text x="${cx(8)}" y="${senAPts[8][1] - 6}" fill="#3fb950" font-size="9">Kumo (Cloud)</text>`;
+    const entryIdx = 18;
+    body += `<circle cx="${cx(entryIdx)}" cy="${yScale(candles[entryIdx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(entryIdx)}" y="${yScale(candles[entryIdx].close) - 14}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (${labels.breakout} Kumo)</text>`;
+    const slY = yScale(candles[entryIdx].low - 4);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'histogram-panel') {
+    // Bottom-Panel mit Histogramm das durch Null kreuzt (Awesome Osc, TRIX, ROC, DPO)
+    const panelTop = H - bottomPad - 50;
+    const panelBot = H - bottomPad - 6;
+    const zeroY = (panelTop + panelBot) / 2;
+    body += `<rect x="${leftPad}" y="${panelTop}" width="${chartW}" height="${panelBot - panelTop}" fill="none" stroke="#30363d" stroke-width="1"/>`;
+    body += `<line x1="${leftPad}" y1="${zeroY}" x2="${W - rightPad}" y2="${zeroY}" stroke="#8b949e" stroke-width="0.6" stroke-dasharray="2 2"/>`;
+    body += `<text x="${leftPad + 4}" y="${zeroY - 2}" fill="#8b949e" font-size="9">0-Linie</text>`;
+    body += `<text x="${W - rightPad}" y="${panelTop + 12}" fill="#8b949e" font-size="9" text-anchor="end">${isEn ? 'Histogram' : 'Histogramm'}</text>`;
+    for (let i = 0; i < candles.length; i++) {
+      const t = (i - 12) / 13;
+      const h = Math.tanh(t * 1.6) * 16;
+      const barTop = h >= 0 ? zeroY - h : zeroY;
+      const barH = Math.max(1, Math.abs(h));
+      const color = h >= 0 ? '#3fb950' : '#f85149';
+      body += `<rect x="${cx(i) - 4}" y="${barTop}" width="8" height="${barH}" fill="${color}" opacity="0.75"/>`;
+    }
+    const entryIdx = 13;
+    body += `<circle cx="${cx(entryIdx)}" cy="${yScale(candles[entryIdx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(entryIdx)}" y="${yScale(candles[entryIdx].close) - 14}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (${isEn ? 'Zero Cross' : 'Nullkreuz'})</text>`;
+    const slY = yScale(candles[entryIdx].low - 3);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'adx-panel') {
+    // Bottom-Panel mit ADX, +DI, -DI: ADX bricht über 25, +DI > -DI = Long
+    const panelTop = H - bottomPad - 50;
+    const panelBot = H - bottomPad - 6;
+    body += `<rect x="${leftPad}" y="${panelTop}" width="${chartW}" height="${panelBot - panelTop}" fill="none" stroke="#30363d" stroke-width="1"/>`;
+    const yAxis = (val) => panelTop + (1 - val / 60) * (panelBot - panelTop);
+    body += `<line x1="${leftPad}" y1="${yAxis(25)}" x2="${W - rightPad}" y2="${yAxis(25)}" stroke="#f59e0b" stroke-width="0.6" stroke-dasharray="2 2"/>`;
+    body += `<text x="${leftPad + 4}" y="${yAxis(25) - 2}" fill="#f59e0b" font-size="9">ADX 25</text>`;
+    const adxPts = [], plusDiPts = [], minusDiPts = [];
+    for (let i = 0; i < candles.length; i++) {
+      const adx = 14 + Math.max(0, (i - 8) * 2.2);
+      const plusDi = 18 + Math.max(0, (i - 6) * 1.8);
+      const minusDi = 30 - Math.max(0, (i - 6) * 1.4);
+      adxPts.push([cx(i), yAxis(Math.min(adx, 55))]);
+      plusDiPts.push([cx(i), yAxis(Math.min(plusDi, 50))]);
+      minusDiPts.push([cx(i), yAxis(Math.max(minusDi, 5))]);
+    }
+    body += `<polyline points="${adxPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f59e0b" stroke-width="1.5"/>`;
+    body += `<polyline points="${plusDiPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#3fb950" stroke-width="1.2"/>`;
+    body += `<polyline points="${minusDiPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="1.2"/>`;
+    body += `<text x="${W - rightPad}" y="${panelTop + 12}" fill="#f59e0b" font-size="9" text-anchor="end">ADX</text>`;
+    body += `<text x="${W - rightPad}" y="${panelTop + 22}" fill="#3fb950" font-size="9" text-anchor="end">+DI</text>`;
+    body += `<text x="${W - rightPad}" y="${panelTop + 32}" fill="#f85149" font-size="9" text-anchor="end">−DI</text>`;
+    const entryIdx = 12;
+    body += `<circle cx="${cx(entryIdx)}" cy="${yScale(candles[entryIdx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(entryIdx)}" y="${yScale(candles[entryIdx].close) - 14}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (ADX>25, +DI>−DI)</text>`;
+    const slY = yScale(candles[entryIdx].low - 3);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'two-line-cross') {
+    // Bottom-Panel mit zwei Linien (Vortex VI+/VI-, Klinger KVO/Signal) — Cross = Entry
+    const panelTop = H - bottomPad - 50;
+    const panelBot = H - bottomPad - 6;
+    body += `<rect x="${leftPad}" y="${panelTop}" width="${chartW}" height="${panelBot - panelTop}" fill="none" stroke="#30363d" stroke-width="1"/>`;
+    const midY = (panelTop + panelBot) / 2;
+    const linePts1 = [], linePts2 = [];
+    for (let i = 0; i < candles.length; i++) {
+      const t = (i - 12) / 13;
+      const v1 = midY - Math.tanh(t * 1.5) * 16;
+      const v2 = midY + Math.tanh(t * 1.5) * 16;
+      linePts1.push([cx(i), v1]);
+      linePts2.push([cx(i), v2]);
+    }
+    body += `<polyline points="${linePts1.map(p => p.join(',')).join(' ')}" fill="none" stroke="#3fb950" stroke-width="1.5"/>`;
+    body += `<polyline points="${linePts2.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="1.5"/>`;
+    body += `<text x="${W - rightPad}" y="${panelTop + 12}" fill="#3fb950" font-size="9" text-anchor="end">+ Linie</text>`;
+    body += `<text x="${W - rightPad}" y="${panelTop + 22}" fill="#f85149" font-size="9" text-anchor="end">− Linie</text>`;
+    body += `<circle cx="${cx(12)}" cy="${midY}" r="3" fill="#3fb950"/>`;
+    const entryIdx = 13;
+    body += `<circle cx="${cx(entryIdx)}" cy="${yScale(candles[entryIdx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(entryIdx)}" y="${yScale(candles[entryIdx].close) - 14}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (${labels.cross})</text>`;
+    const slY = yScale(candles[entryIdx].low - 3);
+    body += `<line x1="${leftPad}" y1="${slY}" x2="${W - rightPad}" y2="${slY}" stroke="#f85149" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.7"/>`;
+    body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
+  } else if (schema === 'pivot-levels') {
+    // Horizontale Pivot-Linien: R2/R1 oben, PP mittig, S1/S2 unten — Bounce-Setup an S1
+    const pp = 100, r1 = 108, r2 = 116, s1 = 92, s2 = 84;
+    const lvlList = [
+      { p: r2, c: '#f85149', l: 'R2', dash: '3 2' },
+      { p: r1, c: '#f85149', l: 'R1', dash: '3 2' },
+      { p: pp, c: '#8b949e', l: 'PP (Pivot)', dash: '4 3' },
+      { p: s1, c: '#3fb950', l: 'S1', dash: '3 2' },
+      { p: s2, c: '#3fb950', l: 'S2', dash: '3 2' }
+    ];
+    for (const lvl of lvlList) {
+      body += `<line x1="${leftPad}" y1="${yScale(lvl.p)}" x2="${W - rightPad}" y2="${yScale(lvl.p)}" stroke="${lvl.c}" stroke-width="1" stroke-dasharray="${lvl.dash}"/>`;
+      body += `<text x="${leftPad + 4}" y="${yScale(lvl.p) - 3}" fill="${lvl.c}" font-size="10">${lvl.l}</text>`;
+    }
+    // Bounce-Entry an S1
+    body += `<circle cx="${cx(13)}" cy="${yScale(s1)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+    body += `<text x="${cx(13)}" y="${yScale(s1) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Long (S1-${isEn ? 'Bounce' : 'Bounce'})</text>`;
+    // SL bei S2, TP bei PP
+    body += `<text x="${W - rightPad - 4}" y="${yScale(s2) - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl} (am S2)</text>`;
+    body += `<text x="${W - rightPad - 4}" y="${yScale(pp) + 12}" fill="#58a6ff" font-size="10" text-anchor="end">${labels.tp} (am PP)</text>`;
   } else if (schema === 'ma-cross') {
     // Zwei MAs (fast + slow) mit Crossover
     const fastPts = [], slowPts = [];
@@ -20693,9 +21135,19 @@ function _academySvg(schema, isEn) {
       body += `<text x="${W - rightPad - 4}" y="${slY - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl}</text>`;
     }
   } else if (schema === 'trend-pullback') {
-    const emaPts = candles.map((c, i) => [cx(i), yScale(c.close - 2)]);
-    body += `<polyline points="${emaPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 2"/>`;
-    body += `<text x="${W - rightPad}" y="${yScale(candles[candles.length-1].close) + 14}" fill="#f0883e" font-size="10" text-anchor="end">EMA20</text>`;
+    // Zwei EMAs (20 schnell, 50 langsam) — bullische Staffelung EMA20 ueber EMA50
+    const ema20Pts = [], ema50Pts = [];
+    let v20 = candles[0].close, v50 = candles[0].close;
+    for (let i = 0; i < candles.length; i++) {
+      v20 = v20 * 0.80 + candles[i].close * 0.20;
+      v50 = v50 * 0.93 + candles[i].close * 0.07;
+      ema20Pts.push([cx(i), yScale(v20)]);
+      ema50Pts.push([cx(i), yScale(v50)]);
+    }
+    body += `<polyline points="${ema50Pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#bc8cff" stroke-width="1.5" stroke-dasharray="4 2"/>`;
+    body += `<polyline points="${ema20Pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 2"/>`;
+    body += `<text x="${W - rightPad}" y="${ema20Pts[ema20Pts.length-1][1] - 4}" fill="#f0883e" font-size="10" text-anchor="end">EMA 20</text>`;
+    body += `<text x="${W - rightPad}" y="${ema50Pts[ema50Pts.length-1][1] + 14}" fill="#bc8cff" font-size="10" text-anchor="end">EMA 50</text>`;
   } else if (schema === 'breakout') {
     // Range-Linien ueber Konsolidierungs-Phase
     const rangeHigh = 105.5, rangeLow = 96.5;
@@ -21080,6 +21532,85 @@ function _academySvgLEGACY_DEAD(schema, isEn) {
     body += `<text x="${W/2}" y="${H/2-30}" fill="#8b949e" font-size="11" text-anchor="middle" font-style="italic">${isEn ? 'Algorithmic / multi-factor strategy' : 'Algorithmische / Multi-Faktor-Strategie'}</text>`;
   }
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;background:#0d1117;border:1px solid var(--border);border-radius:6px">${body}</svg>`;
+}
+
+// Liefert eine kurze, eindeutige Begründung WARUM der Entry an genau dieser markierten Kerze ist
+function _academyEntryReason(schema, isEn) {
+  const R = {
+    'mean-reversion': isEn
+      ? 'Price is extremely far from its mean → reversion expected'
+      : 'Preis ist extrem weit weg vom Mittelwert → Rückkehr erwartet',
+    'channel-reversion': isEn
+      ? 'Candle low touches lower band + bullish confirmation candle'
+      : 'Kerzentief touched das untere Band UND bullische Bestätigungs-Kerze',
+    'pivot-levels': isEn
+      ? 'Bounce off S1 support — green confirmation candle, TP at PP'
+      : 'Bounce am S1-Support — grüne Bestätigungs-Kerze, TP an der Pivot-Linie',
+    'breakout': isEn
+      ? 'Close clearly above resistance after consolidation + ADX > 25'
+      : 'Schluss klar über Resistance nach Konsolidierung + ADX > 25',
+    'ichimoku-cloud': isEn
+      ? 'Close breaks above the Kumo cloud + Tenkan crosses above Kijun'
+      : 'Schluss bricht über die Kumo-Wolke + Tenkan kreuzt über Kijun',
+    'trend-following': isEn
+      ? 'Price respects the trend line, no break against direction'
+      : 'Preis respektiert die Trend-Linie, kein Bruch gegen die Richtung',
+    'supertrend': isEn
+      ? 'Supertrend flips from green-below to red-above → trend reversal confirmed'
+      : 'Supertrend wechselt von grün-unten auf rot-oben → Trendwechsel bestätigt',
+    'parabolic-sar': isEn
+      ? 'SAR dot jumps from below the candles to above → reversal trigger + ADX > 25'
+      : 'SAR-Punkt springt von unten nach oben über die Kerzen → Reversal + ADX > 25',
+    'adx-panel': isEn
+      ? 'ADX breaks above 25 + +DI is now above −DI (bulls dominant)'
+      : 'ADX bricht über 25 UND +DI liegt jetzt über −DI (Bullen dominieren)',
+    'trend-pullback': isEn
+      ? 'Price pulls back to EMA20 + green bounce candle after a short red phase'
+      : 'Preis kommt auf EMA20 zurück + grüne Bounce-Kerze nach einer roten Phase',
+    'ma-cross': isEn
+      ? 'Fast MA crosses above slow MA (golden cross moment)'
+      : 'Schneller MA kreuzt den langsamen nach oben (Golden-Cross-Moment)',
+    'triple-ma': isEn
+      ? 'All 3 EMAs (9/21/55) become perfectly stacked upwards in this candle'
+      : 'Alle 3 EMAs (9/21/55) sind in dieser Kerze perfekt aufwärts gestaffelt',
+    'ribbon-trend': isEn
+      ? 'All 5 EMAs (8/13/21/34/55) fan out perfectly upward'
+      : 'Alle 5 EMAs (8/13/21/34/55) fächern sich sauber nach oben auf',
+    'heikin-ashi': isEn
+      ? '3 green Heikin-Ashi candles in a row, latest with no lower wick (pure power)'
+      : '3 grüne Heikin-Ashi-Kerzen in Folge, jüngste ohne unteren Schatten (pure Aufwärts-Kraft)',
+    'oscillator-reversal': isEn
+      ? 'K crosses D in oversold zone (K < 30) — recovery signal'
+      : 'K kreuzt D in der Oversold-Zone (K < 30) — Recovery-Signal',
+    'histogram-panel': isEn
+      ? 'Histogram bars cross from red (negative) to green (positive) through zero'
+      : 'Histogramm-Bars kreuzen von rot (negativ) zu grün (positiv) durch die Null',
+    'two-line-cross': isEn
+      ? 'Plus-line crosses minus-line upwards (trend change confirmed)'
+      : 'Plus-Linie kreuzt Minus-Linie nach oben (Trendwechsel bestätigt)',
+    'pattern': isEn
+      ? 'Bullish engulfing on previous red candle at a key level'
+      : 'Bullisches Engulfing auf der roten Vorkerze an einem Key-Level',
+    'volume-spike': isEn
+      ? 'Volume 2.5× the average + reversal candle = exhaustion of the prior move'
+      : 'Volumen 2.5× Durchschnitt + Reversal-Kerze = Erschöpfung des Vor-Moves',
+    'smc': isEn
+      ? 'Order Block retest with bullish reaction inside the demand zone'
+      : 'Order-Block-Retest mit bullischer Reaktion in der Demand-Zone',
+    'crypto-specific': isEn
+      ? 'Funding extreme + price reaction confirms entry direction'
+      : 'Funding-Extrem + Preisreaktion bestätigen die Entry-Richtung',
+    'voting': isEn
+      ? '≥3 of 5 indicators vote in the same direction = consensus entry'
+      : '≥3 von 5 Indikatoren stimmen in dieselbe Richtung = Consensus-Entry',
+    'time-based': isEn
+      ? 'Buy day reached + trend filter aligned (price above EMA50)'
+      : 'Buy-Day erreicht + Trend-Filter aligned (Preis über EMA50)',
+    'advanced': isEn
+      ? 'All conditions of the strategy are met simultaneously at this candle'
+      : 'Alle Bedingungen der Strategie sind in dieser Kerze gleichzeitig erfüllt'
+  };
+  return R[schema] || (isEn ? 'All entry conditions met at this candle' : 'Alle Entry-Bedingungen in dieser Kerze erfüllt');
 }
 
 function _academyTipsForSchema(schema, isEn) {
@@ -22462,13 +22993,21 @@ function renderAcademy() {
           </div>
           ${tips ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">${tips}</div>` : ''}
         </div>` : '';
+      const lblWhyEntry = isEn ? 'Why this candle?' : 'Warum genau diese Kerze?';
+      const entryReason = (typeof _academyEntryReason === 'function') ? _academyEntryReason(schema, isEn) : '';
+      const entryReasonHtml = entryReason ? `
+        <div style="background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.3);border-radius:5px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--text-primary);display:flex;align-items:flex-start;gap:8px">
+          <span style="font-size:14px;flex-shrink:0">🎯</span>
+          <div><strong style="color:#22c55e">${lblWhyEntry}</strong> <span style="color:var(--text-secondary)">${entryReason}</span></div>
+        </div>` : '';
       bodyHtml = `
         ${proDetailsHtml}
         <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${simpleInfo.desc}</p>
-        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
+        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:8px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
           ${_academySvg(schema, isEn)}
         </div>
+        ${entryReasonHtml}
         ${indicatorsHtml}
         <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:8px">📖 ${lblHowto}</div>
@@ -22497,26 +23036,29 @@ function renderAcademy() {
         </div>
         ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}`;
     }
-    // Per-Strategie Mini-Toggle (Einfach/Für Profis) — direkt neben dem Namen in der Summary
+    // Per-Strategie Toggle (Einfach/Für Profis) — erscheint im Body, also nur wenn die Karte aufgeklappt ist
     const lblSimple = isEn ? '📖 Simple' : '📖 Einfach';
     const lblDetailed = isEn ? '🔬 Pros' : '🔬 Für Profis';
-    const summaryToggleHtml = `
-      <span class="academy-card-toggle" style="display:inline-flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:5px;overflow:hidden;flex-shrink:0;margin-left:4px">
-        <button type="button" onclick="event.preventDefault();event.stopPropagation();setAcademyMode('simple')" style="padding:3px 9px;background:${mode==='simple'?'var(--blue)':'transparent'};color:${mode==='simple'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:10px;letter-spacing:0.2px">${lblSimple}</button>
-        <button type="button" onclick="event.preventDefault();event.stopPropagation();setAcademyMode('detailed')" style="padding:3px 9px;background:${mode==='detailed'?'var(--blue)':'transparent'};color:${mode==='detailed'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:10px;letter-spacing:0.2px">${lblDetailed}</button>
-      </span>`;
+    const lblView = isEn ? 'View:' : 'Ansicht:';
+    const bodyToggleHtml = `
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px;font-size:11px;color:var(--text-muted)">
+        <span>${lblView}</span>
+        <span style="display:inline-flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:5px;overflow:hidden;flex-shrink:0">
+          <button type="button" onclick="setAcademyMode('simple')" style="padding:5px 11px;background:${mode==='simple'?'var(--blue)':'transparent'};color:${mode==='simple'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:11px">${lblSimple}</button>
+          <button type="button" onclick="setAcademyMode('detailed')" style="padding:5px 11px;background:${mode==='detailed'?'var(--blue)':'transparent'};color:${mode==='detailed'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:11px">${lblDetailed}</button>
+        </span>
+      </div>`;
     // data-strat Attribut zum Wiedererkennen der offenen Karten beim Re-Render
     const stratAttr = strat.name.replace(/"/g, '&quot;');
     html += `
       <details data-strat="${stratAttr}" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
-        <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none;flex-wrap:wrap">
+        <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
           <span style="color:var(--blue);font-size:11px">▶</span>
-          <span>${strat.name}</span>
-          ${summaryToggleHtml}
-          <span style="flex:1"></span>
+          <span style="flex:1">${strat.name}</span>
           <span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;background:var(--bg-tertiary);padding:2px 8px;border-radius:10px">${schema.replace('-', ' ')}</span>
         </summary>
         <div style="padding:0 16px 16px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
+          ${bodyToggleHtml}
           ${bodyHtml}
         </div>
       </details>`;
