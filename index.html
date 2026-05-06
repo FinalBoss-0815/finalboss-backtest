@@ -20495,87 +20495,87 @@ function _drawCandle(x, candle, yScale, bw) {
 // ═══════════════════════════════════════════════════════════════
 // Per-Strategie SL/TP-Regeln für Echtdaten-Charts
 const ACADEMY_STRATEGY_RULES = {
-  "Z-Score Mean Reversion":      { slAtrMult: 2.0, tpLabel: "Mittellinie (SMA 20)" },
-  "Bollinger Reversion":         { slAtrMult: 2.0, tpLabel: "Mittellinie BB (SMA 20)" },
-  "Keltner Channel Reversion":   { slAtrMult: 1.5, tpLabel: "Mittellinie (EMA 20 / Keltner)" },
-  "VWAP Mean Reversion":         { slAtrMult: 1.5, tpLabel: "VWAP" },
+  "Z-Score Mean Reversion": { slAtrMult: 2.0, tpLabel: "Mittellinie (SMA 20)" },
+  "Bollinger Reversion": { slAtrMult: 2.0, tpLabel: "Mittellinie BB (SMA 20)" },
+  "Keltner Channel Reversion": { slAtrMult: 1.5, tpLabel: "Mittellinie (EMA 20 / Keltner)" },
+  "VWAP Mean Reversion": { slAtrMult: 1.5, tpLabel: "VWAP" },
   "Linear Regression Reversion": { slAtrMult: 2.0, tpLabel: "Regressions-Mittellinie" },
-  "Donchian Mean Reversion":     { slAtrMult: 1.5, tpLabel: "Donchian-Mitte" },
-  "VWAP Bands Reversion":        { slAtrMult: 2.0, tpLabel: "VWAP" }
+  "Donchian Mean Reversion": { slAtrMult: 1.5, tpLabel: "Donchian-Mitte" },
+  "VWAP Bands Reversion": { slAtrMult: 2.0, tpLabel: "VWAP" }
 ,
 
   // Trend-Pullback-Familie: SL = 1.5× ATR, TP = 2× Risiko (R-Multiple)
-  "Trend-Pullback":              { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R (Take-Profit bei 2× Risiko)" },
-  "MTF Confluence":              { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R (Take-Profit bei 2× Risiko)" },
-  "21 EMA Bounce/Retest":        { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "EMA 200 / 2R" },
+  "Trend-Pullback": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R (Take-Profit bei 2× Risiko)" },
+  "MTF Confluence": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R (Take-Profit bei 2× Risiko)" },
+  "21 EMA Bounce/Retest": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "EMA 200 / 2R" },
   // Breakout-Familie: unterschiedliche SL und TP-Multiplier
-  "Donchian-Breakout + ADX":     { slAtrMult: 2.0, tpRMult: 3.0, tpLabel: "3R (Risiko × 3)" },
-  "Bollinger Squeeze Breakout":  { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R (Risiko × 2)" },
-  "ATR Breakout (Toby Crabel)":  { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
-  "VCP (Minervini)":             { slAtrMult: 1.5, tpRMult: 2.5, tpLabel: "2.5R" },
+  "Donchian-Breakout + ADX": { slAtrMult: 2.0, tpRMult: 3.0, tpLabel: "3R (Risiko × 3)" },
+  "Bollinger Squeeze Breakout": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R (Risiko × 2)" },
+  "ATR Breakout (Toby Crabel)": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
+  "VCP (Minervini)": { slAtrMult: 1.5, tpRMult: 2.5, tpLabel: "2.5R" },
   "Bollinger Bandwidth Squeeze": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Oberes BB / 2R" },
-  "TTM Squeeze":                 { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R" },
-  "Old Money Stacks Breakout":   { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Nächste Pivot-S/R / 2R" }
+  "TTM Squeeze": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R" },
+  "Old Money Stacks Breakout": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Nächste Pivot-S/R / 2R" }
 ,
 
   // Pass 3: Trend-/Cross-Strategien
-  "Parabolic SAR + ADX":         { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / SAR-Trail" },
-  "Pivot Point Bounce":          { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Pivot-Linie (PP)" },
-  "Ichimoku Kumo Breakout":      { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "2R / Kumo-Exit" },
-  "MACD Crossover":              { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / Reverse-Cross" },
-  "Hull MA Cross":               { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / Reverse-Cross" },
-  "Golden / Death Cross":        { slAtrMult: 3.0, tpRMult: 2.0, tpLabel: "2R / Reverse-Cross" },
-  "Triple EMA Cross":            { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / EMA-Cross-Reversal" },
-  "EMA Ribbon Trend":            { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / Ribbon-Break" },
+  "Parabolic SAR + ADX": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / SAR-Trail" },
+  "Pivot Point Bounce": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Pivot-Linie (PP)" },
+  "Ichimoku Kumo Breakout": { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "2R / Kumo-Exit" },
+  "MACD Crossover": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / Reverse-Cross" },
+  "Hull MA Cross": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / Reverse-Cross" },
+  "Golden / Death Cross": { slAtrMult: 3.0, tpRMult: 2.0, tpLabel: "2R / Reverse-Cross" },
+  "Triple EMA Cross": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / EMA-Cross-Reversal" },
+  "EMA Ribbon Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R / Ribbon-Break" },
   // Pass 4: Oscillator/Histogram/ADX/Two-Line — Bottom-Panel-Schemas
-  "RSI Extreme Reversal":        { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "RSI 50 (Mittellinie)" },
-  "Stochastic K/D Cross":        { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Stoch ≥ 80" },
-  "Williams %R Reversal":        { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "%R ≥ -20" },
-  "CCI Trend":                   { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "CCI < 0" },
-  "Awesome Oscillator":          { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "AO unter Null" },
-  "TRIX Zero Cross":             { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "TRIX zurück unter Null" },
-  "ROC Momentum":                { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "ROC unter 0" },
-  "DPO Reversal":                { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "DPO bei 0" },
-  "ADX Power Trend":             { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "ADX < 20 (Trend-Ende)" },
-  "DMI Crossover":               { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "+DI/-DI Reverse-Cross" },
-  "Vortex Crossover":            { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "VI+/VI- Reverse-Cross" },
-  "Klinger Volume Oscillator":   { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "KVO Reverse-Cross" },
+  "RSI Extreme Reversal": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "RSI 50 (Mittellinie)" },
+  "Stochastic K/D Cross": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Stoch ≥ 80" },
+  "Williams %R Reversal": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "%R ≥ -20" },
+  "CCI Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "CCI < 0" },
+  "Awesome Oscillator": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "AO unter Null" },
+  "TRIX Zero Cross": { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "TRIX zurück unter Null" },
+  "ROC Momentum": { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "ROC unter 0" },
+  "DPO Reversal": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "DPO bei 0" },
+  "ADX Power Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "ADX < 20 (Trend-Ende)" },
+  "DMI Crossover": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "+DI/-DI Reverse-Cross" },
+  "Vortex Crossover": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "VI+/VI- Reverse-Cross" },
+  "Klinger Volume Oscillator": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "KVO Reverse-Cross" },
 
   // Pass 6: Restliche Strategien — generische SL/TP-Regeln
-  "MFI Mean Reversion":          { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "MFI 50 (Mittellinie)" },
-  "StochRSI Reversal":           { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "K ≥ 80" },
-  "Bollinger %B Reversal":       { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "%B ≥ 0.5" },
-  "Connors RSI 2":               { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "Connors RSI ≥ 50" },
-  "Ultimate Oscillator":         { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "UO ≥ 50" },
-  "Schaff Trend Cycle":          { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "STC ≥ 75" },
-  "Supertrend + ATR-Trail":      { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Supertrend-Flip zurück" },
-  "Heikin-Ashi Trend":           { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Erste rote HA-Kerze" },
-  "HA Strong Continuation":      { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Erste rote HA-Kerze" },
-  "Engulfing at Key Level":      { slAtrMult: 1.0, tpRMult: 2.0, tpLabel: "2R" },
-  "Three Soldiers / Crows":      { slAtrMult: 2.0, tpRMult: 1.5, tpLabel: "5-Kerzen Zeit-Exit" },
-  "Inside Bar Breakout":         { slAtrMult: 1.0, tpRMult: 2.0, tpLabel: "8-Kerzen Zeit-Exit" },
-  "Engulfing + Volume":          { slAtrMult: 1.0, tpRMult: 2.0, tpLabel: "8-Kerzen Zeit-Exit" },
-  "Delphin (EMA Fakeout)":       { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Swing-Low" },
+  "MFI Mean Reversion": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "MFI 50 (Mittellinie)" },
+  "StochRSI Reversal": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "K ≥ 80" },
+  "Bollinger %B Reversal": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "%B ≥ 0.5" },
+  "Connors RSI 2": { slAtrMult: 2.5, tpRMult: 2.0, tpLabel: "Connors RSI ≥ 50" },
+  "Ultimate Oscillator": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "UO ≥ 50" },
+  "Schaff Trend Cycle": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "STC ≥ 75" },
+  "Supertrend + ATR-Trail": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Supertrend-Flip zurück" },
+  "Heikin-Ashi Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Erste rote HA-Kerze" },
+  "HA Strong Continuation": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Erste rote HA-Kerze" },
+  "Engulfing at Key Level": { slAtrMult: 0.2, tpRMult: 2.0, tpLabel: "2R" },
+  "Three Soldiers / Crows": { slAtrMult: 2.0, tpRMult: 1.5, tpLabel: "5-Kerzen Zeit-Exit" },
+  "Inside Bar Breakout": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "8-Kerzen Zeit-Exit" },
+  "Engulfing + Volume": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "8-Kerzen Zeit-Exit" },
+  "Delphin (EMA Fakeout)": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Swing-Low" },
   "Advancing/Retracing Wicks (Scalping)": { slAtrMult: 1.5, tpRMult: 1.5, tpLabel: "1.5R" },
-  "Order Block Retest (SMC)":    { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
-  "Liquidity Sweep + FVG (SMC)": { slAtrMult: 1.5, tpRMult: 2.5, tpLabel: "2.5R" },
-  "Wyckoff Spring/Upthrust":     { slAtrMult: 1.5, tpRMult: 2.5, tpLabel: "2.5R" },
-  "SMC Multi-Layer Confluence":  { slAtrMult: 2.0, tpRMult: 3.0, tpLabel: "3R" },
-  "FinalBoss Zonen":             { slAtrMult: 2.0, tpRMult: 2.5, tpLabel: "Impuls-Hoch (B-Punkt)" },
+  "Order Block Retest (SMC)": { slAtrMult: 0.3, tpRMult: 2.0, tpLabel: "2R" },
+  "Liquidity Sweep + FVG (SMC)": { slAtrMult: 0.2, tpRMult: 2.5, tpLabel: "2.5R" },
+  "Wyckoff Spring/Upthrust": { slAtrMult: 1.0, tpRMult: 2.5, tpLabel: "2.5R" },
+  "SMC Multi-Layer Confluence": { slAtrMult: 1.0, tpRMult: 3.0, tpLabel: "3R" },
+  "FinalBoss Zonen": { slAtrMult: 2.0, tpRMult: 2.5, tpLabel: "Impuls-Hoch (B-Punkt)" },
   "LSOB (Liquidity Sweep Order Block)": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
-  "Funding Rate Momentum":       { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R" },
-  "OI + Price Action":           { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
-  "Liquidation Reversal":        { slAtrMult: 1.5, tpRMult: 2.5, tpLabel: "2.5R" },
-  "Multi-Strategy Voting":       { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
-  "ML Feature Classifier":       { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
-  "Volume Spike Reversal":       { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "10-Kerzen Zeit-Exit" },
-  "Day-of-Week Effect":          { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Sell-Day Exit" },
-  "Regime-Switch Master":        { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R / Regime-Wechsel" },
-  "Custom Builder":              { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Frei wählbar (2R Default)" },
-  "CMF Trend":                   { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "CMF unter 0" },
-  "Choppiness + Trend":          { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "EMA-Cross zurück" },
-  "KAMA Trend":                  { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Schluss < KAMA" },
-  "Chandelier Exit Trend":       { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Schluss < Chandelier" }
+  "Funding Rate Momentum": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "2R" },
+  "OI + Price Action": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
+  "Liquidation Reversal": { slAtrMult: 1.5, tpRMult: 2.5, tpLabel: "2.5R" },
+  "Multi-Strategy Voting": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
+  "ML Feature Classifier": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R" },
+  "Volume Spike Reversal": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "10-Kerzen Zeit-Exit" },
+  "Day-of-Week Effect": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "Sell-Day Exit" },
+  "Regime-Switch Master": { slAtrMult: 1.5, tpRMult: 2.0, tpLabel: "2R / Regime-Wechsel" },
+  "Custom Builder": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Frei wählbar (2R Default)" },
+  "CMF Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "CMF unter 0" },
+  "Choppiness + Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "EMA-Cross zurück" },
+  "KAMA Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Schluss < KAMA" },
+  "Chandelier Exit Trend": { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: "Schluss < Chandelier" }
 
 
 };
@@ -24517,6 +24517,586 @@ const ACADEMY_REAL_DATA = {
       [91791.99,91791.99,91506.94,91528.21],
     ]
   },
+  "Donchian-Breakout + ADX": {
+    symbol: "SOL",
+    time: "25.02.2026 11:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [77.91,78.53,77.9,78.46],
+      [78.45,78.46,75.74,77.67],
+      [77.67,78.43,77.52,77.64],
+      [77.63,77.63,76.47,76.87],
+      [76.88,77.07,76.11,76.86],
+      [76.86,77.36,76.22,76.64],
+      [76.63,76.94,76.38,76.58],
+      [76.59,77.22,76.5,76.84],
+      [76.85,77.2,76.5,77.03],
+      [77.04,77.14,76.0,76.65],
+      [76.65,76.83,76.41,76.74],
+      [76.75,76.92,76.49,76.77],
+      [76.78,77.05,76.51,76.59],
+      [76.6,76.8,76.02,76.55],
+      [76.56,77.42,75.63,76.86],
+      [76.87,77.49,76.59,77.3],
+      [77.3,78.25,77.23,78.13],
+      [78.13,78.5,77.8,77.98],
+      [77.97,78.34,77.56,78.2],
+      [78.2,78.51,77.89,78.38],
+      [78.38,78.9,78.32,78.67],
+      [78.66,78.73,78.12,78.55],
+      [78.54,79.37,78.44,79.08],
+      [79.08,79.62,78.66,78.99],
+      [78.99,79.44,78.73,79.21],
+      [79.2,82.57,79.11,82.0],
+      [81.99,82.99,81.98,82.45],
+      [82.46,82.58,81.61,81.75],
+      [81.75,82.43,81.28,81.96],
+      [81.96,82.17,80.98,81.3],
+      [81.31,81.9,81.16,81.57],
+      [81.58,82.41,81.49,82.19],
+      [82.19,82.57,81.93,82.48],
+      [82.48,82.7,82.22,82.54],
+      [82.55,82.95,82.45,82.55],
+      [82.55,83.42,82.32,83.39],
+      [83.38,84.09,82.89,83.68],
+      [83.68,84.44,83.4,83.82],
+      [83.83,85.8,83.8,85.64],
+      [85.63,86.46,85.02,85.98],
+      [85.98,87.69,85.97,87.55],
+      [87.54,88.94,87.39,88.56],
+      [88.55,89.18,88.0,88.94],
+      [88.94,89.65,88.35,89.43],
+      [89.43,90.13,88.97,89.39],
+      [89.38,92.1,89.37,89.85],
+      [89.85,90.53,88.38,89.1],
+      [89.09,89.34,87.07,88.06],
+      [88.05,89.27,87.84,88.58],
+      [88.59,89.15,88.21,88.42],
+    ]
+  },
+  "Supertrend + ATR-Trail": {
+    symbol: "ETH",
+    time: "25.02.2026 12:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [1867.95,1867.99,1811.81,1840.95],
+      [1840.95,1854.46,1837.15,1843.54],
+      [1843.54,1843.54,1823.24,1832.03],
+      [1832.03,1833.82,1813.77,1830.81],
+      [1830.8,1840.79,1814.01,1826.26],
+      [1826.25,1831.35,1817.99,1820.86],
+      [1820.87,1831.89,1815.23,1825.7],
+      [1825.7,1836.18,1818.52,1831.57],
+      [1831.56,1834.69,1815.22,1827.14],
+      [1827.15,1829.68,1820.57,1825.88],
+      [1825.88,1827.36,1818.08,1826.75],
+      [1826.75,1830.29,1821.07,1823.92],
+      [1823.92,1827.5,1800.0,1815.73],
+      [1815.72,1847.99,1803.48,1834.73],
+      [1834.73,1850.29,1828.46,1847.59],
+      [1847.59,1863.33,1838.36,1858.56],
+      [1858.57,1865.38,1849.55,1855.43],
+      [1855.43,1860.67,1845.46,1855.08],
+      [1855.08,1862.63,1847.05,1852.46],
+      [1852.47,1862.36,1849.5,1858.58],
+      [1858.57,1858.57,1845.41,1854.17],
+      [1854.17,1864.11,1852.92,1860.56],
+      [1860.56,1860.61,1851.63,1851.94],
+      [1851.95,1856.68,1846.74,1851.98],
+      [1851.98,1924.84,1850.49,1918.34],
+      [1918.34,1944.86,1918.12,1920.97],
+      [1920.97,1922.81,1903.35,1906.14],
+      [1906.14,1914.35,1894.37,1906.3],
+      [1906.31,1908.3,1878.02,1887.98],
+      [1887.98,1896.71,1884.83,1885.05],
+      [1885.06,1895.58,1882.44,1893.31],
+      [1893.32,1913.9,1890.27,1910.29],
+      [1910.29,1917.83,1907.49,1915.19],
+      [1915.18,1923.43,1910.22,1912.61],
+      [1912.62,1928.45,1907.76,1926.48],
+      [1926.48,1956.79,1922.28,1953.43],
+      [1953.44,1976.89,1952.47,1964.57],
+      [1964.57,2001.65,1962.14,1997.38],
+      [1997.38,2028.7,1986.72,2013.73],
+      [2013.69,2049.18,2013.36,2046.33],
+      [2046.34,2086.17,2044.28,2073.9],
+      [2073.9,2081.2,2056.93,2074.12],
+      [2074.11,2074.9,2060.05,2071.1],
+      [2071.1,2083.99,2058.37,2075.0],
+      [2074.99,2148.39,2065.84,2100.33],
+      [2100.33,2115.41,2073.79,2083.15],
+      [2083.14,2087.0,2034.39,2057.48],
+      [2057.48,2076.6,2047.83,2062.36],
+      [2062.36,2066.95,2049.74,2058.34],
+      [2058.35,2059.06,2039.37,2053.28],
+    ]
+  },
+  "KAMA Trend": {
+    symbol: "SOL",
+    time: "02.12.2025 12:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [127.57,129.33,127.46,127.96],
+      [127.96,128.66,127.47,127.57],
+      [127.58,127.58,126.53,126.97],
+      [126.97,127.05,126.19,126.38],
+      [126.38,126.57,125.81,126.11],
+      [126.1,126.86,126.02,126.72],
+      [126.72,127.47,126.32,127.42],
+      [127.41,127.82,127.0,127.72],
+      [127.71,128.09,126.86,127.02],
+      [127.01,127.56,126.96,127.25],
+      [127.25,127.38,126.89,127.12],
+      [127.12,127.19,125.38,126.6],
+      [126.59,127.72,126.13,126.49],
+      [126.49,127.09,125.55,126.11],
+      [126.12,126.31,123.11,125.11],
+      [125.11,125.34,123.38,123.53],
+      [123.54,124.98,123.51,124.44],
+      [124.44,125.31,123.76,124.51],
+      [124.52,124.6,123.27,123.86],
+      [123.86,125.36,123.83,124.45],
+      [124.44,127.17,124.22,126.1],
+      [126.1,127.43,125.85,126.83],
+      [126.83,127.4,126.54,126.66],
+      [126.66,127.56,126.46,127.37],
+      [127.36,128.54,126.79,126.99],
+      [126.99,128.14,126.63,126.97],
+      [126.97,127.68,126.02,127.23],
+      [127.23,127.85,126.87,126.89],
+      [126.89,127.09,126.46,126.69],
+      [126.69,127.85,126.44,127.68],
+      [127.68,127.71,127.0,127.26],
+      [127.26,127.32,126.01,126.17],
+      [126.16,127.21,126.14,126.77],
+      [126.77,128.84,126.71,128.3],
+      [128.3,128.53,127.82,128.31],
+      [128.32,129.03,128.2,128.88],
+      [128.87,131.02,128.46,130.61],
+      [130.6,133.45,130.4,132.97],
+      [132.97,139.87,132.95,137.84],
+      [137.83,139.71,137.38,139.37],
+      [139.38,140.88,139.25,139.48],
+      [139.47,140.3,139.37,139.84],
+      [139.85,140.64,139.77,140.25],
+      [140.26,140.38,138.2,138.73],
+      [138.73,139.29,138.37,139.11],
+      [139.11,139.98,138.86,139.92],
+      [139.92,139.94,138.4,138.68],
+      [138.67,138.95,137.76,138.16],
+      [138.16,139.23,137.88,138.87],
+      [138.87,140.32,138.8,140.03],
+    ]
+  },
+  "Chandelier Exit Trend": {
+    symbol: "ETH",
+    time: "15.03.2026 20:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [2074.35,2077.64,2063.73,2067.33],
+      [2067.33,2068.88,2061.6,2066.24],
+      [2066.24,2076.65,2065.85,2073.67],
+      [2073.67,2077.87,2069.99,2075.44],
+      [2075.44,2080.65,2073.0,2078.51],
+      [2078.5,2080.52,2069.8,2071.22],
+      [2071.23,2077.73,2070.0,2074.72],
+      [2074.72,2078.79,2069.19,2077.54],
+      [2077.54,2078.14,2073.5,2075.14],
+      [2075.13,2078.14,2072.71,2076.91],
+      [2076.91,2079.47,2074.77,2077.49],
+      [2077.5,2087.27,2076.2,2086.01],
+      [2086.01,2088.92,2081.65,2086.68],
+      [2086.68,2088.3,2082.3,2084.45],
+      [2084.45,2099.69,2084.19,2096.16],
+      [2096.16,2096.77,2085.49,2088.0],
+      [2088.0,2091.18,2083.35,2088.32],
+      [2088.32,2107.91,2088.32,2101.99],
+      [2101.99,2105.05,2093.53,2096.15],
+      [2096.15,2104.34,2096.13,2104.34],
+      [2104.34,2115.95,2102.01,2107.91],
+      [2107.91,2111.28,2103.0,2107.76],
+      [2107.76,2113.49,2103.46,2105.64],
+      [2105.64,2113.0,2105.64,2112.93],
+      [2112.93,2123.44,2112.83,2117.2],
+      [2117.2,2121.49,2114.32,2119.14],
+      [2119.14,2121.27,2115.04,2119.63],
+      [2119.63,2119.83,2108.2,2109.59],
+      [2109.6,2112.76,2086.34,2097.4],
+      [2097.39,2099.2,2086.6,2096.99],
+      [2096.99,2097.15,2090.02,2093.79],
+      [2093.79,2098.86,2088.84,2091.56],
+      [2091.57,2117.86,2091.2,2110.77],
+      [2110.77,2113.53,2094.32,2099.14],
+      [2099.15,2114.35,2096.47,2113.49],
+      [2113.49,2139.0,2110.0,2129.05],
+      [2129.06,2144.76,2123.75,2139.07],
+      [2139.08,2192.49,2125.31,2184.35],
+      [2184.36,2202.87,2165.2,2178.3],
+      [2178.29,2187.33,2164.73,2171.23],
+      [2171.23,2190.48,2165.0,2185.89],
+      [2185.88,2189.43,2170.02,2180.49],
+      [2180.48,2253.48,2177.38,2235.67],
+      [2235.67,2278.0,2235.67,2263.3],
+      [2263.3,2288.63,2256.8,2280.47],
+      [2280.46,2281.31,2260.64,2261.7],
+      [2261.7,2269.0,2245.63,2248.95],
+      [2248.95,2258.83,2234.92,2243.54],
+      [2243.54,2265.37,2239.82,2260.51],
+      [2260.51,2279.0,2256.2,2278.3],
+    ]
+  },
+  "Bollinger Reversion": {
+    symbol: "SOL",
+    time: "25.02.2026 13:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [77.67,78.43,77.52,77.64],
+      [77.63,77.63,76.47,76.87],
+      [76.88,77.07,76.11,76.86],
+      [76.86,77.36,76.22,76.64],
+      [76.63,76.94,76.38,76.58],
+      [76.59,77.22,76.5,76.84],
+      [76.85,77.2,76.5,77.03],
+      [77.04,77.14,76.0,76.65],
+      [76.65,76.83,76.41,76.74],
+      [76.75,76.92,76.49,76.77],
+      [76.78,77.05,76.51,76.59],
+      [76.6,76.8,76.02,76.55],
+      [76.56,77.42,75.63,76.86],
+      [76.87,77.49,76.59,77.3],
+      [77.3,78.25,77.23,78.13],
+      [78.13,78.5,77.8,77.98],
+      [77.97,78.34,77.56,78.2],
+      [78.2,78.51,77.89,78.38],
+      [78.38,78.9,78.32,78.67],
+      [78.66,78.73,78.12,78.55],
+      [78.54,79.37,78.44,79.08],
+      [79.08,79.62,78.66,78.99],
+      [78.99,79.44,78.73,79.21],
+      [79.2,82.57,79.11,82.0],
+      [81.99,82.99,81.98,82.45],
+      [82.46,82.58,81.61,81.75],
+      [81.75,82.43,81.28,81.96],
+      [81.96,82.17,80.98,81.3],
+      [81.31,81.9,81.16,81.57],
+      [81.58,82.41,81.49,82.19],
+      [82.19,82.57,81.93,82.48],
+      [82.48,82.7,82.22,82.54],
+      [82.55,82.95,82.45,82.55],
+      [82.55,83.42,82.32,83.39],
+      [83.38,84.09,82.89,83.68],
+      [83.68,84.44,83.4,83.82],
+      [83.83,85.8,83.8,85.64],
+      [85.63,86.46,85.02,85.98],
+      [85.98,87.69,85.97,87.55],
+      [87.54,88.94,87.39,88.56],
+      [88.55,89.18,88.0,88.94],
+      [88.94,89.65,88.35,89.43],
+      [89.43,90.13,88.97,89.39],
+      [89.38,92.1,89.37,89.85],
+      [89.85,90.53,88.38,89.1],
+      [89.09,89.34,87.07,88.06],
+      [88.05,89.27,87.84,88.58],
+      [88.59,89.15,88.21,88.42],
+      [88.42,88.49,87.53,88.2],
+      [88.2,88.37,87.78,87.95],
+    ]
+  },
+  "Keltner Channel Reversion": {
+    symbol: "ETH",
+    time: "25.02.2026 12:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [1867.95,1867.99,1811.81,1840.95],
+      [1840.95,1854.46,1837.15,1843.54],
+      [1843.54,1843.54,1823.24,1832.03],
+      [1832.03,1833.82,1813.77,1830.81],
+      [1830.8,1840.79,1814.01,1826.26],
+      [1826.25,1831.35,1817.99,1820.86],
+      [1820.87,1831.89,1815.23,1825.7],
+      [1825.7,1836.18,1818.52,1831.57],
+      [1831.56,1834.69,1815.22,1827.14],
+      [1827.15,1829.68,1820.57,1825.88],
+      [1825.88,1827.36,1818.08,1826.75],
+      [1826.75,1830.29,1821.07,1823.92],
+      [1823.92,1827.5,1800.0,1815.73],
+      [1815.72,1847.99,1803.48,1834.73],
+      [1834.73,1850.29,1828.46,1847.59],
+      [1847.59,1863.33,1838.36,1858.56],
+      [1858.57,1865.38,1849.55,1855.43],
+      [1855.43,1860.67,1845.46,1855.08],
+      [1855.08,1862.63,1847.05,1852.46],
+      [1852.47,1862.36,1849.5,1858.58],
+      [1858.57,1858.57,1845.41,1854.17],
+      [1854.17,1864.11,1852.92,1860.56],
+      [1860.56,1860.61,1851.63,1851.94],
+      [1851.95,1856.68,1846.74,1851.98],
+      [1851.98,1924.84,1850.49,1918.34],
+      [1918.34,1944.86,1918.12,1920.97],
+      [1920.97,1922.81,1903.35,1906.14],
+      [1906.14,1914.35,1894.37,1906.3],
+      [1906.31,1908.3,1878.02,1887.98],
+      [1887.98,1896.71,1884.83,1885.05],
+      [1885.06,1895.58,1882.44,1893.31],
+      [1893.32,1913.9,1890.27,1910.29],
+      [1910.29,1917.83,1907.49,1915.19],
+      [1915.18,1923.43,1910.22,1912.61],
+      [1912.62,1928.45,1907.76,1926.48],
+      [1926.48,1956.79,1922.28,1953.43],
+      [1953.44,1976.89,1952.47,1964.57],
+      [1964.57,2001.65,1962.14,1997.38],
+      [1997.38,2028.7,1986.72,2013.73],
+      [2013.69,2049.18,2013.36,2046.33],
+      [2046.34,2086.17,2044.28,2073.9],
+      [2073.9,2081.2,2056.93,2074.12],
+      [2074.11,2074.9,2060.05,2071.1],
+      [2071.1,2083.99,2058.37,2075.0],
+      [2074.99,2148.39,2065.84,2100.33],
+      [2100.33,2115.41,2073.79,2083.15],
+      [2083.14,2087.0,2034.39,2057.48],
+      [2057.48,2076.6,2047.83,2062.36],
+      [2062.36,2066.95,2049.74,2058.34],
+      [2058.35,2059.06,2039.37,2053.28],
+    ]
+  },
+  "VWAP Mean Reversion": {
+    symbol: "SOL",
+    time: "02.12.2025 12:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [127.57,129.33,127.46,127.96],
+      [127.96,128.66,127.47,127.57],
+      [127.58,127.58,126.53,126.97],
+      [126.97,127.05,126.19,126.38],
+      [126.38,126.57,125.81,126.11],
+      [126.1,126.86,126.02,126.72],
+      [126.72,127.47,126.32,127.42],
+      [127.41,127.82,127.0,127.72],
+      [127.71,128.09,126.86,127.02],
+      [127.01,127.56,126.96,127.25],
+      [127.25,127.38,126.89,127.12],
+      [127.12,127.19,125.38,126.6],
+      [126.59,127.72,126.13,126.49],
+      [126.49,127.09,125.55,126.11],
+      [126.12,126.31,123.11,125.11],
+      [125.11,125.34,123.38,123.53],
+      [123.54,124.98,123.51,124.44],
+      [124.44,125.31,123.76,124.51],
+      [124.52,124.6,123.27,123.86],
+      [123.86,125.36,123.83,124.45],
+      [124.44,127.17,124.22,126.1],
+      [126.1,127.43,125.85,126.83],
+      [126.83,127.4,126.54,126.66],
+      [126.66,127.56,126.46,127.37],
+      [127.36,128.54,126.79,126.99],
+      [126.99,128.14,126.63,126.97],
+      [126.97,127.68,126.02,127.23],
+      [127.23,127.85,126.87,126.89],
+      [126.89,127.09,126.46,126.69],
+      [126.69,127.85,126.44,127.68],
+      [127.68,127.71,127.0,127.26],
+      [127.26,127.32,126.01,126.17],
+      [126.16,127.21,126.14,126.77],
+      [126.77,128.84,126.71,128.3],
+      [128.3,128.53,127.82,128.31],
+      [128.32,129.03,128.2,128.88],
+      [128.87,131.02,128.46,130.61],
+      [130.6,133.45,130.4,132.97],
+      [132.97,139.87,132.95,137.84],
+      [137.83,139.71,137.38,139.37],
+      [139.38,140.88,139.25,139.48],
+      [139.47,140.3,139.37,139.84],
+      [139.85,140.64,139.77,140.25],
+      [140.26,140.38,138.2,138.73],
+      [138.73,139.29,138.37,139.11],
+      [139.11,139.98,138.86,139.92],
+      [139.92,139.94,138.4,138.68],
+      [138.67,138.95,137.76,138.16],
+      [138.16,139.23,137.88,138.87],
+      [138.87,140.32,138.8,140.03],
+    ]
+  },
+  "Linear Regression Reversion": {
+    symbol: "SOL",
+    time: "06.02.2026 20:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [91.77,93.43,91.74,92.5],
+      [92.51,92.66,89.8,90.31],
+      [90.31,90.82,88.66,89.98],
+      [89.98,90.76,88.68,89.53],
+      [89.52,90.06,88.2,88.48],
+      [88.48,91.43,88.31,88.6],
+      [88.6,88.99,83.44,84.61],
+      [84.61,86.2,83.69,85.55],
+      [85.55,85.73,82.44,82.7],
+      [82.7,83.34,81.21,82.96],
+      [82.96,83.31,81.41,81.68],
+      [81.68,82.3,77.68,78.84],
+      [78.84,81.2,78.38,79.0],
+      [79.01,80.68,77.6,79.81],
+      [79.81,81.63,78.08,78.35],
+      [78.34,78.8,67.5,75.51],
+      [75.51,79.79,75.48,79.6],
+      [79.6,80.3,76.4,76.95],
+      [76.95,77.4,75.73,76.71],
+      [76.71,78.03,76.22,77.76],
+      [77.75,81.65,77.59,81.15],
+      [81.15,81.6,79.39,79.5],
+      [79.51,80.61,78.76,79.59],
+      [79.6,80.23,78.67,79.07],
+      [79.07,81.69,78.95,81.34],
+      [81.34,82.04,80.74,80.81],
+      [80.81,81.75,80.46,81.36],
+      [81.36,81.96,80.85,81.89],
+      [81.9,83.85,81.7,83.11],
+      [83.11,85.19,81.9,84.18],
+      [84.18,85.06,83.4,84.49],
+      [84.48,87.23,83.66,86.74],
+      [86.74,88.72,86.16,86.73],
+      [86.73,86.87,85.23,86.17],
+      [86.17,87.45,85.56,87.09],
+      [87.09,87.96,86.63,86.92],
+      [86.91,88.2,86.6,88.06],
+      [88.07,89.84,87.95,89.17],
+      [89.17,89.6,87.36,87.46],
+      [87.45,87.47,86.1,86.57],
+      [86.56,87.49,85.91,87.13],
+      [87.12,87.61,86.81,87.35],
+      [87.35,88.39,87.24,88.1],
+      [88.09,89.04,87.29,87.73],
+      [87.74,88.64,87.55,87.81],
+      [87.8,88.25,86.22,86.25],
+      [86.25,86.65,84.16,85.29],
+      [85.29,85.74,84.75,85.36],
+      [85.36,85.73,84.81,85.24],
+      [85.23,85.48,84.51,85.0],
+    ]
+  },
+  "Donchian Mean Reversion": {
+    symbol: "ETH",
+    time: "06.02.2026 19:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [2091.5,2121.27,2091.32,2111.76],
+      [2111.8,2149.75,2111.16,2133.45],
+      [2133.46,2140.5,2086.54,2097.72],
+      [2097.72,2105.3,2061.96,2079.98],
+      [2079.98,2092.71,2043.16,2063.99],
+      [2063.98,2080.76,2048.38,2058.64],
+      [2058.64,2106.51,2042.42,2046.6],
+      [2046.59,2054.16,1927.33,1961.12],
+      [1961.12,2018.33,1944.94,1998.68],
+      [1998.68,2001.77,1943.57,1955.09],
+      [1955.09,1968.73,1913.76,1950.3],
+      [1950.35,1953.81,1918.14,1928.76],
+      [1928.78,1943.06,1825.06,1869.59],
+      [1869.6,1912.35,1840.04,1850.48],
+      [1850.42,1890.17,1818.18,1870.79],
+      [1870.78,1907.66,1820.46,1826.83],
+      [1826.83,1892.65,1747.8,1870.61],
+      [1870.63,1940.16,1870.37,1932.17],
+      [1932.17,1947.84,1891.46,1907.49],
+      [1907.5,1917.88,1879.24,1891.82],
+      [1891.81,1917.8,1885.95,1909.03],
+      [1909.02,1975.75,1906.6,1958.69],
+      [1958.69,1967.27,1906.89,1908.32],
+      [1908.32,1915.15,1887.29,1899.42],
+      [1899.41,1907.01,1866.13,1874.46],
+      [1874.46,1929.18,1871.1,1919.0],
+      [1919.08,1934.98,1909.69,1926.94],
+      [1926.93,1939.35,1919.96,1932.68],
+      [1932.67,1932.67,1914.88,1920.91],
+      [1920.91,1962.39,1919.29,1950.31],
+      [1950.31,2002.18,1933.33,1978.88],
+      [1978.89,1997.68,1961.24,1980.81],
+      [1980.8,2046.6,1970.17,2036.17],
+      [2036.17,2090.13,2027.73,2067.01],
+      [2067.01,2070.19,2030.59,2044.61],
+      [2044.61,2072.0,2033.37,2065.63],
+      [2065.63,2093.94,2043.68,2054.23],
+      [2054.23,2061.99,2039.93,2053.97],
+      [2053.98,2085.47,2046.08,2075.1],
+      [2075.09,2087.98,2049.28,2063.38],
+      [2063.37,2064.56,2036.75,2043.5],
+      [2043.49,2066.64,2032.6,2061.94],
+      [2061.94,2065.35,2048.78,2059.39],
+      [2059.39,2086.0,2057.58,2080.81],
+      [2080.8,2119.46,2078.81,2087.4],
+      [2087.39,2103.99,2077.79,2083.79],
+      [2083.78,2093.52,2047.2,2047.73],
+      [2047.73,2055.7,1994.57,2027.1],
+      [2027.1,2032.6,2015.33,2019.02],
+      [2019.02,2029.84,2005.26,2014.45],
+    ]
+  },
+  "VWAP Bands Reversion": {
+    symbol: "ETH",
+    time: "02.12.2025 12:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [2836.4,2860.0,2833.65,2850.86],
+      [2850.87,2873.82,2827.47,2837.92],
+      [2837.92,2842.0,2813.2,2825.77],
+      [2825.77,2827.97,2806.71,2821.83],
+      [2821.83,2830.92,2810.12,2827.8],
+      [2827.8,2835.84,2822.5,2824.56],
+      [2824.57,2844.11,2820.02,2840.21],
+      [2840.21,2846.31,2832.3,2840.55],
+      [2840.55,2854.35,2828.62,2839.59],
+      [2839.59,2846.5,2837.57,2844.02],
+      [2844.02,2850.66,2836.0,2838.35],
+      [2838.36,2840.31,2794.59,2821.08],
+      [2821.08,2839.83,2805.0,2813.29],
+      [2813.28,2832.0,2805.88,2818.03],
+      [2818.03,2820.44,2716.04,2745.72],
+      [2745.73,2755.79,2719.73,2731.47],
+      [2731.51,2752.92,2728.42,2739.62],
+      [2739.62,2758.02,2724.75,2749.54],
+      [2749.54,2753.5,2730.59,2740.8],
+      [2740.8,2770.3,2739.89,2757.82],
+      [2757.84,2797.84,2756.01,2791.71],
+      [2791.72,2814.14,2790.73,2797.35],
+      [2797.35,2819.35,2796.67,2799.07],
+      [2799.07,2804.31,2782.81,2795.68],
+      [2795.67,2825.11,2793.12,2795.09],
+      [2795.09,2814.5,2785.07,2801.14],
+      [2801.14,2810.43,2785.49,2804.55],
+      [2804.55,2814.2,2803.07,2805.0],
+      [2805.0,2807.32,2796.88,2803.21],
+      [2803.21,2815.88,2797.62,2812.92],
+      [2812.92,2814.43,2802.85,2805.65],
+      [2805.66,2806.78,2782.19,2798.18],
+      [2798.2,2811.63,2795.55,2798.05],
+      [2798.04,2834.5,2797.61,2823.13],
+      [2823.13,2831.36,2816.46,2826.18],
+      [2826.18,2831.94,2816.82,2827.86],
+      [2827.86,2848.07,2822.2,2844.73],
+      [2844.73,2910.05,2841.0,2894.98],
+      [2894.98,3024.98,2893.82,3006.61],
+      [3006.61,3025.0,2987.19,2995.58],
+      [2995.57,3033.7,2993.99,3015.83],
+      [3015.83,3033.76,3007.99,3013.56],
+      [3013.56,3029.47,3013.02,3015.83],
+      [3015.84,3016.95,2972.35,2979.72],
+      [2979.71,2998.0,2977.66,2995.45],
+      [2995.44,3021.27,2995.06,3017.55],
+      [3017.55,3018.49,2991.87,2996.07],
+      [2996.07,3008.62,2985.58,3003.2],
+      [3003.19,3027.84,2999.3,3015.84],
+      [3015.84,3048.0,3013.97,3031.0],
+    ]
+  },
 };
 
 // Erzeugt Candle-Daten — entweder ECHTE BTC-Historie (wenn ACADEMY_REAL_DATA für die Strategie existiert)
@@ -24941,10 +25521,17 @@ function _academySvg(schema, isEn, seedKey) {
     ? { entry: 'Entry', sl: 'SL', tp: 'TP', signal: 'Signal', resistance: 'Resistance', support: 'Support', breakout: 'Breakout', pullback: 'Pullback', cross: 'Cross', bos: 'BOS', ob: 'Order Block' }
     : { entry: 'Entry', sl: 'SL', tp: 'TP', signal: 'Signal', resistance: 'Resistance', support: 'Support', breakout: 'Ausbruch', pullback: 'Pullback', cross: 'Cross', bos: 'BOS', ob: 'Order Block' };
   const fullCandles = _academyCandles(schema, seedKey);
+  if (!fullCandles || !Array.isArray(fullCandles) || fullCandles.length === 0) {
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%"><rect width="${W}" height="${H}" fill="#0d1117"/><text x="${W/2}" y="${H/2}" fill="#8b949e" font-size="11" text-anchor="middle">Chart-Daten nicht verfügbar</text></svg>`;
+  }
   const visStart = fullCandles._visibleStart || 0;
   const candles = visStart > 0 ? fullCandles.slice(visStart) : fullCandles;
   // Helper: computes indicator on fullCandles (mit Warmup) und gibt nur die sichtbaren Werte zurück
-  const _sliceVis = (arr) => visStart > 0 ? arr.slice(visStart) : arr;
+  // DEFENSIV: undefined/null-Indikatoren werden sauber durchgereicht statt zu crashen
+  const _sliceVis = (arr) => {
+    if (!arr || !Array.isArray(arr)) return arr; // null/undefined/scalar einfach durchreichen
+    return visStart > 0 ? arr.slice(visStart) : arr;
+  };
   // Y-Bereich automatisch
   let minP = Infinity, maxP = -Infinity;
   candles.forEach(c => { if (c.low < minP) minP = c.low; if (c.high > maxP) maxP = c.high; });
@@ -27682,10 +28269,13 @@ function renderChartPatterns() {
   const lblHowto = isEn ? 'How to trade it:' : 'Trade-Anleitung:';
   let html = '';
   for (const p of CHART_PATTERNS) {
+   try {
     const name = (isEn ? p.name.en : p.name.de) || p.name.de;
     const desc = (isEn ? p.desc.en : p.desc.de) || p.desc.de;
     const howto = (isEn ? p.howto.en : p.howto.de) || p.howto.de;
-    const svg = _patternBase(p.points, p.annot, isEn);
+    let svg = '';
+    try { svg = _patternBase(p.points, p.annot, isEn); }
+    catch(svgErr) { console.warn('ChartPattern-SVG-Fehler bei', name, svgErr); svg = '<svg viewBox="0 0 560 240" width="100%"><rect width="560" height="240" fill="#0d1117"/><text x="280" y="120" fill="#8b949e" font-size="11" text-anchor="middle">Render-Fehler</text></svg>'; }
     html += `
       <details style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
         <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
@@ -27705,6 +28295,7 @@ function renderChartPatterns() {
           </div>
         </div>
       </details>`;
+   } catch(patErr) { console.warn('ChartPattern-Render-Fehler:', p && p.name, patErr); continue; }
   }
   container.innerHTML = html;
   container.dataset.inited = '1';
@@ -27726,11 +28317,14 @@ function renderCandlePatterns() {
   const rest = CANDLE_PATTERNS.filter(p => !p.topRank);
   const sorted = [...ranked, ...rest];
   for (const p of sorted) {
+   try {
     const name = (isEn ? p.name.en : p.name.de) || p.name.de;
     const desc = (isEn ? p.desc.en : p.desc.de) || p.desc.de;
     const howto = (isEn ? p.howto.en : p.howto.de) || p.howto.de;
     const personal = p.personalNote ? ((isEn ? p.personalNote.en : p.personalNote.de) || p.personalNote.de) : null;
-    const svg = _cdlSvg(p.candles, p.annot);
+    let svg = '';
+    try { svg = _cdlSvg(p.candles, p.annot); }
+    catch(svgErr) { console.warn('CdlSvg-Fehler bei', name, svgErr); svg = '<svg viewBox="0 0 560 240" width="100%"><rect width="560" height="240" fill="#0d1117"/><text x="280" y="120" fill="#8b949e" font-size="11" text-anchor="middle">Render-Fehler</text></svg>'; }
     const topBadge = p.topRank
       ? `<span style="font-size:10px;color:#000;background:linear-gradient(135deg,#fbbf24,#f59e0b);padding:2px 8px;border-radius:10px;font-weight:800;letter-spacing:0.5px">★ TOP #${p.topRank}</span>`
       : '';
@@ -27760,6 +28354,7 @@ function renderCandlePatterns() {
           </div>` : ''}
         </div>
       </details>`;
+   } catch(patErr) { console.warn('CandlePattern-Render-Fehler:', p && p.name, patErr); continue; }
   }
   container.innerHTML = html;
   container.dataset.inited = '1';
@@ -27845,6 +28440,7 @@ function renderAcademy() {
   let html = '';
   let count = 0;
   for (const strat of STRATEGIES) {
+   try {
     const simpleInfo = simpleSrc[strat.name];
     const detailedInfo = detailedSrc[strat.name];
     if (!simpleInfo && !detailedInfo) continue;
@@ -27907,12 +28503,18 @@ function renderAcademy() {
           <span style="font-size:14px;flex-shrink:0">🎯</span>
           <div><strong style="color:#22c55e">${lblWhyEntry}</strong> <span style="color:var(--text-secondary)">${entryReason}</span></div>
         </div>` : '';
+      let svgSafe = '';
+      try { svgSafe = _academySvg(schema, isEn, strat.name); }
+      catch (svgErr) {
+        console.warn('Akademie-SVG-Fehler bei', strat.name, svgErr);
+        svgSafe = `<svg viewBox="0 0 560 240" width="100%"><rect width="560" height="240" fill="#0d1117"/><text x="280" y="120" fill="#8b949e" font-size="11" text-anchor="middle">Chart-Render-Fehler — Strategie wird trotzdem angezeigt</text></svg>`;
+      }
       bodyHtml = `
         ${proDetailsHtml}
         <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${simpleInfo.desc}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:8px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
-          ${_academySvg(schema, isEn, strat.name)}
+          ${svgSafe}
         </div>
         ${entryReasonHtml}
         ${indicatorsHtml}
@@ -27929,11 +28531,17 @@ function renderAcademy() {
     } else {
       // Fallback fuer Strategien ohne simple-Daten (sollte aktuell keine geben — alle 71 sind drin)
       const di = detailedInfo || simpleInfo;
+      let svgSafe2 = '';
+      try { svgSafe2 = _academySvg(schema, isEn, strat.name); }
+      catch (svgErr) {
+        console.warn('Akademie-SVG-Fehler bei', strat.name, svgErr);
+        svgSafe2 = `<svg viewBox="0 0 560 240" width="100%"><rect width="560" height="240" fill="#0d1117"/><text x="280" y="120" fill="#8b949e" font-size="11" text-anchor="middle">Chart-Render-Fehler — Strategie wird trotzdem angezeigt</text></svg>`;
+      }
       bodyHtml = `
         <p style="margin:0 0 12px;color:var(--text-primary)">${di.desc || ''}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
-          ${_academySvg(schema, isEn, strat.name)}
+          ${svgSafe2}
         </div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:12px">
           <span style="color:var(--green);font-weight:600">${lblEntry}</span><span>${di.entry || '—'}</span>
@@ -27973,6 +28581,11 @@ function renderAcademy() {
           ${bodyHtml}
         </div>
       </details>`;
+   } catch (stratErr) {
+     console.warn('Akademie-Render-Fehler bei Strategie', strat && strat.name, stratErr);
+     // Fehlerhafte Strategie überspringen — Rest bleibt sichtbar
+     continue;
+   }
   }
   if (count === 0) {
     container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted)">${isEn ? 'No matching strategies' : 'Keine passenden Strategien'}</div>`;
@@ -30714,9 +31327,10 @@ function _showErrorToast(msg, durationMs = 6000) {
 window.addEventListener('error', (e) => {
   // Nicht alle Fehler anzeigen (Browser-Extensions etc.) — nur wenn Stack auf unsere App verweist
   if (e.error && e.error.stack && /finalboss|backtest_app/i.test(e.error.stack)) {
-    _showErrorToast(`Fehler: ${e.message}`);
+    const loc = (e.filename ? e.filename.split('/').pop() : '') + (e.lineno ? ':' + e.lineno : '');
+    _showErrorToast(`Fehler: ${e.message}${loc ? ' → ' + loc : ''}`);
   }
-  console.error('Unhandled error:', e);
+  console.error('Unhandled error:', e, '\nStack:', e.error && e.error.stack);
 });
 window.addEventListener('unhandledrejection', (e) => {
   console.error('Unhandled promise rejection:', e.reason);
