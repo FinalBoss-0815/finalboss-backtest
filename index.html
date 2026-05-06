@@ -20487,10 +20487,438 @@ function _drawCandle(x, candle, yScale, bw) {
   return svg;
 }
 
-// Erzeugt deterministische Candle-Daten je nach Schema + Strategie-Name
-// (gleiches Schema mit unterschiedlichem Namen → unterschiedliches Bild = realistischer Look)
+// ═══════════════════════════════════════════════════════════════
+// ACADEMY_REAL_DATA — echte BTC 1h Lehrbuch-Setups, automatisch aus Binance gefetcht
+//   Format pro Strategie: { time, candles: [[O,H,L,C],...] (50 total), visStart: 22, entryIdx (visible): 14 }
+//   Bedeutet: erste 22 Kerzen sind Warmup (NICHT gerendert), die letzten 28 werden gezeigt.
+//   Touch (Tief unter unterem Bollinger-Band) ist im sichtbaren Index 13, Entry ist visible-Index 14 (nächste grüne Kerze).
+// ═══════════════════════════════════════════════════════════════
+// Per-Strategie SL/TP-Regeln für Echtdaten-Charts
+const ACADEMY_STRATEGY_RULES = {
+  "Z-Score Mean Reversion":      { slAtrMult: 2.0, tpLabel: "Mittellinie (SMA 20)" },
+  "Bollinger Reversion":         { slAtrMult: 2.0, tpLabel: "Mittellinie BB (SMA 20)" },
+  "Keltner Channel Reversion":   { slAtrMult: 1.5, tpLabel: "Mittellinie (EMA 20 / Keltner)" },
+  "VWAP Mean Reversion":         { slAtrMult: 1.5, tpLabel: "VWAP" },
+  "Linear Regression Reversion": { slAtrMult: 2.0, tpLabel: "Regressions-Mittellinie" },
+  "Donchian Mean Reversion":     { slAtrMult: 1.5, tpLabel: "Donchian-Mitte" },
+  "VWAP Bands Reversion":        { slAtrMult: 2.0, tpLabel: "VWAP" }
+};
+const ACADEMY_REAL_DATA = {
+  "Z-Score Mean Reversion": {
+    time: "21.11.2025 12:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [91891.32,92716.44,91820.01,92590.13],
+      [92590.13,92798.14,92322.04,92592.84],
+      [92592.85,92717.52,92360.84,92440.32],
+      [92440.33,92990.0,92124.0,92962.83],
+      [92962.84,93160.0,92566.55,92616.2],
+      [92616.21,92851.06,91687.07,91974.7],
+      [91974.69,92445.8,91798.24,92320.18],
+      [92320.18,92400.94,92036.27,92128.22],
+      [92128.22,92135.01,91440.55,91950.0],
+      [91950.01,92062.83,91603.84,91801.39],
+      [91801.39,92029.64,91485.4,91934.0],
+      [91934.01,91999.99,91688.0,91839.25],
+      [91839.25,92541.92,91451.99,91529.36],
+      [91529.36,91682.6,90431.54,91103.19],
+      [91103.19,91171.78,89835.34,89869.88],
+      [89869.88,89911.73,87487.95,87878.1],
+      [87878.1,88158.49,86395.47,87233.81],
+      [87233.8,87769.23,86318.78,86486.27],
+      [86486.27,87146.29,86100.0,86921.28],
+      [86921.27,87131.07,86325.23,86462.97],
+      [86462.97,87674.23,86429.09,87282.6],
+      [87282.44,88250.0,87192.91,88065.97],
+      [88065.98,88173.09,86560.0,86637.23],
+      [86637.22,87498.94,86592.0,87285.24],
+      [87285.24,87464.08,86834.81,87049.86],
+      [87049.86,87067.52,85360.0,85444.93],
+      [85444.93,86135.58,85433.39,85821.34],
+      [85821.35,86119.19,85404.05,86053.09],
+      [86053.1,86459.53,85825.59,86195.08],
+      [86195.09,86255.02,85550.0,85581.3],
+      [85581.31,85769.86,82000.0,84049.39],
+      [84049.38,84709.89,83521.07,83643.45],
+      [83643.45,83988.4,82104.01,82207.84],
+      [82207.83,82911.99,81648.0,82703.61],
+      [82703.61,83340.72,82192.49,82309.66],
+      [82309.67,83618.13,80600.0,83285.35],
+      [83285.34,84427.79,83116.86,84115.28],
+      [84115.29,85496.0,83544.82,84850.0],
+      [84850.01,85103.42,82729.54,82932.47],
+      [82932.46,84919.6,82333.0,84919.59],
+      [84919.58,85572.82,84565.11,84877.07],
+      [84877.06,85083.31,83304.87,84577.11],
+      [84577.12,85025.71,84080.0,84209.3],
+      [84209.3,84650.0,83464.96,84571.2],
+      [84571.19,85416.66,84351.51,85182.14],
+      [85182.14,85404.24,84267.25,84284.42],
+      [84284.43,85353.03,84121.38,85129.43],
+      [85129.42,85620.0,84571.13,84739.93],
+      [84739.92,85205.87,84588.75,85174.28],
+      [85174.28,85205.87,84285.71,84528.99],
+    ]
+  },
+  "Bollinger Reversion": {
+    time: "01.02.2026 23:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [83020.0,83140.0,82720.0,82762.0],
+      [82761.99,82919.29,82478.59,82767.99],
+      [82768.0,82928.2,80825.76,81479.99],
+      [81480.0,81789.68,81088.0,81302.15],
+      [81302.16,82200.0,80098.01,80365.04],
+      [80365.05,80550.74,78159.9,78893.92],
+      [78893.92,79143.64,75719.9,78038.38],
+      [78038.39,78576.3,77194.0,77750.01],
+      [77750.01,78141.95,77092.34,77999.03],
+      [77999.02,78365.02,77372.69,78292.0],
+      [78292.0,78499.94,78000.0,78155.17],
+      [78155.16,79240.0,78078.67,78741.09],
+      [78741.1,79424.0,78644.09,78902.31],
+      [78902.31,78943.62,78284.0,78532.17],
+      [78532.32,79060.44,78378.0,78900.01],
+      [78900.01,79008.36,78666.73,78868.28],
+      [78868.29,79119.3,78720.97,78971.75],
+      [78973.22,79006.0,78527.13,78620.91],
+      [78620.9,78824.1,78266.63,78300.0],
+      [78300.01,78724.01,77967.69,78343.0],
+      [78343.0,78863.0,78252.64,78604.02],
+      [78604.02,79136.1,78551.15,79034.45],
+      [79034.45,79220.72,78148.1,78279.73],
+      [78279.73,78877.89,78279.72,78743.56],
+      [78743.57,78760.0,78244.0,78459.67],
+      [78459.68,78768.68,78203.21,78317.51],
+      [78317.51,78520.0,77236.68,78211.12],
+      [78211.12,78254.2,76761.98,77593.4],
+      [77593.4,77838.48,77087.76,77494.77],
+      [77494.77,77748.0,77300.0,77745.32],
+      [77745.33,78443.1,77727.27,78029.28],
+      [78029.29,78106.1,77000.01,77174.78],
+      [77174.77,77740.91,76606.0,77103.04],
+      [77103.04,77161.26,76359.87,76526.03],
+      [76526.03,77779.63,76456.78,77249.31],
+      [77249.31,77610.72,75700.0,76968.21],
+      [76968.22,78231.26,76606.39,77672.61],
+      [77672.61,77942.28,76619.69,77518.87],
+      [77518.87,77555.62,76449.84,76491.17],
+      [76491.18,76575.93,74604.0,76292.98],
+      [76292.98,76621.28,75335.9,75894.15],
+      [75894.15,75999.99,74911.14,75502.1],
+      [75502.1,76834.71,74957.51,76549.32],
+      [76549.32,76958.0,76327.9,76660.79],
+      [76660.78,77191.15,76628.28,76881.28],
+      [76881.28,77815.0,76652.0,77725.33],
+      [77725.33,77876.69,77474.85,77504.54],
+      [77504.54,77970.62,77451.11,77759.99],
+      [77760.0,78434.0,77706.0,77988.51],
+      [77988.5,78458.0,77800.0,78224.79],
+    ]
+  },
+  "Keltner Channel Reversion": {
+    time: "22.03.2026 21:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [70661.59,70695.32,70559.69,70605.64],
+      [70605.64,70652.73,70567.79,70652.72],
+      [70652.73,70800.0,70652.73,70722.61],
+      [70722.61,70812.74,70707.12,70740.18],
+      [70740.18,71100.94,70592.53,70629.1],
+      [70629.09,70760.0,70453.09,70630.02],
+      [70630.02,70652.64,70251.0,70301.66],
+      [70301.66,70426.18,70210.0,70304.08],
+      [70303.45,70534.38,70290.48,70389.19],
+      [70389.18,70448.79,70324.7,70396.0],
+      [70396.01,70508.11,70358.9,70462.28],
+      [70462.27,70516.82,70268.06,70345.57],
+      [70345.57,70384.95,70265.55,70277.22],
+      [70277.21,70293.82,68571.42,68918.12],
+      [68918.12,69155.86,68228.5,68954.71],
+      [68954.7,69100.0,68762.31,68962.4],
+      [68962.4,69411.1,68951.21,69278.12],
+      [69278.12,69588.79,69123.13,69339.99],
+      [69340.0,69526.85,69215.89,69358.0],
+      [69358.0,69358.0,69150.0,69153.41],
+      [69153.41,69245.79,69059.87,69164.06],
+      [69164.06,69250.08,68892.93,68919.38],
+      [68919.37,68990.67,68523.96,68804.77],
+      [68804.77,68901.65,68587.78,68826.2],
+      [68826.21,68847.83,68584.27,68648.17],
+      [68648.16,68691.03,68110.55,68217.95],
+      [68217.94,68763.18,68199.04,68654.83],
+      [68654.83,68957.24,68548.32,68700.02],
+      [68700.02,68915.27,68542.1,68711.66],
+      [68711.66,69005.71,68700.0,68847.96],
+      [68847.97,68885.53,68665.62,68805.58],
+      [68805.58,68848.32,68665.34,68673.02],
+      [68672.85,68743.18,68344.57,68618.58],
+      [68618.57,68626.07,68145.01,68199.93],
+      [68199.93,68498.4,68080.0,68176.46],
+      [68176.47,68228.71,67360.66,67899.97],
+      [67899.97,68396.94,67571.67,68339.37],
+      [68339.38,68474.0,67839.99,67859.0],
+      [67859.0,68161.41,67445.18,67669.99],
+      [67670.0,68157.31,67536.01,67905.0],
+      [67905.0,68400.0,67801.67,68320.72],
+      [68320.72,68585.12,68059.88,68074.6],
+      [68074.6,68550.0,68057.56,68541.0],
+      [68541.0,68915.4,68541.0,68899.92],
+      [68899.92,68904.42,67698.86,67874.19],
+      [67874.2,68464.42,67502.48,68333.16],
+      [68333.16,68696.91,68328.55,68434.26],
+      [68434.27,68471.11,67916.14,68334.01],
+      [68334.01,68714.28,68299.82,68551.02],
+      [68551.02,71499.0,68544.15,70122.15],
+    ]
+  },
+  "VWAP Mean Reversion": {
+    time: "16.04.2026 14:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [74322.01,74372.84,74173.75,74345.97],
+      [74345.98,74434.51,74261.47,74340.38],
+      [74340.38,74434.0,73864.01,74021.5],
+      [74021.5,74048.95,73855.49,73891.62],
+      [73891.62,74016.67,73514.0,73730.43],
+      [73730.43,74181.9,73675.96,74110.51],
+      [74110.52,74176.49,73909.49,74011.69],
+      [74011.7,74250.0,73789.5,73864.75],
+      [73864.76,74256.44,73864.76,74201.78],
+      [74201.78,74466.1,74051.64,74273.77],
+      [74273.77,74434.51,73817.23,74063.92],
+      [74063.91,74506.84,73830.0,74151.81],
+      [74151.81,74299.07,73580.85,73844.08],
+      [73844.07,74176.0,73762.89,73941.09],
+      [73941.09,74242.0,73915.48,74134.95],
+      [74134.95,74399.75,74073.61,74390.29],
+      [74390.29,75281.0,74355.46,75002.6],
+      [75002.6,75039.92,74512.06,74841.68],
+      [74841.67,74855.16,74540.23,74743.1],
+      [74743.1,75425.0,74740.02,74964.0],
+      [74964.01,74964.01,74620.95,74809.99],
+      [74809.99,74874.93,74451.49,74815.1],
+      [74815.09,74815.09,74454.09,74657.66],
+      [74657.67,75267.85,74601.27,74887.24],
+      [74887.23,75159.26,74865.5,74888.21],
+      [74888.21,75174.38,74728.0,74944.15],
+      [74944.15,75139.82,74900.0,75043.48],
+      [75043.47,75115.12,74853.72,75045.01],
+      [75045.01,75082.78,74636.0,74707.03],
+      [74707.02,74744.35,74500.0,74677.91],
+      [74677.91,74901.5,74594.01,74594.02],
+      [74594.02,74653.12,74277.34,74313.0],
+      [74312.99,74663.27,74285.0,74574.79],
+      [74574.8,74872.0,74574.79,74624.0],
+      [74624.01,75030.39,73309.85,73788.03],
+      [73788.03,74197.32,73426.94,73973.33],
+      [73973.33,74878.99,73934.44,74697.19],
+      [74697.2,74932.0,74063.0,74175.57],
+      [74175.58,74438.31,73912.23,74343.25],
+      [74343.25,75089.0,74240.0,75026.71],
+      [75026.71,75410.71,74717.97,75342.99],
+      [75343.0,75534.76,75001.0,75223.47],
+      [75223.48,75286.51,74789.5,74934.24],
+      [74934.24,75117.0,74833.14,74867.92],
+      [74867.92,75177.76,74840.92,75154.29],
+      [75154.28,75154.77,74886.82,74944.98],
+      [74944.99,75034.49,74569.99,74750.0],
+      [74750.0,74802.98,74529.4,74700.0],
+      [74700.0,74839.31,74606.12,74615.82],
+      [74615.82,74871.11,74589.88,74791.39],
+    ]
+  },
+  "Linear Regression Reversion": {
+    time: "22.01.2026 16:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [89448.89,90120.44,89437.25,89950.04],
+      [89950.03,89950.04,89491.96,89649.62],
+      [89649.63,89767.29,89093.28,89213.95],
+      [89213.96,89385.4,89000.0,89197.35],
+      [89197.36,89493.46,89080.0,89112.3],
+      [89112.3,89395.08,89080.0,89248.99],
+      [89248.99,89382.0,88700.0,88789.99],
+      [88789.99,88849.39,88196.72,88736.31],
+      [88736.31,89020.32,88558.67,88672.64],
+      [88672.64,89993.88,88611.15,89805.43],
+      [89805.43,90574.0,89759.59,90288.04],
+      [90288.04,90360.0,87590.0,87602.4],
+      [87602.39,88156.47,87263.53,87932.38],
+      [87932.37,88657.23,87585.05,88485.43],
+      [88485.43,90450.0,88280.55,90355.56],
+      [90355.56,90377.0,89392.0,90214.01],
+      [90214.02,90339.58,89950.36,90249.18],
+      [90249.18,90377.0,89752.38,89763.51],
+      [89763.51,90212.89,89344.98,89454.73],
+      [89454.73,90032.5,89454.72,89908.49],
+      [89908.5,90198.51,89826.38,90113.19],
+      [90113.2,90359.99,89851.03,89938.3],
+      [89938.3,90166.67,89702.84,89899.51],
+      [89899.51,90076.77,89826.67,89998.91],
+      [89998.91,90075.8,89928.09,90026.3],
+      [90026.3,90215.79,89900.0,90172.11],
+      [90172.12,90196.99,89802.0,89818.79],
+      [89818.79,89968.28,89760.0,89920.16],
+      [89920.16,90113.43,89883.8,90033.02],
+      [90033.02,90101.83,89960.0,90078.77],
+      [90078.76,90150.0,89897.87,89941.26],
+      [89941.26,90099.99,89873.09,90021.09],
+      [90021.09,90340.0,89478.92,89619.81],
+      [89619.81,89742.67,89039.78,89088.59],
+      [89088.6,89445.24,88515.37,89000.01],
+      [89000.0,89270.0,88676.95,89054.06],
+      [89054.07,89616.04,89024.55,89550.01],
+      [89550.0,89797.5,89301.9,89333.94],
+      [89333.93,89924.46,89114.48,89777.9],
+      [89777.89,89946.13,89398.87,89409.72],
+      [89409.73,89669.21,89238.32,89268.66],
+      [89268.66,89566.0,89140.13,89346.99],
+      [89346.99,89583.62,89170.74,89559.67],
+      [89559.68,89638.84,89450.48,89520.01],
+      [89520.01,89939.39,89520.01,89939.38],
+      [89939.39,89979.97,89655.41,89663.48],
+      [89663.47,89924.78,89646.18,89924.78],
+      [89924.78,90088.94,89871.73,89965.42],
+      [89965.43,89969.02,89473.99,89616.03],
+      [89616.04,89799.36,89400.0,89509.59],
+    ]
+  },
+  "Donchian Mean Reversion": {
+    time: "18.02.2026 14:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [68838.48,68860.68,68470.0,68474.9],
+      [68474.9,68707.49,68288.0,68481.67],
+      [68481.68,68510.76,67892.0,68245.71],
+      [68245.71,68519.99,68242.49,68400.0],
+      [68400.01,68480.0,68165.02,68388.12],
+      [68388.12,68479.17,68130.78,68177.53],
+      [68177.53,68308.37,67992.03,68126.28],
+      [68126.29,68194.46,67704.96,67845.3],
+      [67845.3,67935.73,67690.0,67854.6],
+      [67854.6,68299.4,67827.52,67919.49],
+      [67919.49,68360.5,67734.36,68136.34],
+      [68136.35,68337.6,66734.3,66875.06],
+      [66875.06,67409.99,66621.06,67392.05],
+      [67392.06,68158.1,67317.6,67517.36],
+      [67517.36,67714.28,66881.08,67244.22],
+      [67244.22,68227.41,67127.86,68098.62],
+      [68098.63,68235.39,67695.45,67793.32],
+      [67793.32,67928.08,67484.16,67753.3],
+      [67753.3,67926.29,67538.0,67680.54],
+      [67680.55,67788.42,67513.42,67527.72],
+      [67527.72,67617.46,67394.0,67503.52],
+      [67503.52,67627.97,67290.3,67302.65],
+      [67302.65,67378.26,66892.03,67165.2],
+      [67165.21,67421.99,67153.36,67335.04],
+      [67335.04,67705.65,67326.98,67629.11],
+      [67629.1,67900.0,67500.1,67823.54],
+      [67823.55,67938.0,67606.45,67654.8],
+      [67654.81,67976.51,67614.91,67850.52],
+      [67850.53,68219.81,67702.7,68106.44],
+      [68106.44,68476.22,68071.58,68132.82],
+      [68132.83,68276.0,68010.11,68157.79],
+      [68157.8,68184.41,67731.95,67801.26],
+      [67801.26,67805.08,67076.9,67369.75],
+      [67369.75,67689.76,67345.0,67458.06],
+      [67458.06,67599.7,67051.81,67236.88],
+      [67236.89,67362.26,66717.3,67223.76],
+      [67223.77,68347.72,67192.25,67694.01],
+      [67694.01,67706.94,66994.23,67145.34],
+      [67145.35,67486.97,67057.13,67187.39],
+      [67187.4,67229.76,66200.0,66359.99],
+      [66360.0,66619.0,65870.0,66177.14],
+      [66177.15,66550.0,66141.9,66268.39],
+      [66268.4,66504.2,66053.6,66342.76],
+      [66342.76,66477.7,66232.02,66408.82],
+      [66408.83,66502.49,66275.71,66461.0],
+      [66461.0,66597.03,66345.0,66446.49],
+      [66446.49,66884.16,66446.48,66866.62],
+      [66866.63,66958.9,66639.99,66835.2],
+      [66835.2,66997.07,66727.27,66980.91],
+      [66980.91,67070.56,66759.0,66802.75],
+    ]
+  },
+  "VWAP Bands Reversion": {
+    time: "16.10.2025 09:00 UTC",
+    visStart: 22,
+    entryVisIdx: 14,
+    candles: [
+      [113128.7,113577.0,112822.16,113211.87],
+      [113211.87,113520.0,112998.22,113028.14],
+      [113028.13,113112.41,112602.02,112993.86],
+      [112993.85,113005.57,112326.26,112738.17],
+      [112738.17,113612.35,112673.9,112809.94],
+      [112809.94,112866.77,111825.93,112024.29],
+      [112024.3,112465.5,111746.76,112344.81],
+      [112344.81,112659.0,112188.74,112431.95],
+      [112431.95,112563.8,111896.07,112460.47],
+      [112460.48,112680.0,112235.76,112584.5],
+      [112584.49,113520.88,112550.0,112944.85],
+      [112944.84,113127.39,112380.8,112564.01],
+      [112564.0,112645.61,112072.86,112266.71],
+      [112266.7,112600.0,111693.26,111905.73],
+      [111905.72,112085.68,111400.0,111711.25],
+      [111711.25,112011.75,110725.4,111389.0],
+      [111389.01,112238.41,110800.0,111059.76],
+      [111059.77,111588.69,110400.0,110798.01],
+      [110798.01,111125.18,110602.8,110748.0],
+      [110748.0,111186.78,110164.0,111186.78],
+      [111186.77,111512.41,110826.21,111444.76],
+      [111444.76,111557.7,111099.33,111271.73],
+      [111271.73,111556.27,110515.84,111109.76],
+      [111109.77,111424.69,110500.0,110854.19],
+      [110854.2,111395.82,110667.97,110667.97],
+      [110667.97,111006.0,110590.1,110763.28],
+      [110763.28,110856.11,110361.0,110431.27],
+      [110431.27,111330.0,110417.32,111299.99],
+      [111300.0,111562.24,111014.12,111510.43],
+      [111510.43,111867.17,111271.49,111329.48],
+      [111329.48,111675.21,110800.88,110966.03],
+      [110966.03,111485.03,110750.0,110951.14],
+      [110951.13,111716.86,110922.17,111666.83],
+      [111666.83,111773.7,110553.19,110584.2],
+      [110584.21,110893.91,110405.0,110817.5],
+      [110817.5,111633.14,109635.15,111146.31],
+      [111146.31,111728.7,111021.02,111469.63],
+      [111469.63,111567.85,111001.44,111404.72],
+      [111404.73,111982.45,111332.18,111519.07],
+      [111519.08,111548.0,110684.32,110860.0],
+      [110860.0,111420.02,109728.0,110529.34],
+      [110529.35,110727.35,108361.69,108549.21],
+      [108549.21,109254.0,107577.57,109232.43],
+      [109232.43,109244.91,108227.54,108276.7],
+      [108276.69,108656.3,107680.0,108656.19],
+      [108656.19,108751.02,107685.4,108197.66],
+      [108197.67,108424.11,107427.0,107838.01],
+      [107838.0,108463.31,107592.0,108443.7],
+      [108443.71,108500.0,107783.76,107798.85],
+      [107798.85,108420.73,107736.56,108194.28],
+    ]
+  },
+};
+
+// Erzeugt Candle-Daten — entweder ECHTE BTC-Historie (wenn ACADEMY_REAL_DATA für die Strategie existiert)
+// oder synthetisch deterministisch je nach Schema + Strategie-Name als Fallback.
 function _academyCandles(schema, seedKey) {
-  // Pseudo-Random mit Seed aus Schema + Strategie-Name → jedes Chart sieht anders aus
+  // Wenn echte BTC-Daten für diese Strategie verfügbar: zurückgeben
+  if (typeof ACADEMY_REAL_DATA !== 'undefined' && seedKey && ACADEMY_REAL_DATA[seedKey]) {
+    const real = ACADEMY_REAL_DATA[seedKey];
+    const arr = real.candles.map(c => ({ open: c[0], high: c[1], low: c[2], close: c[3] }));
+    arr._visibleStart = real.visStart;
+    arr._realData = true;
+    arr._realTime = real.time;
+    arr._entryVisIdx = real.entryVisIdx;
+    return arr;
+  }
+  // Sonst: synthetische Pseudo-Random mit Seed aus Schema + Strategie-Name
   const seedStr = schema + '|' + (seedKey || '');
   let seed = 0;
   for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) % 100000;
@@ -20600,43 +21028,49 @@ function _academyCandles(schema, seedKey) {
       p = c;
     }
   } else if (schema === 'channel-reversion') {
-    // Realistisches Lehrbuch-Setup: Aufwärtstrend → schaffer Pullback bricht unteres BB → Hammer-Reversal → Recovery
-    const N = 30;
+    // Realistisches Lehrbuch-Setup: lange tight-volatile Phase (BB-Warmup), starker Anstieg, dann harter Drop der das untere Band SICHTBAR durchbricht.
+    // Wir generieren 22 "Phantom-History"-Kerzen für BB-Warmup, dann 28 sichtbare Kerzen mit dem Setup. Total 50 Kerzen.
+    const PHANTOM = 22;
+    const VISIBLE = 28;
     let p = 100;
-    for (let i = 0; i < N; i++) {
+    // Phantom: tight low-volatility consolidation (damit BB-mid stabil und Std klein wird)
+    for (let i = 0; i < PHANTOM; i++) {
+      const o = p, c = p + (rand() - 0.5) * 0.7;
+      arr.push(candle(o, c, 0.25, 0.25));
+      p = c;
+    }
+    // Sichtbare 28 Kerzen
+    for (let i = 0; i < VISIBLE; i++) {
       let o, c, wickU, wickD;
-      if (i < 5) {
-        // Phase 1: kontrollierter Aufwärtsdrift
-        o = p; c = p + 0.7 + (rand() - 0.4) * 1.0;
-        wickU = 0.5; wickD = 0.4;
+      if (i < 6) {
+        // gentle uptrend (kleine Bodies, BB bleibt eng)
+        o = p; c = p + 0.4 + (rand() - 0.4) * 0.4;
+        wickU = 0.3; wickD = 0.3;
       } else if (i < 14) {
-        // Phase 2: Konsolidierung mit normaler Volatilität (BB hat Zeit sich aufzubauen)
-        o = p; c = p + (rand() - 0.5) * 1.8;
-        wickU = 0.7; wickD = 0.7;
-      } else if (i < 22) {
-        // Phase 3: weiterer kontrollierter Aufstieg
-        o = p; c = p + 0.6 + (rand() - 0.4) * 1.4;
-        wickU = 0.5; wickD = 0.5;
-      } else if (i < 25) {
-        // Phase 4: scharfer Pullback (Preis fällt zur unteren BB)
-        o = p; c = p - 1.5 - rand() * 1.2;
-        wickU = 0.3; wickD = 0.9;
-      } else if (i === 25) {
-        // Hammer-Reversal: langer unterer Docht durchsticht BB, schliesst innen, leicht grün
-        o = p - 0.3; c = p + 0.7;
-        wickU = 0.3; wickD = 2.6;
-      } else if (i === 26) {
-        // Bestätigungskerze: klar grün, schliesst über vorigem Hoch
-        o = p + 0.2; c = p + 1.8 + rand() * 0.6;
+        // klar steigender Trend (Bodies werden grösser, BB öffnet sich leicht nach oben)
+        o = p; c = p + 0.7 + (rand() - 0.4) * 0.5;
+        wickU = 0.4; wickD = 0.3;
+      } else if (i < 18) {
+        // SCHARFER Drop in 4 Kerzen — bricht durch das untere Band
+        o = p; c = p - 2.6 - rand() * 0.8;
+        wickU = 0.3; wickD = 0.7;
+      } else if (i === 18) {
+        // Hammer-Reversal-Kerze: langer unterer Docht piercbt BB tief, schliesst über Open (leicht grün)
+        o = p - 0.3; c = p + 0.6;
+        wickU = 0.3; wickD = 3.5; // sehr langer unterer Docht
+      } else if (i === 19) {
+        // Klare grüne Bestätigungs-Kerze
+        o = p + 0.2; c = p + 2.4 + rand() * 0.5;
         wickU = 0.4; wickD = 0.3;
       } else {
-        // Recovery zur Mitte
-        o = p; c = p + 0.9 + rand() * 0.8;
-        wickU = 0.5; wickD = 0.4;
+        // Recovery zurück zur Mitte
+        o = p; c = p + 0.9 + rand() * 0.5;
+        wickU = 0.4; wickD = 0.3;
       }
       arr.push(candle(o, c, wickU, wickD));
       p = c;
     }
+    arr._visibleStart = PHANTOM;
   } else if (schema === 'oscillator-reversal') {
     // Preis faellt erst, dann reversal
     let p = 110;
@@ -20892,7 +21326,11 @@ function _academySvg(schema, isEn, seedKey) {
   const labels = isEn
     ? { entry: 'Entry', sl: 'SL', tp: 'TP', signal: 'Signal', resistance: 'Resistance', support: 'Support', breakout: 'Breakout', pullback: 'Pullback', cross: 'Cross', bos: 'BOS', ob: 'Order Block' }
     : { entry: 'Entry', sl: 'SL', tp: 'TP', signal: 'Signal', resistance: 'Resistance', support: 'Support', breakout: 'Ausbruch', pullback: 'Pullback', cross: 'Cross', bos: 'BOS', ob: 'Order Block' };
-  const candles = _academyCandles(schema, seedKey);
+  const fullCandles = _academyCandles(schema, seedKey);
+  const visStart = fullCandles._visibleStart || 0;
+  const candles = visStart > 0 ? fullCandles.slice(visStart) : fullCandles;
+  // Helper: computes indicator on fullCandles (mit Warmup) und gibt nur die sichtbaren Werte zurück
+  const _sliceVis = (arr) => visStart > 0 ? arr.slice(visStart) : arr;
   // Y-Bereich automatisch
   let minP = Infinity, maxP = -Infinity;
   candles.forEach(c => { if (c.low < minP) minP = c.low; if (c.high > maxP) maxP = c.high; });
@@ -20929,12 +21367,12 @@ function _academySvg(schema, isEn, seedKey) {
     const lows = candles.map(c => c.low);
     const st = (typeof Indicators !== 'undefined' && Indicators.supertrend) ? Indicators.supertrend(highs, lows, closes, 10, 3) : null;
     const atrArr = (typeof Indicators !== 'undefined' && Indicators.atr) ? Indicators.atr(highs, lows, closes, 14) : null;
-    if (st && st.direction) {
+    if (st && st.direction && st.supertrend) {
       // Supertrend-Linie: Wert pro Kerze, Farbe je nach direction
       const segs = []; // gruppierte Segmente nach direction
       let curDir = null, curSeg = [];
       for (let i = 0; i < candles.length; i++) {
-        const v = st.sar ? st.sar[i] : (st.value ? st.value[i] : NaN);
+        const v = st.supertrend[i];
         const d = st.direction[i];
         if (isNaN(v) || isNaN(d)) continue;
         if (curDir !== d) {
@@ -21261,12 +21699,15 @@ function _academySvg(schema, isEn, seedKey) {
     body += `<line x1="${leftPad}" y1="${yScale(rangeLow)}" x2="${cx(17) + cw/2}" y2="${yScale(rangeLow)}" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="3 2"/>`;
     body += `<text x="${leftPad + 4}" y="${yScale(rangeLow) + 12}" fill="#3fb950" font-size="10">${labels.support}</text>`;
   } else if (schema === 'channel-reversion') {
-    // ECHTE Bollinger-Bänder (20, 2) + ATR(14) berechnet aus den realen Kerzen
-    const closes = candles.map(c => c.close);
-    const highs = candles.map(c => c.high);
+    // ECHTE Bollinger-Bänder (20, 2) + ATR(14) berechnet auf den FULL-Kerzen (mit Phantom-Warmup) → Bänder ziehen sich durchs ganze sichtbare Chart
+    const fullCloses = fullCandles.map(c => c.close);
+    const fullHighs = fullCandles.map(c => c.high);
+    const fullLows = fullCandles.map(c => c.low);
+    const bbFull = (typeof Indicators !== 'undefined' && Indicators.bollinger) ? Indicators.bollinger(fullCloses, 20, 2) : null;
+    const atrFull = (typeof Indicators !== 'undefined' && Indicators.atr) ? Indicators.atr(fullHighs, fullLows, fullCloses, 14) : null;
+    const bb = bbFull ? { upper: _sliceVis(bbFull.upper), mid: _sliceVis(bbFull.mid), lower: _sliceVis(bbFull.lower) } : null;
+    const atrArr = atrFull ? _sliceVis(atrFull) : null;
     const lows = candles.map(c => c.low);
-    const bb = (typeof Indicators !== 'undefined' && Indicators.bollinger) ? Indicators.bollinger(closes, 20, 2) : null;
-    const atrArr = (typeof Indicators !== 'undefined' && Indicators.atr) ? Indicators.atr(highs, lows, closes, 14) : null;
     if (bb && bb.upper && bb.lower && bb.mid) {
       // Linien zeichnen — nur wo die Werte gültig sind
       const buildLine = (vals) => vals.map((v, i) => isNaN(v) ? null : [cx(i), yScale(v)]).filter(p => p);
@@ -21280,26 +21721,37 @@ function _academySvg(schema, isEn, seedKey) {
       if (upperPts.length > 0) body += `<text x="${upperPts[upperPts.length-1][0]}" y="${upperPts[upperPts.length-1][1] - 4}" fill="#f85149" font-size="10" text-anchor="end">${isEn ? 'Upper Band (+2σ)' : 'Oberes Band (+2σ)'}</text>`;
       if (midPts.length > 0) body += `<text x="${midPts[midPts.length-1][0]}" y="${midPts[midPts.length-1][1] - 4}" fill="#8b949e" font-size="10" text-anchor="end">${isEn ? 'SMA / Mid' : 'SMA / Mitte'}</text>`;
       if (lowerPts.length > 0) body += `<text x="${lowerPts[lowerPts.length-1][0]}" y="${lowerPts[lowerPts.length-1][1] + 12}" fill="#3fb950" font-size="10" text-anchor="end">${isEn ? 'Lower Band (−2σ)' : 'Unteres Band (−2σ)'}</text>`;
-      // Entry-Detection: erste Kerze nach Warmup wo low <= unteres Band UND nächste Kerze grün ist
-      let touchIdx = -1;
-      for (let i = 20; i < candles.length - 1; i++) {
-        if (!isNaN(bb.lower[i]) && lows[i] <= bb.lower[i] && candles[i+1].close > candles[i+1].open) {
-          touchIdx = i; break;
+      // Entry-Index: bei Echtdaten ist er vorgegeben, sonst Auto-Detection
+      let entryIdx = -1;
+      if (fullCandles._realData && typeof fullCandles._entryVisIdx === 'number') {
+        entryIdx = fullCandles._entryVisIdx;
+      } else {
+        for (let i = 8; i < candles.length - 1; i++) {
+          if (!isNaN(bb.lower[i]) && lows[i] <= bb.lower[i] && candles[i+1].close > candles[i+1].open) {
+            entryIdx = i + 1; break;
+          }
         }
       }
-      if (touchIdx >= 0 && touchIdx + 1 < candles.length) {
-        const entryIdx = touchIdx + 1;
+      if (entryIdx > 0 && entryIdx < candles.length) {
         const entryPrice = candles[entryIdx].open;
-        const atrVal = (atrArr && !isNaN(atrArr[entryIdx])) ? atrArr[entryIdx] : 1.5;
-        const slPrice = entryPrice - 2 * atrVal;
-        const tpPrice = !isNaN(bb.mid[entryIdx]) ? bb.mid[entryIdx] : (entryPrice + 4);
+        const atrVal = (atrArr && !isNaN(atrArr[entryIdx])) ? atrArr[entryIdx] : (entryPrice * 0.01);
+        // Per-Strategie SL/TP-Regeln anwenden
+        const rules = (typeof ACADEMY_STRATEGY_RULES !== 'undefined' && ACADEMY_STRATEGY_RULES[seedKey])
+          ? ACADEMY_STRATEGY_RULES[seedKey]
+          : { slAtrMult: 2.0, tpLabel: 'Mittellinie' };
+        const slPrice = entryPrice - rules.slAtrMult * atrVal;
+        const tpPrice = !isNaN(bb.mid[entryIdx]) ? bb.mid[entryIdx] : (entryPrice + 2 * atrVal);
         body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
         body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Long</text>`;
         body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.75"/>`;
-        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl} (Entry − 2× ATR)</text>`;
+        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl} (Entry − ${rules.slAtrMult.toFixed(1)}× ATR)</text>`;
         body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="0.8" stroke-dasharray="2 4" opacity="0.7"/>`;
-        body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 12}" fill="#58a6ff" font-size="10" text-anchor="end">${labels.tp} (am Mittelband)</text>`;
-        // Markiere die berechnete Entry-Annotation als bereits gerendert (zweiter Pass soll nichts Doppeltes drüber zeichnen)
+        body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 12}" fill="#58a6ff" font-size="10" text-anchor="end">${labels.tp} (${rules.tpLabel})</text>`;
+        // "Echtdaten"-Caption falls real BTC
+        if (fullCandles._realData && fullCandles._realTime) {
+          body += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="180" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
+          body += `<text x="${leftPad + 8}" y="${topPad + 16}" fill="#3fb950" font-size="10" font-weight="600">📊 BTC 1h • ${fullCandles._realTime}</text>`;
+        }
         candles._academyEntryRendered = true;
       }
     }
@@ -24998,972 +25450,3 @@ function _paperInitTab() {
       o.textContent = opt.value.replace('USDT', '');
       coinSel.appendChild(o);
     }
-  }
-  // Vorbelegung
-  if (paperState.symbol && coinSel) coinSel.value = paperState.symbol;
-  if (paperState.tf) document.getElementById('paperTF').value = paperState.tf;
-  if (paperState.startBalance) document.getElementById('paperBalance').value = paperState.startBalance;
-  if (paperState.riskPct) document.getElementById('paperRisk').value = paperState.riskPct;
-  // Strategie-Display aktualisieren
-  _paperUpdateStrategyDisplay();
-  // Wenn aktiv → UI rendern
-  if (paperState.active) {
-    _paperRenderUI();
-    _paperSetUIRunning(true);
-  } else {
-    _paperRenderUI();
-  }
-}
-
-function _paperUpdateStrategyDisplay() {
-  const stratIdx = parseInt(document.getElementById('strategySelect')?.value) || 0;
-  const strategy = STRATEGIES[stratIdx];
-  const dispEl = document.getElementById('paperStrategyDisplay');
-  if (dispEl) dispEl.value = strategy ? strategy.name : '—';
-}
-
-function _paperSetUIRunning(running) {
-  const dot = document.getElementById('paperStatusDot');
-  const txt = document.getElementById('paperStatusText');
-  const startBtn = document.getElementById('paperStartBtn');
-  const stopBtn = document.getElementById('paperStopBtn');
-  const cards = document.getElementById('paperStatusCards');
-  const inputs = ['paperCoin', 'paperTF', 'paperBalance', 'paperRisk'];
-  if (running) {
-    if (dot) { dot.style.background = '#22c55e'; dot.style.boxShadow = '0 0 8px #22c55e'; }
-    if (txt) { txt.textContent = `— LIVE auf ${paperState.symbol} ${paperState.tf} (${paperState.strategyName})`; }
-    if (startBtn) startBtn.style.display = 'none';
-    if (stopBtn) stopBtn.style.display = 'inline-block';
-    if (cards) cards.style.display = 'block';
-    inputs.forEach(id => { const e = document.getElementById(id); if (e) e.disabled = true; });
-  } else {
-    if (dot) { dot.style.background = '#666'; dot.style.boxShadow = 'none'; }
-    if (txt) { txt.textContent = '— gestoppt'; }
-    if (startBtn) startBtn.style.display = 'inline-block';
-    if (stopBtn) stopBtn.style.display = 'none';
-    inputs.forEach(id => { const e = document.getElementById(id); if (e) e.disabled = false; });
-  }
-}
-
-async function paperStart() {
-  if (paperState.active) return;
-  const stratIdx = parseInt(document.getElementById('strategySelect').value);
-  const strategy = STRATEGIES[stratIdx];
-  if (!strategy) { alert('Bitte Strategie wählen!'); return; }
-  const symbol = document.getElementById('paperCoin').value;
-  const tf = document.getElementById('paperTF').value;
-  const startBalance = parseFloat(document.getElementById('paperBalance').value) || 10000;
-  const riskPct = parseFloat(document.getElementById('paperRisk').value) || 1;
-
-  // Wenn andere Konfig als gespeichert: Reset
-  if (paperState.symbol && (paperState.symbol !== symbol || paperState.tf !== tf || paperState.strategyName !== strategy.name)) {
-    if (paperState.closedTrades.length > 0 || paperState.openPosition) {
-      if (!confirm('Andere Konfig erkannt. Bestehenden Paper-State (Trades + Equity) verwerfen und neu starten?')) return;
-    }
-    paperReset(false);
-  }
-
-  // State init (wenn nicht resumed)
-  if (!paperState.active && paperState.closedTrades.length === 0 && !paperState.openPosition) {
-    paperState.symbol = symbol;
-    paperState.tf = tf;
-    paperState.strategyName = strategy.name;
-    paperState.startBalance = startBalance;
-    paperState.balance = startBalance;
-    paperState.riskPct = riskPct;
-    paperState.candles = [];
-    paperState.equity = [{ ts: Date.now(), value: startBalance }];
-    paperState.startedAt = Date.now();
-    // Snapshot der Strategie-Params
-    paperState.strategyParamsSnapshot = {};
-    for (const [k, p] of Object.entries(strategy.params)) {
-      const el = document.getElementById('param_' + k);
-      paperState.strategyParamsSnapshot[k] = { ...p, value: el ? parseFloat(el.value) : p.value };
-    }
-  } else {
-    // Resume: nur Symbol/TF/Strategy bleiben gleich, Balance/Trades behalten
-    log('Paper-Trading wird wieder aufgenommen', 'success');
-  }
-
-  paperState.active = true;
-  _paperSetUIRunning(true);
-  _paperRenderUI();
-
-  log(`=== Paper Trading gestartet: ${strategy.name} auf ${symbol} ${tf} ===`, 'success');
-
-  // Warmup-Kerzen laden
-  try {
-    document.getElementById('paperConnStatus').textContent = 'Lade Warmup-Daten...';
-    const now = Date.now();
-    // Berechne Start: ~PAPER_WARMUP * TF in ms zurück
-    const tfMs = _paperTfMs(tf);
-    const startMs = now - PAPER_WARMUP * tfMs;
-    const startDate = new Date(startMs).toISOString().slice(0, 10);
-    const endDate = new Date(now + tfMs).toISOString().slice(0, 10);
-    const warmup = await fetchCandles(symbol, tf, startDate, endDate);
-    if (warmup.length < 50) throw new Error(`Nur ${warmup.length} Warmup-Kerzen`);
-    paperState.candles = warmup.slice(-PAPER_WARMUP);
-    log(`  ${warmup.length} Warmup-Kerzen geladen`);
-  } catch (e) {
-    log(`Paper-Warmup-Fehler: ${e.message}`, 'error');
-    paperStop();
-    return;
-  }
-
-  // WebSocket starten
-  _paperConnectWS();
-  _paperSavePersist();
-}
-
-function paperStop() {
-  paperState.active = false;
-  if (paperState.ws) {
-    try { paperState.ws.close(); } catch(e) {}
-    paperState.ws = null;
-  }
-  if (paperState.reconnectTimer) {
-    clearTimeout(paperState.reconnectTimer);
-    paperState.reconnectTimer = null;
-  }
-  _paperSetUIRunning(false);
-  _paperSavePersist();
-  log('Paper Trading gestoppt');
-}
-
-function paperReset(confirmFirst = true) {
-  if (confirmFirst && (paperState.closedTrades.length > 0 || paperState.openPosition)) {
-    if (!confirm('Wirklich resetten? Alle Paper-Trades und Equity werden gelöscht.')) return;
-  }
-  paperStop();
-  paperState.candles = [];
-  paperState.openPosition = null;
-  paperState.closedTrades = [];
-  paperState.equity = [];
-  paperState.balance = paperState.startBalance;
-  paperState.startedAt = null;
-  paperState.symbol = null;
-  paperState.strategyParamsSnapshot = null;
-  try { localStorage.removeItem(PAPER_STATE_KEY); } catch(e) {}
-  _paperRenderUI();
-  log('Paper-State zurückgesetzt');
-}
-
-function _paperTfMs(tf) {
-  const map = { '1m': 60_000, '3m': 180_000, '5m': 300_000, '15m': 900_000, '30m': 1_800_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000 };
-  return map[tf] || 60_000;
-}
-
-function _paperConnectWS() {
-  const symLow = paperState.symbol.toLowerCase();
-  const tfStream = paperState.tf;
-  const url = `wss://stream.binance.com:9443/ws/${symLow}@kline_${tfStream}`;
-  try {
-    paperState.ws = new WebSocket(url);
-    paperState.ws.onopen = () => {
-      paperState.reconnectAttempts = 0;
-      const stat = document.getElementById('paperConnStatus');
-      if (stat) { stat.textContent = '🟢 Verbunden'; stat.style.color = '#22c55e'; }
-    };
-    paperState.ws.onmessage = (ev) => _paperHandleMessage(ev.data);
-    paperState.ws.onerror = () => {
-      const stat = document.getElementById('paperConnStatus');
-      if (stat) { stat.textContent = '⚠️ WS-Fehler'; stat.style.color = '#f59e0b'; }
-    };
-    paperState.ws.onclose = () => {
-      if (!paperState.active) return; // intentionally closed
-      const stat = document.getElementById('paperConnStatus');
-      if (stat) { stat.textContent = '🔴 Reconnecting...'; stat.style.color = '#ef4444'; }
-      paperState.reconnectAttempts++;
-      const delay = Math.min(30000, 1000 * Math.pow(2, paperState.reconnectAttempts));
-      paperState.reconnectTimer = setTimeout(_paperConnectWS, delay);
-    };
-  } catch(e) {
-    log(`Paper-WS-Fehler: ${e.message}`, 'error');
-  }
-}
-
-function _paperHandleMessage(data) {
-  let msg;
-  try { msg = JSON.parse(data); } catch(e) { return; }
-  if (!msg.k) return;
-  const k = msg.k;
-  const candle = {
-    ts: k.t,
-    open: parseFloat(k.o),
-    high: parseFloat(k.h),
-    low: parseFloat(k.l),
-    close: parseFloat(k.c),
-    volume: parseFloat(k.v)
-  };
-  // Update or append: letzte Kerze ist möglicherweise dieselbe (forming)
-  const last = paperState.candles[paperState.candles.length - 1];
-  if (last && last.ts === candle.ts) {
-    paperState.candles[paperState.candles.length - 1] = candle;
-  } else {
-    paperState.candles.push(candle);
-    // Trim zu PAPER_WARMUP * 1.5 falls über
-    if (paperState.candles.length > PAPER_WARMUP * 2) {
-      paperState.candles = paperState.candles.slice(-Math.floor(PAPER_WARMUP * 1.5));
-    }
-  }
-
-  // Open Position checken (intra-bar SL/TP via aktuellen high/low)
-  if (paperState.openPosition) {
-    _paperCheckSLTP(candle);
-  }
-
-  // Bei geschlossener Kerze (k.x === true): Strategie auswerten
-  if (k.x === true) {
-    _paperEvaluateStrategy();
-  }
-
-  _paperRenderUI();
-
-  // Periodisch persistieren (auf Close oder alle paar Ticks)
-  if (k.x === true) _paperSavePersist();
-}
-
-// Konvertiert Rich-Params {key:{value,min,...}} zu Flat {key:value} (analog runEngine)
-function _paperFlatParams(rich) {
-  const flat = {};
-  for (const [k, v] of Object.entries(rich || {})) {
-    flat[k] = (v && typeof v === 'object' && v.value !== undefined) ? v.value : v;
-  }
-  return flat;
-}
-
-function _paperEvaluateStrategy() {
-  const strategy = STRATEGIES.find(s => s.name === paperState.strategyName);
-  if (!strategy) return;
-  if (!paperState.strategyParamsSnapshot) return;
-  const params = _paperFlatParams(paperState.strategyParamsSnapshot);
-
-  try {
-    // Re-init mit allen Kerzen (state wird neu aufgebaut)
-    strategy.init.call(strategy, paperState.candles, params);
-    // Replay shouldEnter über alle PAST Kerzen damit stateful Strategien (z.B. _lastUpCross) korrekt aufbauen
-    const N = paperState.candles.length;
-    for (let i = 1; i < N - 1; i++) {
-      try { strategy.shouldEnter.call(strategy, paperState.candles, i, params); } catch(e) {}
-    }
-
-    // Wenn Position offen → Exit prüfen
-    if (paperState.openPosition && strategy.shouldExit) {
-      const i = N - 1;
-      try {
-        const exit = strategy.shouldExit.call(strategy, paperState.candles, i, paperState.openPosition, params);
-        if (exit) _paperClosePosition(paperState.candles[i].close, 'strategy-exit');
-      } catch(e) {}
-    }
-
-    // Letzte Kerze: Entry prüfen (wenn keine Position offen)
-    if (!paperState.openPosition) {
-      const i = N - 1;
-      const signal = strategy.shouldEnter.call(strategy, paperState.candles, i, params);
-      if (signal && signal.dir && isFinite(signal.sl)) {
-        const c = paperState.candles[i];
-        _paperOpenPosition(signal, c);
-      }
-    }
-  } catch (e) {
-    log(`Paper-Strategie-Fehler: ${e.message}`, 'error');
-  }
-}
-
-function _paperCheckSLTP(candle) {
-  const pos = paperState.openPosition;
-  if (!pos) return;
-  // Pessimistic: SL zuerst (worst case)
-  if (pos.dir === 'long') {
-    if (candle.low <= pos.sl) { _paperClosePosition(pos.sl, 'sl-hit'); return; }
-    if (pos.tp && candle.high >= pos.tp) { _paperClosePosition(pos.tp, 'tp-hit'); return; }
-  } else {
-    if (candle.high >= pos.sl) { _paperClosePosition(pos.sl, 'sl-hit'); return; }
-    if (pos.tp && candle.low <= pos.tp) { _paperClosePosition(pos.tp, 'tp-hit'); return; }
-  }
-}
-
-function _paperOpenPosition(signal, candle) {
-  const entry = candle.close;
-  const sl = signal.sl;
-  const tp = signal.tp || null;
-  const riskDist = Math.abs(entry - sl);
-  if (riskDist <= 0) return;
-  const riskUsd = paperState.balance * paperState.riskPct / 100;
-  paperState.openPosition = {
-    entryTs: candle.ts,
-    entry, sl, tp,
-    dir: signal.dir,
-    riskUsd,
-    riskDist
-  };
-  _paperNotify(`📥 ${signal.dir.toUpperCase()} ${paperState.symbol.replace('USDT','')} @ ${fmtPrice(entry)} | SL ${fmtPrice(sl)}${tp ? ' | TP ' + fmtPrice(tp) : ''}`, 'open');
-  log(`Paper: Position opened ${signal.dir} ${paperState.symbol} @ ${fmtPrice(entry)}`, 'success');
-}
-
-function _paperClosePosition(exitPrice, reason) {
-  const pos = paperState.openPosition;
-  if (!pos) return;
-  const move = pos.dir === 'long' ? (exitPrice - pos.entry) : (pos.entry - exitPrice);
-  const pnlUsd = pos.riskDist > 0 ? pos.riskUsd * (move / pos.riskDist) : 0;
-  const pnlPct = pnlUsd / paperState.balance * 100;
-  paperState.balance += pnlUsd;
-  const trade = {
-    entryTs: pos.entryTs,
-    exitTs: Date.now(),
-    dir: pos.dir,
-    entry: pos.entry,
-    exit: exitPrice,
-    sl: pos.sl,
-    tp: pos.tp,
-    pnlUsd,
-    pnlPct,
-    reason,
-    symbol: paperState.symbol
-  };
-  paperState.closedTrades.unshift(trade); // newest first
-  paperState.equity.push({ ts: Date.now(), value: paperState.balance });
-  paperState.openPosition = null;
-  const sgn = pnlUsd >= 0 ? '+' : '';
-  _paperNotify(`📤 ${pos.dir.toUpperCase()} ${paperState.symbol.replace('USDT','')} closed @ ${fmtPrice(exitPrice)} | PnL ${sgn}$${pnlUsd.toFixed(2)} (${reason})`, pnlUsd >= 0 ? 'win' : 'loss');
-  log(`Paper: Position closed ${pos.dir} @ ${fmtPrice(exitPrice)}, PnL ${sgn}$${pnlUsd.toFixed(2)} (${reason})`, pnlUsd >= 0 ? 'success' : 'error');
-  _paperSavePersist();
-}
-
-function _paperNotify(msg, type = 'open') {
-  // Toast oben rechts
-  const toast = document.createElement('div');
-  const colors = { open: '#06b6d4', win: '#22c55e', loss: '#ef4444' };
-  toast.style.cssText = `position:fixed;top:60px;right:20px;background:${colors[type]||'#06b6d4'};color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:10000;max-width:380px;animation:slideIn 0.3s`;
-  toast.textContent = msg;
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, 5000);
-  setTimeout(() => toast.remove(), 5500);
-  // Sound
-  if (document.getElementById('paperSound')?.checked) {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = type === 'win' ? 880 : type === 'loss' ? 220 : 440;
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(); osc.stop(ctx.currentTime + 0.3);
-    } catch(e) {}
-  }
-}
-
-function _paperRenderUI() {
-  // Status-Cards
-  const ret = paperState.startBalance > 0 ? (paperState.balance - paperState.startBalance) / paperState.startBalance * 100 : 0;
-  const balEl = document.getElementById('paperBalanceDisplay');
-  if (balEl) balEl.textContent = `$${paperState.balance.toFixed(2)}`;
-  const retEl = document.getElementById('paperReturnDisplay');
-  if (retEl) {
-    retEl.textContent = `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}% seit Start`;
-    retEl.style.color = ret >= 0 ? '#22c55e' : '#ef4444';
-  }
-  // Open Position
-  const posEl = document.getElementById('paperPosDisplay');
-  const posPnLEl = document.getElementById('paperPosPnL');
-  if (paperState.openPosition && posEl) {
-    const p = paperState.openPosition;
-    const last = paperState.candles[paperState.candles.length - 1];
-    const curPrice = last ? last.close : p.entry;
-    const move = p.dir === 'long' ? (curPrice - p.entry) : (p.entry - curPrice);
-    const liveR = p.riskDist > 0 ? move / p.riskDist : 0;
-    posEl.textContent = `${p.dir.toUpperCase()} @ ${fmtPrice(p.entry)}`;
-    posEl.style.color = p.dir === 'long' ? '#22c55e' : '#ef4444';
-    if (posPnLEl) {
-      posPnLEl.textContent = `Live: ${liveR >= 0 ? '+' : ''}${liveR.toFixed(2)}R | SL ${fmtPrice(p.sl)}${p.tp ? ' | TP ' + fmtPrice(p.tp) : ''}`;
-      posPnLEl.style.color = liveR >= 0 ? '#22c55e' : '#ef4444';
-    }
-  } else if (posEl) {
-    posEl.textContent = 'Keine';
-    posEl.style.color = 'var(--text-primary)';
-    if (posPnLEl) { posPnLEl.textContent = '—'; posPnLEl.style.color = 'var(--text-muted)'; }
-  }
-  // Trades
-  const tradesEl = document.getElementById('paperTradesCount');
-  if (tradesEl) tradesEl.textContent = String(paperState.closedTrades.length);
-  const wrEl = document.getElementById('paperWinRate');
-  if (wrEl) {
-    const wins = paperState.closedTrades.filter(t => t.pnlUsd > 0).length;
-    const wr = paperState.closedTrades.length > 0 ? wins / paperState.closedTrades.length * 100 : 0;
-    wrEl.textContent = paperState.closedTrades.length ? `WR ${wr.toFixed(1)}% (${wins}/${paperState.closedTrades.length})` : '—';
-  }
-  // Letzte Kerze
-  const lastCEl = document.getElementById('paperLastCandle');
-  const last = paperState.candles[paperState.candles.length - 1];
-  if (last && lastCEl) {
-    const d = new Date(last.ts);
-    lastCEl.textContent = `${fmtPrice(last.close)} @ ${d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}`;
-  }
-  // Journal
-  _paperRenderJournal();
-  // Equity-Chart
-  _paperDrawEquity();
-}
-
-function _paperRenderJournal() {
-  const tbody = document.getElementById('paperJournalBody');
-  if (!tbody) return;
-  let rows = '';
-  // Open position oben (laufender Trade)
-  if (paperState.openPosition) {
-    const p = paperState.openPosition;
-    const last = paperState.candles[paperState.candles.length - 1];
-    const curPrice = last ? last.close : p.entry;
-    const move = p.dir === 'long' ? (curPrice - p.entry) : (p.entry - curPrice);
-    const livePnl = p.riskDist > 0 ? p.riskUsd * (move / p.riskDist) : 0;
-    const livePct = livePnl / paperState.balance * 100;
-    const cls = livePnl >= 0 ? '#22c55e' : '#ef4444';
-    rows += `<tr style="background:rgba(6,182,212,0.08)">
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:700;color:#06b6d4">★</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600">${(paperState.symbol||'').replace('USDT','')}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(p.entryTs).toLocaleString('de-DE', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:${p.dir==='long'?'#22c55e':'#ef4444'}">${p.dir.toUpperCase()}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(p.entry)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(p.sl)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${p.tp?fmtPrice(p.tp):'—'}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(curPrice)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls};font-weight:600">${livePnl>=0?'+':''}${livePnl.toFixed(2)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls}">${livePct>=0?'+':''}${livePct.toFixed(2)}%</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:#06b6d4">live</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><span style="background:#06b6d4;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">OPEN</span></td>
-    </tr>`;
-  }
-  // Closed trades
-  paperState.closedTrades.forEach((t, i) => {
-    const cls = t.pnlUsd >= 0 ? '#22c55e' : '#ef4444';
-    rows += `<tr>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border)">${paperState.closedTrades.length - i}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-weight:600">${(t.symbol||'').replace('USDT','')}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(t.entryTs).toLocaleString('de-DE', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:${t.dir==='long'?'#22c55e':'#ef4444'}">${t.dir.toUpperCase()}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(t.entry)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(t.sl)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${t.tp?fmtPrice(t.tp):'—'}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right">${fmtPrice(t.exit)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls};font-weight:700">${t.pnlUsd>=0?'+':''}${t.pnlUsd.toFixed(2)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;color:${cls}">${t.pnlPct>=0?'+':''}${t.pnlPct.toFixed(2)}%</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-muted)">${t.reason}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><span style="color:${cls};font-weight:600">${t.pnlUsd>=0?'WIN':'LOSS'}</span></td>
-    </tr>`;
-  });
-  if (rows === '') {
-    rows = '<tr><td colspan="12" style="padding:30px;text-align:center;color:var(--text-muted)">Noch keine Trades. Sobald die Strategie ein Signal feuert, erscheint es hier.</td></tr>';
-  }
-  tbody.innerHTML = rows;
-}
-
-function _paperDrawEquity() {
-  const canvas = document.getElementById('paperEquityChart');
-  if (!canvas || paperState.equity.length === 0) return;
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width === 0) return;
-  canvas.width = rect.width * dpr;
-  canvas.height = 240 * dpr;
-  ctx.scale(dpr, dpr);
-  const W = rect.width, H = 240;
-  ctx.clearRect(0, 0, W, H);
-
-  const eq = paperState.equity;
-  const allVals = eq.map(e => e.value);
-  const start = paperState.startBalance;
-  let minV = Math.min(...allVals, start), maxV = Math.max(...allVals, start);
-  const padY = (maxV - minV) * 0.1 || 100;
-  minV -= padY; maxV += padY;
-  const yRange = Math.max(0.01, maxV - minV);
-
-  const tsMin = eq[0].ts, tsMax = eq[eq.length - 1].ts;
-  const tsRange = Math.max(1, tsMax - tsMin);
-
-  const x = (ts) => ((ts - tsMin) / tsRange) * W;
-  const y = (v) => H - ((v - minV) / yRange) * H;
-
-  // Start-Reference-Linie
-  ctx.strokeStyle = '#666';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(0, y(start)); ctx.lineTo(W, y(start));
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Equity-Kurve
-  ctx.strokeStyle = paperState.balance >= start ? '#22c55e' : '#ef4444';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  for (let i = 0; i < eq.length; i++) {
-    const px = x(eq[i].ts), py = y(eq[i].value);
-    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-  }
-  ctx.stroke();
-}
-
-function paperExportTrades() {
-  if (paperState.closedTrades.length === 0) { alert('Keine Trades zum Exportieren!'); return; }
-  const header = 'Nr,Coin,Entry-Zeit,Exit-Zeit,Dir,Entry,SL,TP,Exit,PnL_USD,PnL_Pct,Grund\n';
-  const rows = paperState.closedTrades.slice().reverse().map((t, i) =>
-    `${i+1},${t.symbol||''},${new Date(t.entryTs).toISOString()},${new Date(t.exitTs).toISOString()},${t.dir},${t.entry},${t.sl},${t.tp||''},${t.exit},${t.pnlUsd.toFixed(2)},${t.pnlPct.toFixed(4)},${t.reason}`
-  ).join('\n');
-  const blob = new Blob([header + rows], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `paper_trades_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  log('Paper-Trades als CSV exportiert', 'success');
-}
-
-// Auto-Resume beim App-Start
-window.addEventListener('DOMContentLoaded', () => {
-  if (_paperLoadPersist()) {
-    if (paperState.active && paperState.symbol) {
-      // Auto-Resume nach Reload
-      setTimeout(() => {
-        log(`Paper-State geladen — ${paperState.closedTrades.length} closed Trades, ${paperState.openPosition ? '1 offene Position' : 'keine offene Position'}`);
-        // Resume erfordert keine Re-Init der Strategie weil das WS sich verbindet und neue Kerzen den State neu aufbauen
-        if (document.getElementById('paperCoin')) _paperConnectWS();
-        _paperSetUIRunning(true);
-        _paperRenderUI();
-      }, 500);
-    } else {
-      // Inactive load — nur State zeigen
-      setTimeout(() => _paperRenderUI(), 500);
-    }
-  }
-});
-
-// Tab-Switch-Hook
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab-btn');
-  if (!btn) return;
-  if (btn.dataset.tab === 'paper') setTimeout(_paperInitTab, 50);
-});
-
-// Animation für Toast
-const _paperStyleTag = document.createElement('style');
-_paperStyleTag.textContent = `@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
-document.head.appendChild(_paperStyleTag);
-
-// Strategie-Display bei Auswahl-Wechsel updaten
-document.getElementById('strategySelect')?.addEventListener('change', () => {
-  setTimeout(_paperUpdateStrategyDisplay, 100);
-});
-
-// Visibility-Handler: WS reconnecten wenn Tab zurück in Vordergrund
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && paperState.active) {
-    if (!paperState.ws || paperState.ws.readyState !== 1) {
-      // 1 = OPEN; alle anderen States = nicht verbunden, neu aufbauen
-      log('Paper-WS reconnecting nach Tab-Wechsel...');
-      _paperConnectWS();
-    }
-  }
-});
-
-// ═══════════════════════════════════════════════
-//  APP VERSION + GITHUB LINK
-// ═══════════════════════════════════════════════
-const APP_VERSION = 'v1.0.0-beta';
-const GITHUB_REPO_URL = 'https://github.com/FinalBoss-0815/finalboss-backtest';
-const GITHUB_ISSUES_URL = GITHUB_REPO_URL + '/issues/new';
-
-// ═══════════════════════════════════════════════
-//  SMOKE TESTS — bei App-Start automatisch
-//  Determinismus-Checks für Engine + Strategien
-// ═══════════════════════════════════════════════
-function runSmokeTests() {
-  const results = [];
-
-  // Test 1: Alle Strategien haben init + shouldEnter Funktionen
-  let brokenStrategies = 0;
-  const brokenList = [];
-  for (const s of STRATEGIES) {
-    if (typeof s.init !== 'function' || typeof s.shouldEnter !== 'function' || typeof s.shouldExit !== 'function') {
-      brokenStrategies++;
-      brokenList.push(s.name);
-    }
-  }
-  results.push({
-    name: 'Alle Strategien aufrufbar',
-    pass: brokenStrategies === 0,
-    info: brokenStrategies === 0 ? `${STRATEGIES.length}/${STRATEGIES.length} OK` : `${brokenStrategies} broken: ${brokenList.join(', ')}`
-  });
-
-  // Test 2: Indikator-Sanity (EMA muss endliche Werte liefern)
-  try {
-    const ema = Indicators.ema([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 5);
-    const validEMA = ema && ema.length === 10 && isFinite(ema[ema.length - 1]) && ema[ema.length - 1] > 0;
-    results.push({ name: 'EMA-Berechnung', pass: !!validEMA, info: validEMA ? `letzter Wert ${ema[ema.length-1].toFixed(2)}` : 'NaN/Invalid' });
-  } catch (e) { results.push({ name: 'EMA-Berechnung', pass: false, info: e.message }); }
-
-  // Test 3: ATR liefert nicht-negative Werte
-  try {
-    const highs = [10, 12, 13, 14, 15, 16, 17];
-    const lows = [9, 10, 11, 12, 13, 14, 15];
-    const closes = [9.5, 11, 12.5, 13.5, 14.5, 15.5, 16.5];
-    const atr = Indicators.atr(highs, lows, closes, 3);
-    const allValid = atr && atr.every(v => !isFinite(v) || v >= 0);
-    results.push({ name: 'ATR nicht-negativ', pass: !!allValid });
-  } catch (e) { results.push({ name: 'ATR nicht-negativ', pass: false, info: e.message }); }
-
-  // Test 4: Engine-Integration auf synthetischen Sinus-Kerzen
-  try {
-    const candles = [];
-    for (let i = 0; i < 250; i++) {
-      const c = 100 + Math.sin(i * 0.12) * 18;
-      const o = c + Math.cos(i * 0.5) * 1.5;
-      const cl = c + Math.cos((i + 0.5) * 0.5) * 1.5;
-      candles.push({
-        ts: Date.UTC(2024, 0, 1) + i * 3600000,
-        open: o, close: cl,
-        high: Math.max(o, cl) + 1, low: Math.min(o, cl) - 1,
-        volume: 1000 + Math.random() * 100
-      });
-    }
-    // RSI-Strategie als Sanity-Check (ist robust + simpel)
-    const strat = STRATEGIES.find(s => s.name.includes('RSI Extreme'));
-    if (!strat) throw new Error('RSI Extreme Reversal nicht gefunden');
-    const params = {};
-    for (const [k, v] of Object.entries(strat.params)) params[k] = v.value !== undefined ? v.value : v;
-    strat.init.call(strat, candles, params);
-    let signals = 0, errors = 0;
-    for (let i = 30; i < candles.length; i++) {
-      try {
-        const sig = strat.shouldEnter.call(strat, candles, i, params);
-        if (sig) signals++;
-      } catch (e) { errors++; }
-    }
-    results.push({ name: 'Engine-Integration (synthetisch)', pass: errors === 0, info: `${signals} signals, ${errors} errors` });
-  } catch (e) { results.push({ name: 'Engine-Integration (synthetisch)', pass: false, info: e.message }); }
-
-  // Test 5: localStorage funktioniert (Persistenz-Voraussetzung)
-  try {
-    localStorage.setItem('_fb_smoke', 'ok');
-    const got = localStorage.getItem('_fb_smoke');
-    localStorage.removeItem('_fb_smoke');
-    results.push({ name: 'localStorage verfügbar', pass: got === 'ok' });
-  } catch (e) { results.push({ name: 'localStorage verfügbar', pass: false, info: 'Browser-Privacy-Mode?' }); }
-
-  // Test 6: WebSocket-Konstruktor verfügbar (für Paper-Trading)
-  results.push({ name: 'WebSocket verfügbar', pass: typeof WebSocket !== 'undefined' });
-
-  // Test 7: Look-Ahead-Audit (von oben)
-  try {
-    const issues = runStrategyAudit();
-    results.push({ name: 'Look-Ahead-Audit', pass: issues.length === 0, info: issues.length === 0 ? `${STRATEGIES.length}/${STRATEGIES.length} clean` : `${issues.length} issues` });
-  } catch (e) { results.push({ name: 'Look-Ahead-Audit', pass: false, info: e.message }); }
-
-  return results;
-}
-
-// Auto-Run beim Start (silent except auf Fehler)
-window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    try {
-      const results = runSmokeTests();
-      const failed = results.filter(r => !r.pass);
-      if (failed.length === 0) {
-        console.log(`%c✅ FinalBoss ${APP_VERSION} — Smoke-Tests: ${results.length}/${results.length} passed`, 'color:#22c55e;font-weight:bold;font-size:13px');
-      } else {
-        console.warn(`⚠️ FinalBoss ${APP_VERSION} — Smoke-Tests: ${failed.length} failed:`, failed);
-        // User-sichtbarer Toast bei kritischen Failures
-        if (failed.some(f => f.name.includes('Engine') || f.name.includes('Strategien'))) {
-          if (typeof _showErrorToast === 'function') {
-            _showErrorToast(`Smoke-Test-Fehler: ${failed[0].name} — bitte Bug melden`);
-          }
-        }
-      }
-      window.__fbSmokeResults = results; // für Debug verfügbar
-    } catch (e) {
-      console.error('Smoke-Test-Crash:', e);
-    }
-  }, 1500);
-});
-
-// ═══════════════════════════════════════════════
-//  WELCOME / DISCLAIMER MODAL — Erstbesuch
-// ═══════════════════════════════════════════════
-const DISCLAIMER_VERSION = 'v1';
-const DISCLAIMER_KEY = `fb_disclaimer_${DISCLAIMER_VERSION}`;
-
-function showDisclaimer() {
-  // Wenn schon akzeptiert, skip
-  if (localStorage.getItem(DISCLAIMER_KEY) === '1') return;
-  const overlay = document.createElement('div');
-  overlay.id = 'disclaimerOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s';
-  overlay.innerHTML = `
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:30px 28px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <div style="font-size:32px">👋</div>
-        <h2 style="margin:0;font-size:22px">Willkommen bei FinalBoss</h2>
-        <span style="font-size:11px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:3px 10px;border-radius:10px">v1.0-beta</span>
-      </div>
-      <p style="margin:0 0 18px;color:var(--text-secondary);font-size:14px;line-height:1.6">
-        Ein Open-Source-Backtest-Tool für Krypto-Trading-Strategien. <strong>71 vorgefertigte Strategien</strong>, Walk-Forward, Monte-Carlo, Genetic-Optimizer, Portfolio-Backtest, Paper-Trading — alles in deinem Browser, ohne Server, ohne Account.
-      </p>
-      <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:14px 16px;margin-bottom:18px">
-        <div style="font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:8px">⚠️ Wichtige Hinweise — bitte lesen</div>
-        <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
-          <li><strong>Keine Anlageberatung.</strong> Diese Software dient ausschließlich der Strategie-Recherche und -Analyse. Sie ist keine Empfehlung Geld einzusetzen.</li>
-          <li><strong>Backtest ≠ Zukunft.</strong> Historische Performance ist kein Indikator für zukünftige Ergebnisse. Strategien die in der Vergangenheit funktioniert haben, können in Zukunft Verluste erzeugen.</li>
-          <li><strong>Paper-Trading ≠ echtes Trading.</strong> Reale Märkte haben Slippage, Ausführungs-Verzögerungen, Liquiditätslücken und emotionale Faktoren die hier nicht simuliert werden.</li>
-          <li><strong>Du kannst Geld verlieren.</strong> Krypto-Trading ist hochriskant. Investiere nur was du dir leisten kannst zu verlieren.</li>
-          <li><strong>Software-Bugs sind möglich.</strong> Trotz Audit-Tool und Tests können Bugs in der Engine zu falschen Ergebnissen führen. Validiere wichtige Strategien immer mit einem zweiten Tool.</li>
-        </ul>
-      </div>
-      <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;cursor:pointer;font-size:13px;line-height:1.5">
-        <input id="disclaimerCheck" type="checkbox" onchange="document.getElementById('disclaimerStartBtn').disabled = !this.checked" style="margin-top:3px;cursor:pointer">
-        <span>Ich habe die Hinweise gelesen und verstanden. Ich nutze dieses Tool auf eigenes Risiko und mache niemanden außer mir selbst für Trading-Verluste verantwortlich.</span>
-      </label>
-      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
-        <button onclick="window.open('${GITHUB_REPO_URL}', '_blank')" style="padding:10px 18px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;font-size:13px;cursor:pointer">⭐ Quellcode auf GitHub</button>
-        <button onclick="acceptDisclaimerAndDemo()" style="padding:10px 18px;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;font-size:13px;cursor:pointer;font-weight:600">▶ Demo-Backtest starten</button>
-        <button id="disclaimerStartBtn" onclick="acceptDisclaimer()" disabled style="padding:10px 18px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;opacity:0.5">Loslegen</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  // Disable interaction with rest of UI
-  document.body.style.overflow = 'hidden';
-}
-
-function acceptDisclaimer() {
-  localStorage.setItem(DISCLAIMER_KEY, '1');
-  const overlay = document.getElementById('disclaimerOverlay');
-  if (overlay) {
-    overlay.style.transition = 'opacity 0.3s';
-    overlay.style.opacity = '0';
-    setTimeout(() => { overlay.remove(); document.body.style.overflow = ''; }, 300);
-  }
-}
-
-function acceptDisclaimerAndDemo() {
-  // Auch wenn checkbox nicht gesetzt → noch nicht persistieren, aber Demo zeigen
-  const cb = document.getElementById('disclaimerCheck');
-  if (cb && cb.checked) {
-    acceptDisclaimer();
-    setTimeout(runDemo, 400);
-  } else {
-    // Show error
-    cb.parentElement.style.color = '#ef4444';
-    cb.parentElement.style.transition = 'color 0.3s';
-    setTimeout(() => { cb.parentElement.style.color = ''; }, 1500);
-  }
-}
-
-function runDemo() {
-  // Pre-konfigurierter Demo-Backtest: BTC 1h Trend-Pullback, letzte 365 Tage
-  // Trend-Pullback feuert zuverlaessig — gut fuer Showcase
-  try {
-    const symSel = document.getElementById('symbolSelect');
-    const tfSel = document.getElementById('tfSelect');
-    const stratSel = document.getElementById('strategySelect');
-    // Symbol via csSelect setzen damit Custom-Dropdown-Label aktualisiert
-    if (symSel) {
-      if (typeof csSelect === 'function') {
-        try { csSelect('symbolSelect', 'BTCUSDT'); } catch(e) { symSel.value = 'BTCUSDT'; }
-      } else { symSel.value = 'BTCUSDT'; }
-    }
-    if (tfSel) { tfSel.value = '1h'; window._userChangedTF = true; }
-    // Find "Trend-Pullback" — robuster als RSI Extreme fuer Demo
-    if (stratSel) {
-      let idx = STRATEGIES.findIndex(s => s.name === 'Trend-Pullback');
-      if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Trend-Pullback'));
-      if (idx < 0) idx = STRATEGIES.findIndex(s => s.name.includes('Bollinger Reversion'));
-      if (idx < 0) idx = 0;
-      // csSelect synchronisiert nativ-select + custom-dropdown-label + dispatched change-event
-      // (das change-Event triggert updateStrategyParams automatisch)
-      if (typeof csSelect === 'function') {
-        try { csSelect('strategySelect', String(idx)); } catch(e) {
-          stratSel.value = String(idx);
-          if (typeof updateStrategyParams === 'function') updateStrategyParams();
-        }
-      } else {
-        stratSel.value = String(idx);
-        if (typeof updateStrategyParams === 'function') updateStrategyParams();
-      }
-    }
-    // Date range: letzte 365 Tage, Train/Test-Split bei 90 Tagen vor heute
-    const today = new Date();
-    const start = new Date(today.getTime() - 365 * 86400000);
-    const split = new Date(today.getTime() - 90 * 86400000);
-    const endStr = today.toISOString().slice(0,10);
-    const startStr = start.toISOString().slice(0,10);
-    const splitStr = split.toISOString().slice(0,10);
-    const trainStartEl = document.getElementById('trainStart');
-    const splitEl = document.getElementById('splitDate');
-    const testEndEl = document.getElementById('testEnd');
-    if (trainStartEl) trainStartEl.value = startStr;
-    if (splitEl) splitEl.value = splitStr;
-    if (testEndEl) testEndEl.value = endStr;
-    log('🎬 Demo-Backtest wird gestartet (BTC 1h, Trend-Pullback, 365 Tage)...', 'success');
-    setTimeout(() => { if (typeof runBacktest === 'function') runBacktest(); }, 300);
-  } catch (e) {
-    log(`Demo-Fehler: ${e.message}`, 'error');
-  }
-}
-
-// ═══════════════════════════════════════════════
-//  ABOUT / HELP MODAL
-// ═══════════════════════════════════════════════
-function showAboutModal() {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.innerHTML = `
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-        <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:10px">ℹ️ Über FinalBoss + Hilfe
-          <span style="font-size:11px;font-weight:400;color:var(--text-muted);background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:2px 8px;border-radius:10px">${APP_VERSION}</span>
-        </h2>
-        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 10px">✕</button>
-      </div>
-
-      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;line-height:1.6">
-        <strong style="color:#f59e0b">🚧 Beta-Software</strong> — funktional umfangreich, aber noch nicht ausreichend cross-browser-getestet. Bitte Bugs melden via <a href="${GITHUB_ISSUES_URL}" target="_blank" style="color:#06b6d4;text-decoration:none">GitHub Issues</a>.
-      </div>
-
-      <h3 style="font-size:15px;margin:0 0 8px;color:var(--blue)">Was ist das?</h3>
-      <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
-        FinalBoss ist ein Open-Source-Backtest-Tool für Krypto-Trading-Strategien — komplett im Browser, ohne Server, ohne Account. Daten kommen direkt von der öffentlichen Binance-API.
-      </p>
-
-      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Empfohlener Workflow</h3>
-      <ol style="margin:0 0 16px;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
-        <li><strong>Backtest:</strong> Strategie + Coin + Zeitraum wählen → Resultate prüfen</li>
-        <li><strong>Optimizer:</strong> Beste Parameter mit Grid- oder Genetic-Search finden</li>
-        <li><strong>Walk-Forward:</strong> Robustheit über mehrere Train/Test-Fenster prüfen</li>
-        <li><strong>Monte Carlo + Significance:</strong> Sind die Ergebnisse statistisch echt? Kreuzt die Sharpe-CI Null?</li>
-        <li><strong>Paper Trading:</strong> 2-4 Wochen live laufen lassen, OHNE Geld einzusetzen</li>
-        <li><strong>Echtes Geld</strong> — erst wenn Paper-Performance den Backtest bestätigt</li>
-      </ol>
-
-      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Tab-Übersicht</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:8px 16px;font-size:12px;color:var(--text-secondary);margin-bottom:16px">
-        <div>📊 <strong>Ergebnisse</strong> — Hauptmetriken + Equity-Kurve + Significance-CI</div>
-        <div>📈 <strong>Chart</strong> — Live-Chart + Trade-Marker</div>
-        <div>▶️ <strong>Replay</strong> — Bar-für-Bar-Wiedergabe</div>
-        <div>📋 <strong>Journal</strong> — Trade-Liste mit Tags + MAE/MFE</div>
-        <div>⏩ <strong>Walk-Forward</strong> — Robustheits-Test</div>
-        <div>🔥 <strong>Heatmap</strong> — 2D-Parameter-Suche</div>
-        <div>💧 <strong>Liquidation</strong> — Liquidations-Cluster (heuristisch)</div>
-        <div>🛠️ <strong>Builder</strong> — eigene Strategien aus Bausteinen</div>
-        <div>🎓 <strong>Akademie</strong> — Strategien + Pattern erklärt</div>
-        <div>⏰ <strong>Zeitanalyse</strong> — PnL nach Stunde + Wochentag</div>
-        <div>⚙️ <strong>Optimizer</strong> — Grid + Genetic Search</div>
-        <div>💼 <strong>Portfolio</strong> — Multi-Coin shared Balance</div>
-        <div>📊 <strong>Verteilung</strong> — R-Multiple + Streaks</div>
-        <div>🔗 <strong>Korrelation</strong> — Coin-Korrelations-Matrix</div>
-        <div>📉 <strong>Edge-Decay</strong> — Rolling Profit Factor</div>
-        <div>⚖️ <strong>Risiko</strong> — Risk-of-Ruin + Kelly</div>
-        <div>🔴 <strong>Paper</strong> — Live-Forward-Test</div>
-      </div>
-
-      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Glossar — die wichtigsten Metriken</h3>
-      <div style="font-size:13px;line-height:1.6;color:var(--text-secondary);margin-bottom:16px">
-        <p style="margin:0 0 6px"><strong>Profit Factor (PF):</strong> Brutto-Gewinn / Brutto-Verlust. PF &gt; 1.5 = solide, &gt; 2 = sehr gut.</p>
-        <p style="margin:0 0 6px"><strong>Sharpe Ratio:</strong> Risk-adjustierter Return. &gt; 1.0 = gut, &gt; 2.0 = exzellent. Negative Werte = verlierende Strategie.</p>
-        <p style="margin:0 0 6px"><strong>Max Drawdown (MaxDD):</strong> Größter Account-Einbruch vom Hoch. Eine Strategie mit -30% MaxDD ist emotional schwer haltbar.</p>
-        <p style="margin:0 0 6px"><strong>R-Multiple:</strong> PnL pro Trade in Vielfachen des Risikos. +2R = Gewinn doppelt so groß wie das Risiko.</p>
-        <p style="margin:0 0 6px"><strong>MAE / MFE:</strong> Wie weit ging der Trade gegen dich (MAE) bzw. wieviel war zwischendurch im Plus (MFE).</p>
-        <p style="margin:0 0 6px"><strong>Walk-Forward:</strong> Strategie auf Train-Daten optimiert + auf unbekanntem Test-Bereich getestet. Funktioniert sie nur auf Train = Overfitting.</p>
-      </div>
-
-      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">Was das Tool NICHT kann</h3>
-      <ul style="margin:0 0 16px;padding-left:22px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
-        <li>Echtes Geld traden — keine Broker-Anbindung, nur Paper-Trading</li>
-        <li>Tick-Daten — kleinste Auflösung ist 1m (Binance-Limit)</li>
-        <li>Multi-Asset wie Aktien/Forex — nur Krypto via Binance</li>
-        <li>Garantieren dass die Engine 100% bug-frei ist — Validiere wichtige Strategien mit zweitem Tool</li>
-        <li>Slippage realistisch modellieren — feste %, nicht orderbook-basiert</li>
-      </ul>
-
-      <h3 style="font-size:15px;margin:18px 0 8px;color:var(--blue)">FAQ</h3>
-      <div style="font-size:13px;line-height:1.6;color:var(--text-secondary);margin-bottom:16px">
-        <p style="margin:0 0 8px"><strong>Speichert die App meine Daten?</strong> Nein — alles lokal im Browser-localStorage. Kein Server, kein Account, kein Tracking. Browser-Cache löschen → alles weg (deshalb gibt's JSON-Export).</p>
-        <p style="margin:0 0 8px"><strong>Kann ich neue Strategien hinzufügen?</strong> Ja — entweder im Strategy-Builder-Tab (No-Code) oder direkt im Quellcode (siehe STRATEGIES-Array).</p>
-        <p style="margin:0 0 8px"><strong>Warum gibt es so viele Tabs?</strong> Verschiedene Aspekte der gleichen Strategie. Anfänger: Ergebnisse + Chart + Journal reichen. Fortgeschrittene: Walk-Forward + Optimizer + Significance + Edge-Decay sind die "Validierungs-Suite".</p>
-        <p style="margin:0 0 8px"><strong>Kann ich's offline nutzen?</strong> Teilweise — App selbst läuft offline (Service Worker), aber Backtest braucht Binance-API für Daten.</p>
-      </div>
-
-      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <div style="font-size:11px;color:var(--text-muted)">License: MIT · Open Source · ${APP_VERSION} · Made with ❤️</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="window.open('${GITHUB_ISSUES_URL}', '_blank')" style="padding:8px 14px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;font-size:12px;cursor:pointer">🐛 Bug melden</button>
-          <button onclick="window.open('${GITHUB_REPO_URL}', '_blank')" style="padding:8px 14px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;font-size:12px;cursor:pointer">⭐ GitHub</button>
-          <button onclick="runDemo();this.closest('div[style*=fixed]').remove()" style="padding:8px 14px;background:#06b6d4;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">▶ Demo-Backtest</button>
-        </div>
-      </div>
-    </div>`;
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
-}
-
-// Disclaimer beim Start zeigen (vor allem anderen)
-window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(showDisclaimer, 200);
-});
-
-// ═══════════════════════════════════════════════
-//  GLOBAL ERROR BOUNDARY — User-friendly Errors
-// ═══════════════════════════════════════════════
-function _showErrorToast(msg, durationMs = 6000) {
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;top:60px;right:20px;background:#ef4444;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:10000;max-width:420px;animation:slideIn 0.3s';
-  toast.innerHTML = '⚠️ ' + msg;
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, durationMs);
-  setTimeout(() => toast.remove(), durationMs + 500);
-}
-
-// Globale Fehler-Handler — fängt unbehandelte Exceptions ab
-window.addEventListener('error', (e) => {
-  // Nicht alle Fehler anzeigen (Browser-Extensions etc.) — nur wenn Stack auf unsere App verweist
-  if (e.error && e.error.stack && /finalboss|backtest_app/i.test(e.error.stack)) {
-    _showErrorToast(`Fehler: ${e.message}`);
-  }
-  console.error('Unhandled error:', e);
-});
-window.addEventListener('unhandledrejection', (e) => {
-  console.error('Unhandled promise rejection:', e.reason);
-  if (e.reason && e.reason.message) {
-    _showErrorToast(`Fehler: ${e.reason.message}`);
-  }
-});
-
-// fetchCandles wrappen mit besserem Error-Handling
-if (typeof fetchCandles === 'function') {
-  const _origFetchCandles = fetchCandles;
-  window.fetchCandles = async function(...args) {
-    try {
-      return await _origFetchCandles(...args);
-    } catch (e) {
-      const msg = e.message || String(e);
-      if (/network|fetch|failed|cors|timeout/i.test(msg)) {
-        _showErrorToast('Binance-API nicht erreichbar — Internet-Verbindung prüfen oder später erneut versuchen');
-      } else if (/rate.?limit|429/i.test(msg)) {
-        _showErrorToast('Binance-Rate-Limit erreicht — bitte 1 Minute warten');
-      } else {
-        _showErrorToast(`API-Fehler: ${msg}`);
-      }
-      throw e;
-    }
-  };
-}
-
-// PWA Service Worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then(() => {
-    console.log('Service Worker registered');
-  }).catch(err => console.log('SW registration failed:', err));
-}
-</script>
-</body>
-</html>
