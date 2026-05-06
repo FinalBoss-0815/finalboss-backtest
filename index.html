@@ -21718,9 +21718,9 @@ function _academySvg(schema, isEn, seedKey) {
       if (midPts.length > 1) body += `<polyline points="${midPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#8b949e" stroke-width="1" stroke-dasharray="4 3"/>`;
       if (upperPts.length > 1) body += `<polyline points="${upperPts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#f85149" stroke-width="1.2" stroke-dasharray="3 2"/>`;
       // Labels rechts an die letzten validen Punkte
-      // Band-Labels NACH LINKS gesetzt damit sie sich nicht mit SL/TP-Labels (rechts) überlappen
+      // Band-Labels nach links — neutrale Bezeichnungen ohne TP-Hinweis (TP wird separat klar markiert)
       if (upperPts.length > 0) body += `<text x="${leftPad + 4}" y="${upperPts[0][1] - 4}" fill="#f85149" font-size="10" text-anchor="start">${isEn ? 'Upper Band (+2σ)' : 'Oberes Band (+2σ)'}</text>`;
-      if (midPts.length > 0) body += `<text x="${leftPad + 4}" y="${midPts[0][1] - 4}" fill="#8b949e" font-size="10" text-anchor="start">${isEn ? 'SMA / Mid (= TP)' : 'SMA / Mitte (= TP)'}</text>`;
+      if (midPts.length > 0) body += `<text x="${leftPad + 4}" y="${midPts[0][1] - 4}" fill="#8b949e" font-size="10" text-anchor="start">${isEn ? 'Mid (SMA 20)' : 'Mittellinie (SMA 20)'}</text>`;
       if (lowerPts.length > 0) body += `<text x="${leftPad + 4}" y="${lowerPts[0][1] + 12}" fill="#3fb950" font-size="10" text-anchor="start">${isEn ? 'Lower Band (−2σ)' : 'Unteres Band (−2σ)'}</text>`;
       // Entry-Index: bei Echtdaten ist er vorgegeben, sonst Auto-Detection
       let entryIdx = -1;
@@ -21744,18 +21744,25 @@ function _academySvg(schema, isEn, seedKey) {
         const tpPrice = !isNaN(bb.mid[entryIdx]) ? bb.mid[entryIdx] : (entryPrice + 2 * atrVal);
         body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
         body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Long</text>`;
-        body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.75"/>`;
-        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) - 3}" fill="#f85149" font-size="10" text-anchor="end">${labels.sl} (Entry − ${rules.slAtrMult.toFixed(1)}× ATR)</text>`;
-        // Bei channel-reversion ist TP = bb.mid (= Mittellinie). Linie nicht doppelt zeichnen, nur Label rechts.
-        const tpCoincidesWithMid = Math.abs(tpPrice - bb.mid[entryIdx]) < entryPrice * 0.001;
-        if (!tpCoincidesWithMid) body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="0.8" stroke-dasharray="2 4" opacity="0.7"/>`;
-        body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 12}" fill="#58a6ff" font-size="10" text-anchor="end">${labels.tp} (${rules.tpLabel})</text>`;
-        // Berechne CRV (Risk-Reward-Ratio) und zeige unterhalb des Entry-Markers an
+        // Helper: Preis-Format passend zum Niveau (BTC: $XX,XXX, kleine Werte: $XX.XX)
+        const fmtPrice = (p) => p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
+        // SL-Linie + grosses Pill-Tag rechts mit echtem Preis (rot, sehr deutlich für Anfänger)
+        body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>`;
+        body += `<rect x="${W - rightPad - 110}" y="${yScale(slPrice) - 9}" width="106" height="16" rx="3" fill="#f85149" opacity="0.95"/>`;
+        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🛑 SL ${fmtPrice(slPrice)}</text>`;
+        // TP-Linie + grosses Pill-Tag rechts mit echtem Preis (blau, sehr deutlich)
+        body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.85"/>`;
+        body += `<rect x="${W - rightPad - 110}" y="${yScale(tpPrice) - 9}" width="106" height="16" rx="3" fill="#58a6ff" opacity="0.95"/>`;
+        body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🎯 TP ${fmtPrice(tpPrice)}</text>`;
+        // Entry-Preis-Tag (grün) am Entry-Marker
+        body += `<rect x="${cx(entryIdx) - 50}" y="${yScale(entryPrice) - 9}" width="100" height="16" rx="3" fill="#3fb950" opacity="0.95"/>`;
+        body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}</text>`;
+        // CRV unterhalb (grau, neutral)
         const risk = entryPrice - slPrice;
         const reward = tpPrice - entryPrice;
         if (risk > 0 && reward > 0) {
           const crv = reward / risk;
-          body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 36}" fill="#8b949e" font-size="10" text-anchor="middle">CRV 1 : ${crv.toFixed(2)}</text>`;
+          body += `<text x="${cx(entryIdx)}" y="${yScale(entryPrice) + 26}" fill="#8b949e" font-size="10" text-anchor="middle">Risk: ${fmtPrice(risk)}  •  Reward: ${fmtPrice(reward)}  •  CRV 1 : ${crv.toFixed(2)}</text>`;
         }
         // "Echtdaten"-Caption falls real BTC
         if (fullCandles._realData && fullCandles._realTime) {
