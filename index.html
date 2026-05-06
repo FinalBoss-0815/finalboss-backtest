@@ -9269,796 +9269,1726 @@ const STRATEGY_INFO_EN = {
 // ═══════════════════════════════════════════════════════════════
 const STRATEGY_INFO_SIMPLE = {
   "Z-Score Mean Reversion": {
-    desc: "Diese Strategie misst wie weit der Preis vom Durchschnitt entfernt ist und wettet darauf dass er zum Durchschnitt zurückkehrt — wie ein Gummiband das zurückspringt.",
-    steps: [
-      "Berechne wo der Preis im Durchschnitt der letzten 20 Kerzen liegt (Mittelwert).",
-      "Schau wie weit der aktuelle Preis vom Mittelwert entfernt ist (in Standard-Schritten gemessen).",
-      "Wenn der Preis sehr weit unter dem Mittelwert ist (z.B. 2 Standard-Schritte): kaufe ein.",
-      "Wenn er sehr weit darüber ist: verkaufe (Short-Trade).",
-      "Schließe den Trade wenn der Preis fast wieder am Mittelwert ist — dort sollte er hingehen.",
-      "Setze deinen Stopp-Verlust knapp jenseits des Extrems falls es weiter abdriftet."
+    desc: "Wenn der Preis sehr weit vom Durchschnitt wegläuft, wettet diese Strategie darauf dass er zurückkommt — wie ein gespanntes Gummiband das zurückspringt.",
+    indicators: [
+      "Bollinger-Bänder mit Einstellungen (20, 2) — drei Linien auf dem Chart: Mittellinie = Durchschnitt der letzten 20 Kerzen, obere/untere Linie = wie weit der Preis normalerweise abweicht.",
+      "ADX mit Einstellung (14) — als Filter. Nur traden wenn ADX UNTER 20 ist (= ruhiger Markt ohne starken Trend).",
+      "ATR mit Einstellung (14) — brauchst du für den Stopp-Loss."
     ],
-    market: "Seitwärtsmärkte ohne klaren Trend. Funktioniert NICHT bei starken Trendphasen — da bleibt der Preis lange weg vom Mittelwert."
+    steps: [
+      "Lege die drei Indikatoren oben auf deinen Chart (in TradingView z.B. einfach im Indikator-Menü suchen und mit den genannten Einstellungen hinzufügen).",
+      "LONG kaufen: wenn eine Kerze UNTER der unteren Bollinger-Linie schliesst UND ADX kleiner als 20 ist → bei Eröffnung der nächsten Kerze kaufen.",
+      "SHORT verkaufen: wenn eine Kerze ÜBER der oberen Bollinger-Linie schliesst UND ADX kleiner als 20 ist → bei Eröffnung der nächsten Kerze verkaufen.",
+      "Take-Profit setzen: an der Mittellinie der Bollinger-Bänder (= 20er-Durchschnitt). Dort schliesst du den Trade.",
+      "Stopp-Loss setzen: 2× ATR jenseits deines Einstiegs. Beispiel: Long-Einstieg bei 100$, ATR = 2$ → Stopp bei 100 − 2·2 = 96$."
+    ],
+    glossary: [
+      "Kerze = ein Balken auf dem Chart, der den Preisverlauf in einer Zeiteinheit zeigt (z.B. 1 Stunde bei einem 1h-Chart).",
+      "Durchschnitt / SMA = Durchschnittspreis der letzten X Kerzen. Bei „SMA 20“ sind's die letzten 20 Kerzen.",
+      "Bollinger-Bänder = drei Linien die zeigen wo der Preis „normalerweise“ verläuft. Die obere/untere Linie sind 2 Standardabweichungen vom Durchschnitt entfernt.",
+      "Standardabweichung = mathematisches Mass dafür wie stark Werte um ihren Durchschnitt streuen. Du musst das nicht selber rechnen — die Bollinger-Bänder zeichnen es automatisch.",
+      "ADX = Trendstärke-Indikator. Skala 0–100. Unter 20 = Seitwärtsmarkt, über 25 = starker Trend.",
+      "ATR (Average True Range) = wie stark der Preis im Schnitt pro Kerze schwankt. Wenn ATR = 50$, bewegt sich der Preis pro Kerze ±50$ herum."
+    ],
+    market: "Seitwärtsmärkte ohne klaren Trend (ADX unter 20). NICHT in starken Trends — da bleibt der Preis lange ausserhalb der Bänder und du bekommst nur Verlust-Trades."
   },
   "Trend-Pullback": {
-    desc: "Du wartest auf einen Aufwärts- oder Abwärtstrend und steigst dann ein wenn der Preis kurz zurückzieht — wie eine Welle die kurz zurückläuft bevor sie weiter geht.",
-    steps: [
-      "Prüfe ob ein klarer Trend läuft: Preis liegt deutlich über dem Durchschnitt der letzten 50 Kerzen, der 20-Kerzen-Durchschnitt ist über dem 50-Kerzen-Durchschnitt.",
-      "Warte auf einen Pullback — der Preis kommt kurz zurück bis zum 20-Kerzen-Durchschnitt.",
-      "Sobald eine grüne Kerze kommt die nach oben dreht: kaufe ein (oder spiegelbildlich für Abwärtstrend: verkaufe).",
-      "Setze deinen Stopp etwa 1.5 mal so weit weg wie die typische Kerzen-Schwankung beträgt.",
-      "Nimm Gewinn bei doppeltem Risiko mit — bei der Hälfte ziehe den Stopp auf Break-Even (kein Verlust mehr möglich)."
+    desc: "Du wartest bis ein klarer Trend läuft und steigst beim ersten Rücksetzer (Pullback) ein — wie wenn du auf den Bus springst der schon fährt aber kurz langsamer wird.",
+    indicators: [
+      "EMA 20 und EMA 50 — gleitende Durchschnitte über 20 bzw. 50 Kerzen. Trend ist bullisch wenn EMA20 ÜBER EMA50 liegt, bearisch umgekehrt.",
+      "ADX (14) — Trendstärke. Nur traden wenn ADX > 22 (echter Trend, kein Seitwärtsgeschiebe).",
+      "ATR (14) — Schwankungsbreite, für Stopp-Loss und Take-Profit."
     ],
-    market: "Klare Trendmärkte mit klaren Pullbacks. Nicht in Seitwärtsphasen — da gibt's keinen Trend zum Mitnehmen."
+    steps: [
+      "Lege EMA 20, EMA 50, ADX(14) und ATR(14) auf den Chart.",
+      "LONG suchen: Preis schliesst über EMA50 UND EMA20 liegt über EMA50 UND ADX > 22.",
+      "Warte bis der Preis auf die EMA20 zurückkommt (Pullback) — Tief der Kerze berührt EMA20 ±0.4%.",
+      "Einstieg: nächste grüne Kerze (Close > Open, Body grösser als 40% der Range, Close höher als Vorhoch-Close) → bei der nächsten Kerze kaufen.",
+      "Stopp-Loss: 1.5× ATR unter dem Einstieg. Take-Profit: 2× Risiko (also doppelt so weit weg wie der Stopp).",
+      "Wenn der Trade 1.5× Risiko erreicht: ziehe den Stopp auf den Einstiegspreis (Break-Even) — ab da kein Verlust mehr möglich.",
+      "Short: spiegelbildlich (Preis unter EMA50, EMA20 < EMA50, Pullback nach oben zur EMA20, rote Bestätigungskerze)."
+    ],
+    glossary: [
+      "EMA = Exponential Moving Average. Gleitender Durchschnitt der jüngere Kerzen stärker gewichtet — reagiert schneller als SMA.",
+      "ADX = Trendstärke-Indikator 0–100. Unter 20 = Seitwärtsmarkt, über 25 = starker Trend.",
+      "ATR = Average True Range. Misst wie stark der Preis im Schnitt pro Kerze schwankt.",
+      "Pullback = kurzer Rücksetzer im laufenden Trend, bevor es weiter geht.",
+      "Body = der breite Teil der Kerze zwischen Open und Close.",
+      "Break-Even = Einstiegspreis. SL auf Break-Even = Trade kann nicht mehr ins Minus gehen.",
+      "Risiko / R = Abstand zwischen Einstieg und Stopp-Loss. 2R-Take-Profit = doppelt so weit weg wie der Stopp."
+    ],
+    market: "Trendmärkte mit klaren Rücksetzern. NICHT in Seitwärtsphasen — der ADX-Filter verhindert das aber automatisch."
   },
   "Donchian-Breakout + ADX": {
-    desc: "Du kaufst wenn der Preis ein neues Hoch macht (höher als die letzten 20 Kerzen) — solange der Markt stark trended.",
-    steps: [
-      "Schau dir die letzten 20 Kerzen an. Findest du das höchste Hoch dieser Kerzen.",
-      "Prüfe ob der Markt stark trended (Trendstärke-Indikator über 25).",
-      "Sobald die aktuelle Kerze über diesem Hoch schließt: kaufe ein.",
-      "Spiegelbildlich für Short: tiefster Tief der letzten 20 Kerzen wird unterschritten.",
-      "Stopp etwa 2 mal so weit weg wie die typische Schwankung.",
-      "Gewinn-Ziel bei dreifachem Risiko."
+    desc: "Klassischer Ausbruch-Trade: kauft wenn der Preis ein neues 20-Kerzen-Hoch macht — und nur dann, wenn ein starker Trend dahintersteht.",
+    indicators: [
+      "Donchian Channel (20) — drei Linien: oberste = höchstes Hoch der letzten 20 Kerzen, unterste = tiefstes Tief, mittlere = Durchschnitt der beiden.",
+      "ADX (14) — Trendstärke. Nur traden wenn ADX > 25.",
+      "ATR (14) — für Stopp-Loss und Take-Profit."
     ],
-    market: "Starke Trendmärkte mit Volatilität. Schlecht in ruhigen Seitwärtsphasen — da gibt's viele falsche Ausbrüche."
+    steps: [
+      "Lege Donchian Channel mit Periode 20 auf den Chart, dazu ADX(14) und ATR(14).",
+      "LONG: aktueller Schlusskurs schliesst ÜBER dem höchsten Hoch der letzten 20 Kerzen (= durchbricht den oberen Donchian-Kanal) UND ADX > 25.",
+      "SHORT: Schlusskurs schliesst UNTER dem tiefsten Tief der letzten 20 Kerzen UND ADX > 25.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short).",
+      "Take-Profit: 3× Risiko (3R) — also drei Mal so weit weg wie der Stopp."
+    ],
+    glossary: [
+      "Donchian Channel = Indikator der höchstes Hoch und tiefstes Tief der letzten X Kerzen anzeigt. Berühmt durch die Turtle-Trader.",
+      "Ausbruch / Breakout = wenn der Preis aus seiner bisherigen Range nach oben oder unten ausbricht.",
+      "ADX = Trendstärke 0–100. Unter 20 = Seitwärts, über 25 = starker Trend.",
+      "ATR = wie stark der Preis im Schnitt pro Kerze schwankt.",
+      "R / R-Multiple = Risiko-Einheit. Stopp 2$ weg = 1R, Take-Profit 6$ weg = 3R."
+    ],
+    market: "Starke Ausbruchsphasen nach Konsolidierung. NICHT in Seitwärtsphasen — der ADX-Filter > 25 schützt davor."
   },
   "Bollinger Reversion": {
-    desc: "Du nutzt zwei Linien (oben + unten) als Grenzen einer Range. Wenn der Preis eine Grenze erreicht, wettest du darauf dass er zurück in die Mitte geht.",
-    steps: [
-      "Zeichne zwei Linien um den Preis: eine 2 Standard-Schritte über dem Durchschnitt, eine 2 darunter.",
-      "Prüfe ob der Markt ruhig ist (Trendstärke unter 20) — sonst klappt die Strategie nicht.",
-      "Sobald der Preis die untere Linie berührt UND die Stärke-Anzeige extrem niedrig ist: kaufe.",
-      "Sobald er die obere Linie berührt UND die Stärke-Anzeige extrem hoch ist: verkaufe (Short).",
-      "Stopp knapp jenseits der Bollinger-Linie.",
-      "Schließe den Trade wenn der Preis wieder die mittlere Linie (den Durchschnitt) erreicht hat."
+    desc: "Der Preis berührt das untere oder obere Bollinger-Band — und wir wetten dass er zur Mitte zurückkehrt. Wie ein Gummiband das zurückspringt.",
+    indicators: [
+      "Bollinger-Bänder (20, 2) — Mittellinie = SMA20, obere/untere Linie = ±2 Standardabweichungen.",
+      "RSI (14) — als Bestätigung: nur Long bei RSI < 30 (überverkauft), nur Short bei RSI > 70 (überkauft).",
+      "ADX (14) — Filter: nur traden wenn ADX < 25 (kein starker Trend).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Ruhige Seitwärtsmärkte mit klaren Begrenzungen. NICHT in Trends einsetzen."
+    steps: [
+      "Lege Bollinger-Bänder (20, 2), RSI(14), ADX(14) und ATR(14) auf den Chart.",
+      "LONG: Tief der Kerze berührt das untere Bollinger-Band UND RSI ist unter 30 UND ADX ist unter 25.",
+      "SHORT: Hoch der Kerze berührt das obere Bollinger-Band UND RSI ist über 70 UND ADX ist unter 25.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn der Preis die Mittellinie der Bollinger-Bänder erreicht (= SMA 20).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Bollinger-Bänder = drei Linien. Mitte = 20er-Durchschnitt, oben/unten = ±2 Standardabweichungen.",
+      "Standardabweichung = Mass für die Schwankung. ±2 Standardabweichungen = der Bereich in dem der Preis ~95% der Zeit liegt.",
+      "RSI = Indikator 0–100. Unter 30 = überverkauft (Käufer kommen oft zurück), über 70 = überkauft.",
+      "ADX = Trendstärke. Unter 20 = ruhig/Seitwärts, über 25 = starker Trend.",
+      "Mean Reversion = Strategie die darauf setzt dass der Preis zum Durchschnitt zurückkehrt.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range-Märkte mit klaren Ober-/Untergrenzen. NICHT in starken Trends — sonst läuft der Preis weiter und der Stopp wird ausgelöst."
   },
   "Supertrend + ATR-Trail": {
-    desc: "Eine Linie folgt dem Preis und zeigt ob der Trend nach oben oder unten geht. Du folgst dem Trend und ziehst deinen Stopp automatisch nach.",
-    steps: [
-      "Zeichne die Supertrend-Linie ein (eine bewegte Linie unter dem Preis bei Aufwärtstrend, über dem Preis bei Abwärtstrend).",
-      "Sobald der Preis die Linie nach oben durchbricht: kaufe.",
-      "Sobald er sie nach unten durchbricht: verkaufe (Short).",
-      "Dein Stopp ist die Supertrend-Linie selbst — sie zieht automatisch mit dem Preis mit.",
-      "Trade läuft bis die Linie auf der anderen Seite gekreuzt wird (= Trend dreht)."
+    desc: "Folgt dem Supertrend-Indikator — eine Linie die unter dem Preis ist im Aufwärtstrend (= Long-Signal) und über dem Preis im Abwärtstrend. Wechsel der Seite = Trade.",
+    indicators: [
+      "Supertrend (10, 3.0) — eine Linie die ihre Seite wechselt wenn der Preis kräftig durchbricht. Standardeinstellungen: ATR-Periode 10, Multiplikator 3.0.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Starke, klare Trends. Bei choppy Märkten gibt's viele Fehlsignale."
+    steps: [
+      "Lege Supertrend (10, 3.0) und ATR(14) auf den Chart. Der Supertrend wird als grüne Linie unter dem Preis (bullisch) oder rote Linie über dem Preis (bearisch) dargestellt.",
+      "LONG: in der aktuellen Kerze flippt der Supertrend von oberhalb (rot/bearisch) auf unterhalb (grün/bullisch) des Preises.",
+      "SHORT: Flip von grün auf rot.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn der Supertrend wieder die Seite wechselt (= Trend-Ende).",
+      "Stopp-Loss: zusätzlicher harter Stopp 2× ATR unter Einstieg (Long) bzw. darüber (Short) für den Fall dass der Supertrend zu spät reagiert."
+    ],
+    glossary: [
+      "Supertrend = Indikator der ATR nutzt um eine dynamische Trail-Linie zu zeichnen. Wechselt sie die Seite, gilt das als Trendwechsel.",
+      "Trailing Stop = Stopp der dem Preis im Trend folgt und so Gewinne absichert.",
+      "Flip = Seitenwechsel des Indikators (von oberhalb auf unterhalb oder umgekehrt).",
+      "ATR = wie stark der Preis im Schnitt pro Kerze schwankt."
+    ],
+    market: "Klare Trendmärkte, besonders auf 4h-Charts. NICHT in Seitwärtsphasen — dort spammt der Supertrend Fakeouts."
   },
   "RSI Extreme Reversal": {
-    desc: "Du wartest auf extrem überkaufte oder überverkaufte Phasen und nutzt die Erholung dazwischen.",
-    steps: [
-      "Beobachte den RSI-Indikator. Er zeigt auf einer Skala 0-100 wie überkauft (>70) oder überverkauft (<30) der Markt ist.",
-      "Wenn der RSI unter 25 fällt: der Markt ist extrem überverkauft, eine Erholung ist wahrscheinlich.",
-      "Warte auf eine grüne Kerze die das vorherige Hoch überschreitet — das ist dein Kaufsignal.",
-      "Spiegelbildlich für Short: RSI über 75 + bearishe Wende-Kerze.",
-      "Stopp knapp unter dem Tief.",
-      "Schließe wenn der RSI wieder die Mitte (50) erreicht hat oder bei doppeltem Risiko-Gewinn."
+    desc: "Wenn der RSI ins Extrem läuft (unter 25 oder über 75), wettet diese Strategie auf eine Umkehr. Vorsicht: Knife-Catching, deshalb braucht es einen ruhigen Markt als Filter.",
+    indicators: [
+      "RSI (14) — Indikator 0–100 der Überkauft/Überverkauft anzeigt.",
+      "ADX (14) — Filter: nur traden wenn ADX < 20 (kein starker Trend, sonst läuft RSI dauerhaft im Extrem).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Seitwärtsmärkte mit klaren Übertreibungen. Nicht in starken Trends."
+    steps: [
+      "Lege RSI(14), ADX(14) und ATR(14) auf den Chart.",
+      "LONG: RSI unter 25 UND ADX unter 20 → bei Eröffnung der nächsten Kerze kaufen.",
+      "SHORT: RSI über 75 UND ADX unter 20 → bei Eröffnung der nächsten Kerze verkaufen.",
+      "Take-Profit: wenn RSI wieder bei 50 ankommt (Mittellinie).",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "RSI = Relative Strength Index. Skala 0–100. Unter 30 = überverkauft, über 70 = überkauft. Hier extremer: 25/75.",
+      "Überverkauft = der Preis ist sehr stark gefallen, oft Reversal-Kandidat.",
+      "Überkauft = der Preis ist sehr stark gestiegen, oft Reversal-Kandidat.",
+      "Knife-Catching = riskanter Versuch einen fallenden Preis zu fangen — kann böse enden in starken Trends.",
+      "ADX = Trendstärke 0–100.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Volatile Märkte mit Überreaktionen. NICHT in starken Trends — dort bleibt der RSI lange im Extrem und du fängst nur Verluste."
   },
   "Triple EMA Cross": {
-    desc: "Drei verschieden schnelle Durchschnittslinien zeigen den Trend. Wenn alle drei in der richtigen Reihenfolge stehen, geht der Trend klar in eine Richtung.",
-    steps: [
-      "Zeichne drei Durchschnittslinien: schnell (9 Kerzen), mittel (21 Kerzen), langsam (55 Kerzen).",
-      "Bei einem Aufwärtstrend müssen sie übereinander stehen: schnell oben, mittel mitten, langsam unten.",
-      "Sobald der Preis bei dieser Konstellation einen Pullback zur mittleren Linie macht und dort dreht: kaufe.",
-      "Stopp knapp unter der langsamsten Linie.",
-      "Trade läuft bis die schnelle Linie unter die mittlere kreuzt — dann steigst du aus."
+    desc: "Drei EMAs (9, 21, 55) müssen alle in die gleiche Richtung gestaffelt sein. Solange sie das sind, ist der Trend intakt.",
+    indicators: [
+      "EMA 9 — kurzer Durchschnitt, reagiert schnell.",
+      "EMA 21 — mittlerer Durchschnitt.",
+      "EMA 55 — langer Durchschnitt, zeigt den grossen Trend.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Klare Trendmärkte. Bei Seitwärts-Phasen kreuzen die Linien ständig — viele Fehlsignale."
+    steps: [
+      "Lege EMA 9, EMA 21, EMA 55 und ATR(14) auf den Chart.",
+      "LONG: EMA9 liegt ÜBER EMA21 UND EMA21 ÜBER EMA55 (perfekte Aufwärts-Staffelung) UND aktueller Schlusskurs über EMA9.",
+      "SHORT: EMA9 UNTER EMA21 UNTER EMA55 UND Schlusskurs unter EMA9.",
+      "Einstieg: bei Eröffnung der nächsten Kerze nachdem alle Bedingungen erfüllt sind.",
+      "Take-Profit: wenn EMA9 wieder unter EMA21 kreuzt (Long) bzw. darüber (Short) — Trend ist gebrochen.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "EMA = Exponential Moving Average. Reagiert schneller als SMA weil jüngere Kerzen stärker gewichtet werden.",
+      "Staffelung = die EMAs liegen in einer klaren Reihenfolge übereinander (oder untereinander) — Zeichen für einen klaren Trend.",
+      "Crossover / Cross = wenn zwei Linien sich kreuzen.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Mittelfristige Trends, besonders auf 4h-Charts."
   },
   "Heikin-Ashi Trend": {
-    desc: "Heikin-Ashi-Kerzen glätten den Chart und zeigen Trends klarer. Du tradest in Richtung der Mehrzahl gleichfarbiger Kerzen.",
-    steps: [
-      "Wechsle zur Heikin-Ashi-Darstellung (statt normaler Candles).",
-      "Wenn 3-4 grüne Heikin-Ashi-Kerzen hintereinander erscheinen: starker Aufwärtstrend → kaufe ein.",
-      "Spiegelbildlich für Short: 3-4 rote Kerzen.",
-      "Stopp unter dem letzten roten Heikin-Ashi-Tief (bzw. über letztem grünen Hoch bei Short).",
-      "Schließe sobald die erste Kerze in der Gegenrichtung erscheint — das ist der Trend-Wechsel."
+    desc: "Heikin-Ashi-Kerzen glätten den Chart und filtern Rauschen raus. Mehrere gleichfarbige HA-Kerzen mit steigenden (oder fallenden) Tiefs = klarer Trend.",
+    indicators: [
+      "Heikin-Ashi-Kerzen — keine zusätzlichen Werte, sondern eine andere Kerzenberechnung. In TradingView umstellbar via Chart-Typ.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Starke saubere Trends. Bei Seitwärtsmärkten ist Heikin-Ashi auch unklar."
+    steps: [
+      "Stelle den Chart auf Heikin-Ashi um (Chart-Typ wählen).",
+      "LONG: 3 grüne HA-Kerzen in Folge UND jede hat ein höheres Tief als die vorige (steigende Struktur).",
+      "SHORT: 3 rote HA-Kerzen in Folge UND jede hat ein tieferes Hoch als die vorige.",
+      "Einstieg: bei Eröffnung der nächsten Kerze nachdem die 3er-Sequenz fertig ist.",
+      "Take-Profit: erste Kerze die die Farbe wechselt (rote nach grünen → Long-Exit).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Heikin-Ashi = japanisch für 'durchschnittlicher Balken'. Berechnete Kerze die mehrere normale Kerzen verschmiert — glättet Trends.",
+      "haOpen, haClose, haHigh, haLow = die berechneten Werte einer Heikin-Ashi-Kerze.",
+      "Rauschen / Noise = kleine Zufallsbewegungen die kein echtes Signal sind.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trend-Phasen. Filtert kurze Zappel-Bewegungen besser raus als normale Kerzen."
   },
   "Parabolic SAR + ADX": {
-    desc: "Punkte unter dem Preis (Aufwärtstrend) oder darüber (Abwärtstrend) zeigen die Trendrichtung. Du tradest mit dem Trend solange er stark ist.",
-    steps: [
-      "Beobachte die Parabolic-SAR-Punkte. Sind sie unter dem Preis = Aufwärtstrend, darüber = Abwärtstrend.",
-      "Prüfe die Trendstärke: über 22 = Trend wert zu traden.",
-      "Sobald die SAR-Punkte von oben nach unten wechseln + Trend stark: kaufe.",
-      "Spiegelbildlich für Short.",
-      "Dein Stopp ist der jeweils aktuelle SAR-Punkt — er zieht mit dem Preis mit.",
-      "Trade läuft bis die Punkte die Seite wechseln."
+    desc: "Parabolic SAR setzt Punkte über oder unter den Preis. Springt der Punkt von einer Seite auf die andere = Trendwechsel. ADX als Filter gegen Fakeouts.",
+    indicators: [
+      "Parabolic SAR (Standard: 0.02 / 0.2) — Punkte die mit dem Preis mitwandern und die Seite wechseln bei Trendwechsel.",
+      "ADX (14) — nur traden wenn ADX > 25 (echter Trend).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Starke Trends mit klaren Wendungen. Choppy Märkte erzeugen ständige Wechsel = Fehlsignale."
+    steps: [
+      "Lege Parabolic SAR (0.02, 0.2), ADX(14) und ATR(14) auf den Chart.",
+      "LONG: SAR-Punkt springt in dieser Kerze von OBERHALB des Preises auf UNTERHALB UND ADX > 25.",
+      "SHORT: SAR-Punkt springt von unterhalb auf oberhalb UND ADX > 25.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn der SAR wieder die Seite wechselt (= Trend-Ende).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Parabolic SAR (Stop and Reverse) = Indikator der Punkte über/unter dem Preis zeichnet. Punkte folgen dem Preis und beschleunigen sich.",
+      "Flip = wenn der SAR die Seite wechselt — wichtigstes Trade-Signal.",
+      "ADX = Trendstärke 0–100.",
+      "Fakeout = falscher Ausbruch der schnell wieder zurückkommt.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Starke Trends mit wenig Seitwärtsphasen. ADX > 25 ist Pflicht — sonst gibts viele Fakeouts."
   },
   "ADX Power Trend": {
-    desc: "Du tradest nur wenn der Markt extrem stark trended. Schwache Trends werden ignoriert.",
-    steps: [
-      "Beobachte die Trendstärke-Anzeige (ADX). Sie misst wie stark ein Trend ist (egal ob hoch oder runter).",
-      "Erst handeln wenn die Anzeige über 30 steigt = sehr starker Trend.",
-      "Prüfe die Richtung: Plus-Linie über Minus-Linie = Aufwärtstrend → kaufe; umgekehrt = Short.",
-      "Stopp etwa 2 mal so weit weg wie die typische Kerzen-Schwankung.",
-      "Schließe wenn die Trendstärke unter 20 fällt — der Trend stirbt ab."
+    desc: "Diese Strategie wartet bis der ADX gerade über 25 ausbricht — also wenn der Markt erst gerade in einen starken Trend gewechselt hat. +DI vs -DI sagt die Richtung.",
+    indicators: [
+      "ADX (14) mit +DI und -DI — der ADX ist die Trendstärke, +DI/-DI zeigen Bullen-/Bären-Dominanz.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Nur starke Trends. Bei niedriger Stärke (ADX < 20) bleibst du komplett raus."
+    steps: [
+      "Lege ADX (14) auf den Chart — er zeigt drei Linien: ADX (Stärke), +DI (Bullen) und -DI (Bären).",
+      "Warte bis der ADX in dieser Kerze gerade über 25 schiesst (Vorkerze ADX ≤ 25, jetzt > 25).",
+      "LONG: +DI > -DI (Bullen sind dominant).",
+      "SHORT: -DI > +DI (Bären sind dominant).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn ADX wieder unter 20 fällt (Trend ist erschöpft).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "ADX = Average Directional Index. Trendstärke 0–100. Wichtig: misst NUR die Stärke, nicht die Richtung.",
+      "+DI = Directional Index Plus. Misst Bullen-Druck.",
+      "-DI = Directional Index Minus. Misst Bären-Druck.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Explosive Trendphasen direkt nach Konsolidierung."
   },
   "Bollinger Squeeze Breakout": {
-    desc: "Wenn der Markt sehr ruhig ist (die Bollinger-Bänder zusammengezogen), kommt oft ein heftiger Ausbruch. Du wartest auf den Ausbruch und steigst mit ein.",
-    steps: [
-      "Beobachte die zwei Bollinger-Linien um den Preis. Wenn sie sehr eng beieinander liegen = der Markt ist ruhig (\"Squeeze\").",
-      "Warte ab — meist folgt ein heftiger Ausbruch nach oben oder unten.",
-      "Sobald der Preis aus der engen Zone klar ausbricht (Schluss außerhalb der Bänder): tradest du in die Ausbruchsrichtung.",
-      "Stopp zurück in die Squeeze-Zone.",
-      "Trade läuft solange der Preis weiter in Richtung Ausbruch geht; schließe bei doppeltem Risiko."
+    desc: "Wenn die Bollinger-Bänder extrem eng werden (Squeeze), staut sich Energie. Der Ausbruch danach ist oft heftig — und wir handeln in seine Richtung.",
+    indicators: [
+      "Bollinger-Bänder (20, 2) — Mittellinie + ±2 Standardabweichungen.",
+      "Bollinger Bandwidth — die Distanz zwischen oberem und unterem Band. Niedrig = Squeeze.",
+      "ATR (14) — für Stopp-Loss und Take-Profit."
     ],
-    market: "Phasen wo nach Ruhe Volatilität explodiert. Funktioniert bei allen Coins, vor allem nach Konsolidierung."
+    steps: [
+      "Lege Bollinger-Bänder (20, 2) und ATR(14) auf den Chart. Beobachte die Bandbreite.",
+      "Squeeze erkennen: die Bandbreite muss in den letzten 5 Kerzen ihr absolutes Minimum der letzten 20 Kerzen erreichen — also extrem eng werden.",
+      "LONG: aktueller Schlusskurs schliesst ÜBER dem oberen Bollinger-Band (Ausbruch nach oben).",
+      "SHORT: Schlusskurs schliesst UNTER dem unteren Band.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short).",
+      "Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "Bollinger-Bänder = drei Linien (Mitte SMA20, ±2 Standardabweichungen).",
+      "Bandwidth / Bandbreite = Abstand oberes Band − unteres Band, normalisiert.",
+      "Squeeze = wenn die Bänder sehr eng zusammen sind. Zeichen für niedrige Volatilität — oft kommt danach ein heftiger Ausbruch.",
+      "ATR = durchschnittliche Schwankung pro Kerze.",
+      "R-Multiple = Vielfaches des Risikos. 2R-TP = doppelt so weit weg wie der Stopp."
+    ],
+    market: "Nach langen Konsolidierungen. Funktioniert NICHT wenn der Markt schon hochvolatil ist."
   },
   "Keltner Channel Reversion": {
-    desc: "Ähnlich wie Bollinger, aber die Kanallinien basieren auf der durchschnittlichen Schwankung. Bei Berührung der Außenlinien wettest du auf die Rückkehr zur Mitte.",
-    steps: [
-      "Zeichne den Keltner-Kanal um den Preis (eine Mittellinie + Linien oberhalb/unterhalb basierend auf der typischen Schwankung).",
-      "Sobald der Preis die obere Linie berührt: verkaufe (Short).",
-      "Sobald er die untere berührt: kaufe.",
-      "Stopp knapp jenseits der Linie.",
-      "Schließe sobald der Preis die Mittellinie erreicht."
+    desc: "Wie Bollinger Reversion, aber mit Keltner Channels: ATR-basiert statt Standardabweichung — das macht die Bänder etwas stabiler in volatilen Phasen.",
+    indicators: [
+      "Keltner Channels — Mittellinie = EMA 20, oberes Band = EMA20 + 2× ATR, unteres Band = EMA20 − 2× ATR.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Seitwärtsmärkte mit klarer Schwankungs-Range. Nicht in Trends einsetzen."
+    steps: [
+      "Lege Keltner Channels (EMA 20, ATR-Multi 2.0) und ATR(14) auf den Chart.",
+      "LONG: Tief der Kerze berührt oder unterschreitet das untere Keltner-Band UND die nächste Kerze ist grün und schliesst höher als das Vorhoch-Close (Bestätigung).",
+      "SHORT: Hoch der Kerze berührt oder überschreitet das obere Keltner-Band UND die nächste Kerze ist rot und schliesst tiefer als das Vortief-Close.",
+      "Einstieg: bei Eröffnung der Kerze nach der Bestätigung.",
+      "Take-Profit: wenn der Preis wieder die Mittellinie (EMA 20) erreicht.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Keltner Channel = Indikator ähnlich Bollinger, aber das obere/untere Band wird mit ATR berechnet statt Standardabweichung.",
+      "EMA = Exponential Moving Average.",
+      "ATR = durchschnittliche Schwankung pro Kerze.",
+      "Bestätigungskerze = die Kerze nach dem Setup, die zeigt dass die Reaktion stattfindet (z.B. grün nach rotem Touch)."
+    ],
+    market: "Range-Märkte mit moderater Volatilität."
   },
   "Engulfing at Key Level": {
-    desc: "Du wartest auf eine bullishe Engulfing-Kerze (eine grüne Kerze die die rote davor komplett umschließt) an einer wichtigen Unterstützungs-Linie.",
-    steps: [
-      "Zeichne wichtige Unterstützungs- und Widerstands-Linien ein.",
-      "Beobachte ob bei Berührung einer dieser Linien eine Engulfing-Kerze entsteht (eine grüne Kerze deren Body die rote Body davor komplett umfasst).",
-      "Bei bullisher Engulfing an Unterstützung: kaufe am Schluss der Kerze.",
-      "Stopp knapp unter dem Tief der Engulfing-Kerze.",
-      "Spiegelbildlich für Short an Widerständen mit bearisher Engulfing."
+    desc: "Eine Engulfing-Kerze (eine Kerze die die vorherige komplett verschluckt) an einem wichtigen Support oder Widerstand — mit Volumen-Bestätigung. Klassisches Reversal-Setup.",
+    indicators: [
+      "Pivot-Levels (automatisch erkannt) — historische Hochs/Tiefs die mehrfach getestet wurden.",
+      "Volume SMA (20) — Durchschnittsvolumen der letzten 20 Kerzen, für den Volumen-Filter.",
+      "ADX (14) — Filter: nur traden wenn ADX < 30 (kein extrem starker Trend).",
+      "ATR (14) — für Stopp-Loss-Puffer."
     ],
-    market: "Coins mit klar erkennbaren Unterstützungs- und Widerstands-Linien. Funktioniert auf allen Timeframes."
+    steps: [
+      "Suche horizontale Levels die der Preis in den letzten 50 Kerzen mindestens 2x getestet hat.",
+      "LONG: Tief der aktuellen Kerze ist innerhalb 0.3% eines Support-Levels UND Vorkerze war rot UND aktuelle Kerze ist grün, ihr Body ist grösser als der Body der Vorkerze, ihr Close ist über dem Open der Vorkerze (= bullisches Engulfing) UND Volumen > 1.5× Durchschnittsvolumen UND ADX < 30.",
+      "SHORT: spiegelbildlich an einem Resistance-Level mit bearischem Engulfing.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 0.2× ATR unterhalb des Engulfing-Tiefs (Long) bzw. oberhalb des Hochs (Short).",
+      "Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "Engulfing = eine Kerze deren Body den der Vorkerze komplett umfasst. Bullisches Engulfing = grün nach rot, der grüne Body verschluckt den roten.",
+      "Support = horizontales Niveau wo der Preis öfter nach unten abprallt.",
+      "Resistance = horizontales Niveau wo der Preis öfter nach oben abprallt.",
+      "Volumen = Anzahl gehandelter Einheiten in einer Kerze.",
+      "ADX = Trendstärke.",
+      "R / R-Multiple = Risiko-Einheit. 2R = doppelt so weit weg wie der Stopp."
+    ],
+    market: "Alle Märkte. Funktioniert am besten an klar erkennbaren historischen Levels."
   },
   "Order Block Retest (SMC)": {
-    desc: "Smart-Money-Trader hinterlassen 'Footprints' (große Kerzen vor einer starken Bewegung). Du wartest bis der Preis zu diesem Footprint zurückkommt und steigst dort ein.",
-    steps: [
-      "Such die letzte starke rote Kerze vor einem Aufwärts-Schub — das ist der bullishe Order Block.",
-      "Markiere den Bereich dieser Kerze (Hoch bis Tief).",
-      "Warte bis der Preis später zu diesem Bereich zurückkehrt (Retest).",
-      "Sobald eine grüne Reaktions-Kerze den Bereich verteidigt: kaufe.",
-      "Stopp knapp unter dem Order Block.",
-      "Spiegelbildlich für Short mit bearishem Order Block (grüne Kerze vor Abwärts-Schub)."
+    desc: "Smart-Money-Konzept: Findet die letzte Gegenfarben-Kerze vor einem starken Move — das ist der Order Block (vermuteter Profi-Einstieg). Wenn der Preis dorthin zurückkommt, traden wir den Bounce.",
+    indicators: [
+      "Order Blocks (3-Bar-Move-Filter) — Algorithmus erkennt: letzte rote Kerze vor einem >1.5× ATR Up-Move = bullischer OB; spiegelbildlich für bearisch.",
+      "ADX (14) — Filter: nur traden wenn ADX < 35.",
+      "ATR (14) — für Stopp-Loss-Puffer und Move-Detection."
     ],
-    market: "Coins mit klarer Marktstruktur. Funktioniert besonders gut auf höheren Timeframes (1h, 4h)."
+    steps: [
+      "Suche im Chart: eine rote Kerze die direkt VOR einem starken Aufwärts-Move (> 1.5× ATR in 3 Kerzen) lag → das ist ein bullischer Order Block.",
+      "Spiegelbildlich für bearischen OB: grüne Kerze vor starkem Abwärts-Move.",
+      "LONG: später kommt der Preis in den OB zurück (Tief ≤ OB-Top, Schluss ≥ OB-Bottom) UND aktuelle Kerze ist grün UND ADX < 35.",
+      "SHORT: spiegelbildlich am bearischen OB.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 0.3× ATR unter dem OB-Tief (Long) bzw. über dem OB-Hoch (Short).",
+      "Take-Profit: 2× Risiko (2R). Pro OB nur 1 Trade — danach gilt er als 'mitigated'."
+    ],
+    glossary: [
+      "Smart Money Concept (SMC) = Trading-Philosophie die unterstellt dass institutionelle Grossspieler den Markt bewegen.",
+      "Order Block (OB) = Kerze (oft die letzte Gegenfarbe vor einem starken Move) die institutionellen Kauf-/Verkaufsdruck markiert.",
+      "Mitigated = der Order Block wurde einmal getestet und gilt damit als 'verbraucht'.",
+      "ADX = Trendstärke.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Alle Märkte. SMC braucht aber etwas Übung um die OBs sauber zu identifizieren."
   },
   "Liquidity Sweep + FVG (SMC)": {
-    desc: "Du wartest bis der Markt ein vorheriges Tief oder Hoch 'jagt' (Stop-Hunt) und dann scharf in die Gegenrichtung dreht. Das passiert oft an Liquiditäts-Zonen.",
-    steps: [
-      "Markiere ein vorheriges wichtiges Tief oder Hoch — dort liegen viele Stopps.",
-      "Warte bis der Preis dieses Level kurz unterschreitet (für Long-Setup) oder überschreitet (für Short).",
-      "Suche danach eine 'Fair Value Gap' — eine kleine Lücke zwischen drei aufeinander folgenden Kerzen.",
-      "Sobald der Preis zur Lücke zurückkommt und dreht: trade in Gegenrichtung des Sweeps.",
-      "Stopp jenseits des Sweep-Extrems."
+    desc: "Profi-SMC-Setup mit drei Phasen: Stop-Hunt (Sweep) → Imbalance (FVG) → Retest. Sehr selektiv, aber dafür hohe Trefferquote.",
+    indicators: [
+      "Equal Highs / Equal Lows — gleichmässige Hochs oder Tiefs in den letzten 40 Kerzen (Toleranz 0.3%).",
+      "Fair Value Gap (FVG) — Lücke zwischen Hoch der einen Kerze und Tief der übernächsten Kerze.",
+      "ATR (14) — für Stopp-Loss-Puffer."
     ],
-    market: "Volatilen Markt mit klaren Liquiditäts-Zonen — vor allem nach Range-Phasen."
+    steps: [
+      "Phase 1 — Sweep: identifiziere 2+ gleiche Tiefs (oder Hochs). Eine Kerze pokt mit ihrem Docht UNTER (oder ÜBER) das Level, schliesst aber wieder darüber (Stop-Hunt + Reclaim).",
+      "Phase 2 — FVG: in den nächsten 1–10 Kerzen entsteht eine bullische FVG (Lücke zwischen Hoch[j-1] und Tief[j+1] nach oben).",
+      "Phase 3 — Retest: der Preis kommt zurück und retestet die FVG (Tief ≤ FVG-Top, Schluss ≥ FVG-Bottom) UND die Retest-Kerze ist grün.",
+      "LONG: bei Eröffnung der Kerze nach der bullischen Retest-Kerze. SHORT: spiegelbildlich.",
+      "Stopp-Loss: 0.2× ATR unter dem Sweep-Tief (Long) bzw. über dem Sweep-Hoch (Short).",
+      "Take-Profit: 2.5× Risiko (2.5R)."
+    ],
+    glossary: [
+      "Liquidity Sweep / Stop-Hunt = wenn der Preis ein Vortiefs/Vorhoch durchsticht um Stops auszulösen, bevor er die echte Bewegung macht.",
+      "Equal Highs/Lows = gleiche oder fast gleiche Hochs/Tiefs auf dem Chart — dort sammeln sich Stop-Loss-Orders.",
+      "Fair Value Gap (FVG) = Preislücke zwischen drei aufeinanderfolgenden Kerzen wo der Preis 'unfair' schnell durch ist.",
+      "Reclaim = der Preis kehrt nach dem Sweep über das ursprüngliche Level zurück.",
+      "Retest = der Preis kommt nochmal zum Level/zur FVG zurück, bevor er weiterläuft.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Volatile Sessions mit Stop-Hunts (z.B. London-Open, US-Open in Krypto)."
   },
   "ATR Breakout (Toby Crabel)": {
-    desc: "Eine klassische Strategie: zu Beginn einer Periode kauft man wenn der Preis ein bestimmtes Maß über die Eröffnung steigt — und verkauft (Short) wenn er entsprechend fällt.",
-    steps: [
-      "Notiere die Eröffnungs-Kerze des Tages oder einer neuen Periode.",
-      "Berechne ein bestimmtes Maß Volatilität (ungefähr halbe typische Schwankung).",
-      "Sobald der Preis Eröffnung + Maß überschreitet: kaufe.",
-      "Sobald er Eröffnung - Maß unterschreitet: verkaufe.",
-      "Stopp auf der Gegenseite der Eröffnung.",
-      "Schließe am Ende des Tages oder bei Erreichen des Gewinn-Ziels."
+    desc: "Tageskerzen-Strategie: wenn der heutige Preis um eine bestimmte ATR-Schwelle vom heutigen Open weg ist, ist es ein echter Bewegungs-Tag — wir steigen mit ein.",
+    indicators: [
+      "ATR (14, vom Vortag) — die typische Schwankung des Vortages, als Vergleichswert.",
+      "ADX (14) — Filter: ADX > 20 (Mindest-Trend).",
+      "Open der heutigen Tageskerze als Referenz."
     ],
-    market: "Asien- oder Frühe-EU-Sessions wo nach Eröffnung oft scharfe Bewegungen kommen."
+    steps: [
+      "Lege ATR(14) und ADX(14) auf den Chart. Notiere den Open der aktuellen Tageskerze.",
+      "LONG: Schluss der aktuellen Tageskerze > Open + 0.6× ATR(Vortag) UND ADX > 20.",
+      "SHORT: Schluss < Open − 0.6× ATR(Vortag) UND ADX > 20.",
+      "Einstieg: bei Eröffnung der nächsten Tageskerze.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short).",
+      "Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "ATR = Average True Range. Misst wie stark der Preis im Schnitt schwankt.",
+      "Open = Eröffnungskurs der Kerze.",
+      "ADX = Trendstärke 0–100.",
+      "R / R-Multiple = Risiko-Einheit."
+    ],
+    market: "Tageshandel, besonders bei News-getriebenen Bewegungen."
   },
   "VCP (Minervini)": {
-    desc: "Ein Aktien-Klassiker: der Preis konsolidiert in immer engeren Schwankungen, bis er schließlich nach oben ausbricht. Du steigst beim Ausbruch ein.",
-    steps: [
-      "Beobachte einen Coin der seitwärts läuft, aber mit sich verengender Range (jede Schwankung kleiner als die vorige).",
-      "Warte bis das Volumen während der Konsolidierung sinkt.",
-      "Sobald der Preis aus der engen Zone klar nach oben ausbricht (mit hohem Volumen): kaufe.",
-      "Stopp knapp unter der letzten Konsolidierungs-Kante.",
-      "Lass den Trade laufen — VCP-Ausbrüche bringen oft große Bewegungen."
+    desc: "Volatility Contraction Pattern: der Preis konsolidiert in immer enger werdenden Schwankungen, wie eine Spirale die sich zusammenzieht — und bricht dann oft heftig aus. Nur Long-Setup.",
+    indicators: [
+      "Range-Kontraktion über Segmente — der Code teilt einen Lookback (50 Kerzen) in 2 Segmente und prüft ob das spätere eine kleinere Range hat als das frühere (≥ 20% Verkleinerung).",
+      "EMA 50 — Trend-Filter, Schluss muss darüber sein.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Coins die nach einem Aufwärtstrend in eine Konsolidierung gehen. Klassisch aus der Aktienanalyse, funktioniert auch in Krypto."
+    steps: [
+      "Lege EMA 50 und ATR(14) auf den Chart.",
+      "Voraussetzung: Schluss > EMA 50 (Aufwärtstrend).",
+      "Suche eine Konsolidierung wo die Schwankungsbreite mindestens 2 mal kleiner geworden ist (jede neue Range mindestens 20% enger als die vorige).",
+      "LONG: Schluss > höchstes Hoch der letzten 10 Kerzen (Pivot-Hoch durchbrochen).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg.",
+      "Take-Profit: 2.5× Risiko (2.5R).",
+      "Short ist nicht implementiert — VCP ist ein Long-only-Setup nach Mark Minervini."
+    ],
+    glossary: [
+      "VCP = Volatility Contraction Pattern, populär gemacht von Mark Minervini.",
+      "Konsolidierung = Phase wo der Preis seitwärts läuft, ohne klaren Trend.",
+      "Range = Distanz zwischen Hoch und Tief in einem Zeitabschnitt.",
+      "Pivot-Hoch = lokales Hoch das nach oben durchbrochen wird = Breakout-Trigger.",
+      "EMA = Exponential Moving Average.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Aktien-ähnliche Setups, funktioniert auch bei Krypto auf 4h. Nur in Aufwärtstrends sinnvoll."
   },
   "Day-of-Week Effect": {
-    desc: "Manche Wochentage zeigen historisch bessere oder schlechtere Performance. Du tradest nur an statistisch profitablen Wochentagen.",
-    steps: [
-      "Backtest erst: an welchen Wochentagen war die Strategie historisch profitabel?",
-      "Trade nur an diesen Tagen.",
-      "Halte dich an deine normalen Entry/Exit-Regeln, aber filtere nach Wochentag."
+    desc: "Statistischer Effekt: bestimmte Wochentage performen historisch besser. Mit Trend-Filter — du gehst Long am Buy-Day wenn der Trend stimmt, sonst Short.",
+    indicators: [
+      "UTC-Wochentag — Montag = 1, Sonntag = 7.",
+      "EMA 50 — Trend-Filter.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Coins mit klaren Wochentags-Mustern (z.B. wenn Wochenende oft Volatilität-arm ist)."
+    steps: [
+      "Setze deinen Buy-Day (Standard: Montag) und Sell-Day (Standard: Freitag) in den Strategie-Parametern.",
+      "Am Buy-Day: ist der Schluss > EMA 50 → LONG. Sonst → SHORT. Pro Tag nur 1 Trade.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Exit: am Sell-Day (Freitag). Vor dem Sell-Day greifen aber auch SL/TP wenn ausgelöst.",
+      "Stopp-Loss: 1.5× ATR. Take-Profit: 2× Risiko."
+    ],
+    glossary: [
+      "UTC = koordinierte Weltzeit (Greenwich-Zeit). Krypto-Trading läuft 24/7 in UTC.",
+      "EMA = Exponential Moving Average.",
+      "Saisonalität = wiederkehrende Effekte zu bestimmten Zeiten (Wochentag, Monat).",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Saisonale/zyklische Effekte. Funktioniert nicht in jedem Marktumfeld — eher als statistischer Backtest-Edge zu sehen."
   },
   "MTF Confluence": {
-    desc: "Du schaust mehrere Zeit-Ebenen gleichzeitig an. Ein Signal zählt nur wenn es auf allen Zeit-Ebenen bestätigt ist.",
-    steps: [
-      "Schau dir den Tageschart an: ist der Trend nach oben? (Höhere Hochs und Tiefs)",
-      "Schau dir den 4-Stunden-Chart an: zeigt er denselben Trend?",
-      "Schau dir den 1-Stunden-Chart an: gibt's dort gerade ein Long-Setup (Pullback, Breakout etc.)?",
-      "Nur wenn alle drei Zeit-Ebenen einig sind: trade.",
-      "Stopp basierend auf der niedrigsten Zeit-Ebene; Gewinn-Ziel auf der höchsten."
+    desc: "Multi-Timeframe-Strategie: das Signal muss auf zwei Zeitebenen gleichzeitig stimmen — z.B. der grosse Trend auf 4h und der Pullback auf 1h.",
+    indicators: [
+      "EMA 9 und EMA 21 (auf der niedrigen Zeitebene = LTF).",
+      "EMA 21 und EMA 55 (auf der höheren Zeitebene = HTF, im Code als 4-Bar-Aggregat).",
+      "RSI (14) — Pullback-Filter.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Funktioniert auf allen Coins mit klaren Trends. Viele bestätigte Signale = wenige aber starke Trades."
+    steps: [
+      "Lege auf dem LTF (z.B. 1h): EMA 9, EMA 21, RSI(14), ATR(14). Dazu mental einen 4h-Chart mit EMA 21 und EMA 55.",
+      "LONG: HTF-EMA21 > HTF-EMA55 (4h-Trend bullisch) UND RSI < 45 (Pullback) UND Tief der LTF-Kerze berührt EMA21 ±0.3% UND Schluss > EMA9 (Bounce-Bestätigung).",
+      "SHORT: spiegelbildlich.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR. Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "Multi-Timeframe (MTF) = mehrere Zeitebenen gleichzeitig betrachten.",
+      "LTF = Lower Timeframe (kleinerer Zeitrahmen, z.B. 1h für Entry).",
+      "HTF = Higher Timeframe (grösserer Zeitrahmen, z.B. 4h für Trend-Richtung).",
+      "Confluence = wenn mehrere unabhängige Signale in dieselbe Richtung zeigen.",
+      "RSI = 0–100. Unter 30 = überverkauft, über 70 = überkauft.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Alle Märkte — reduziert Fehlsignale durch Mehrfach-Bestätigung."
   },
   "Wyckoff Spring/Upthrust": {
-    desc: "Klassische Smart-Money-Trick: der Markt durchbricht kurz eine Range nach unten (Spring) oder oben (Upthrust) und dreht dann scharf zurück. Du tradest die Drehung.",
-    steps: [
-      "Markiere eine klar erkennbare Range (Unterstützung + Widerstand).",
-      "Bei einem 'Spring' bricht der Preis kurz unter die Unterstützung — viele Stopps werden ausgelöst.",
-      "Sobald der Preis schnell zurück über die Unterstützung kommt + die nächste Kerze grün schließt: kaufe.",
-      "Stopp knapp unter dem Spring-Tief.",
-      "Spiegelbildlich für Upthrust an Widerständen — Short."
+    desc: "Wyckoff-Methode: nach einer Range-Phase pokt der Preis kurz unter den Support (Spring) oder über den Resistance (Upthrust) und kehrt sofort um. Mit Volumen-Spike als Bestätigung.",
+    indicators: [
+      "Range-Detection — der Code findet das Range-High und Range-Low der letzten 40 Kerzen.",
+      "Volume SMA (20) — Durchschnittsvolumen, für den Spike-Filter.",
+      "ATR (14) — für Stopp-Loss-Puffer und Range-Engheit."
     ],
-    market: "Coins die in klaren Ranges traden — typisch nach einem Trend bei Konsolidierung."
+    steps: [
+      "Identifiziere eine seitwärtsgerichtete Range über die letzten 40 Kerzen (kein klarer Trend).",
+      "Spring (Long): Tief der Kerze < Range-Low − 0.05× ATR (durchbricht den Support) UND Schluss > Range-Low (kommt zurück über Support) UND grüne Kerze UND Volumen > 1.5× Durchschnittsvolumen.",
+      "Upthrust (Short): spiegelbildlich am Range-High mit roter Kerze.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.0× ATR unter dem Spring-Tief (Long) bzw. über dem Upthrust-Hoch (Short).",
+      "Take-Profit: 2.5× Risiko (2.5R)."
+    ],
+    glossary: [
+      "Wyckoff = Trading-Methode nach Richard Wyckoff (1873–1934). Erklärt Marktphasen über institutionellen Kauf-/Verkaufsdruck.",
+      "Spring = falscher Bruch unter den Support, der schnell zurückkommt — typisches Akkumulations-Signal.",
+      "Upthrust = falscher Bruch über den Resistance — typisches Distributions-Signal.",
+      "Range = seitwärts laufender Markt zwischen Support und Resistance.",
+      "Volumen-Spike = ungewöhnlich hohes Volumen.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Akkumulations- und Distributionsphasen — also Märkte die seitwärts laufen, bevor sie ausbrechen."
   },
   "VWAP Mean Reversion": {
-    desc: "VWAP ist der durchschnittliche Preis gewichtet mit Volumen. Bei großen Abweichungen von VWAP wettest du auf die Rückkehr.",
-    steps: [
-      "Zeichne die VWAP-Linie ein (volumen-gewichteter Durchschnitt seit Tagesbeginn).",
-      "Sobald der Preis 1-2% über VWAP steht UND der Markt eher seitwärts läuft: verkaufe (Short).",
-      "Sobald er 1-2% unter VWAP steht: kaufe.",
-      "Stopp jenseits des Extrems.",
-      "Schließe wenn der Preis VWAP wieder erreicht."
+    desc: "Du wettest dass der Preis zum VWAP (volumengewichtetem Durchschnitt) zurückkehrt — der gilt als 'fairer Preis' für den Tag. Wenn er weit weg ist, kommt er meistens zurück.",
+    indicators: [
+      "Anchored VWAP (Daily) + Sigma-Bänder (±2σ) — VWAP wird täglich um 00:00 UTC zurückgesetzt. Bänder = ±2 Standardabweichungen vom VWAP.",
+      "ADX (14) — Filter: nur traden wenn ADX < 25 (kein starker Trend).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Intraday-Trading auf liquiden Coins. Funktioniert besonders innerhalb einer Trading-Session."
+    steps: [
+      "Lege Anchored VWAP (Anker = Tagesbeginn UTC) mit Sigma-Bänder (±2σ), ADX(14) und ATR(14) auf den Chart.",
+      "LONG: Tief der Kerze ≤ unteres VWAP-Band (VWAP − 2σ) UND Schluss > unteres Band UND ADX < 25.",
+      "SHORT: spiegelbildlich am oberen Band.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: GENAU am aktuellen VWAP-Wert (= 'fairer Preis').",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "VWAP = Volume Weighted Average Price = volumengewichteter Durchschnittspreis. Berechnet aus jedem Trade × Preis.",
+      "Anchored VWAP = VWAP der zu einem fixen Zeitpunkt gestartet wird (hier: jeder UTC-Tagesbeginn).",
+      "Sigma (σ) = Standardabweichung. ±2σ-Bänder = der Bereich in dem der Preis ~95% der Zeit liegt.",
+      "ADX = Trendstärke 0–100.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Intraday-Handel, besonders bei hohem Volumen."
   },
   "SMC Multi-Layer Confluence": {
-    desc: "Eine Premium-Strategie: mehrere Smart-Money-Konzepte (Order Block, Liquidity, Fair Value Gap, BOS) müssen gleichzeitig zutreffen. Selten, aber sehr hochwertig.",
-    steps: [
-      "Identifiziere einen klaren Trend mit Strukturbruch (BOS = Break of Structure).",
-      "Markiere alle Order Blocks, Fair Value Gaps und Liquiditäts-Zonen.",
-      "Warte bis Preis zu einem Punkt zurückkommt wo mehrere dieser Zonen zusammenfallen (Confluence).",
-      "Sobald eine Reaktions-Kerze den Bereich verteidigt: trade in Trend-Richtung.",
-      "Stopp jenseits aller Zonen.",
-      "Gewinn-Ziel: nächste Liquiditäts-Zone in Trend-Richtung."
+    desc: "Profi-SMC-Setup: Order Block + Liquidity Sweep oder Fair Value Gap + grosser Trend müssen alle gleichzeitig in dieselbe Richtung zeigen. Sehr selektiv.",
+    indicators: [
+      "Order Blocks — letzte Gegenfarben-Kerze vor starkem Move (max. 30 Kerzen alt).",
+      "Equal Highs/Lows (Sweep-Detection).",
+      "Fair Value Gaps (FVG, max. 15 Kerzen alt).",
+      "HTF-EMA 50 — Trend-Filter auf höherer Zeitebene (4-Bar-Aggregat).",
+      "ATR (14) — für Stopp-Loss-Puffer."
     ],
-    market: "Höhere Timeframes (4h, 1d) mit klarer Marktstruktur. Wenige aber qualitativ hochwertige Trades."
+    steps: [
+      "LONG-Bedingung 1: HTF-Trend bullisch (Schluss > HTF-EMA50, z.B. 4h-EMA50).",
+      "LONG-Bedingung 2: bullischer Order Block wird retestet (Tief ≤ OB.high, Schluss ≥ OB.low).",
+      "LONG-Bedingung 3 (mind. eines): in den letzten 10 Kerzen ein Liquidity-Sweep ODER in den letzten 15 Kerzen ein bullischer FVG der erneut berührt wird.",
+      "SHORT: spiegelbildlich.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.0× ATR unter OB-Tief (Long) bzw. über OB-Hoch (Short).",
+      "Take-Profit: 3× Risiko (3R) — höchster TP unter den Standard-Strategien."
+    ],
+    glossary: [
+      "Smart Money Concept (SMC) = Trading-Philosophie die institutionelle Orderflows nachvollzieht.",
+      "Order Block (OB) = Kerze die institutionellen Kauf-/Verkaufsdruck markiert.",
+      "Liquidity Sweep = Stop-Hunt durchsticht Vortief/Vorhoch und kehrt zurück.",
+      "Fair Value Gap (FVG) = Preislücke zwischen drei Kerzen.",
+      "HTF = Higher Timeframe (höhere Zeitebene).",
+      "Confluence = mehrere unabhängige Signale in dieselbe Richtung.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Hochwahrscheinliche Setups — selten aber qualitativ stark."
   },
   "Funding Rate Momentum": {
-    desc: "Krypto-spezifisch: wenn die Funding-Rate (Gebühr für Long-Positionen) extrem hoch ist, zahlen Longs viel — der Markt ist überhitzt. Du wettest auf die Korrektur.",
-    steps: [
-      "Beobachte die Funding-Rate des Coins (alle 8 Stunden veröffentlicht).",
-      "Bei sehr hoher positiver Rate (>0.05%): Markt ist long-überfüllt — kurzfristig oft Korrektur-Signal.",
-      "Sobald eine bearishe Kerze (rotes Engulfing oder Shooting Star) auftritt: verkaufe (Short).",
-      "Spiegelbildlich bei sehr negativer Rate: Markt ist short-überfüllt → potential für Squeeze nach oben → kaufe bei bullishem Signal.",
-      "Stopp knapp jenseits des Setup-Extrems."
+    desc: "Bei Krypto-Futures zahlen Long-Trader Funding wenn sie überfüllt sind (zu viele Bullen) — das ist meist nahe einem Top. Wir handeln gegen die überfüllte Seite.",
+    indicators: [
+      "Funding Rate (Binance Futures) — Zahlung zwischen Longs und Shorts, alle 8 Stunden ausgeschüttet.",
+      "Streak-Filter — Funding muss N Perioden in Folge im Extrem sein (Standard: 2).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Perpetual-Futures auf Krypto-Börsen. Funktioniert nur dort wo Funding existiert."
+    steps: [
+      "Beobachte die Funding Rate des Symbols (auf Binance Futures sichtbar; im Backtester werden historische Daten verwendet).",
+      "SHORT: Funding > 0.05% für 2+ Perioden in Folge → Longs sind überfüllt und zahlen → wir setzen auf Reversal nach unten.",
+      "LONG: Funding < −0.03% für 2+ Perioden in Folge → Shorts sind überfüllt → Reversal nach oben.",
+      "Einstieg: bei Eröffnung der nächsten Kerze nachdem die Streak vollständig ist.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short).",
+      "Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "Funding Rate = Zahlung die alle 8h zwischen Long- und Short-Tradern fliesst. Hält den Futures-Preis nah am Spot-Preis.",
+      "Positive Funding = Longs zahlen an Shorts (Markt ist long-überfüllt).",
+      "Negative Funding = Shorts zahlen an Longs (Markt ist short-überfüllt).",
+      "Streak = mehrere Perioden in Folge.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Krypto-Futures. Funktioniert nur mit Funding-Daten — sonst nutzt der Code Preis-Momentum als Notlösung."
   },
   "OI + Price Action": {
-    desc: "Open Interest zeigt wieviele offene Futures-Positionen es gibt. Steigender OI bei steigendem Preis = neuer Trend mit echtem Geld dahinter.",
-    steps: [
-      "Beobachte parallel Preis und Open Interest (OI).",
-      "Steigt der OI während der Preis steigt: echter Aufwärtstrend mit neuen Long-Positionen.",
-      "Sobald ein bullishes Setup auftritt (Pullback + Reversal-Kerze): kaufe.",
-      "Spiegelbildlich für Short: OI steigt + Preis fällt = echter Abwärtstrend.",
-      "Stopp basierend auf der Setup-Struktur."
+    desc: "Open Interest = wie viele Futures-Kontrakte gerade offen sind. Steigendes OI mit steigendem Preis = echtes neues Geld. Fallendes OI bei fallendem Preis + überverkauft = Capitulation-Long.",
+    indicators: [
+      "Open Interest (Binance Futures).",
+      "RSI (14) — als Bestätigung.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Krypto-Perpetuals. Funktioniert besonders bei Trend-Fortsetzungen mit klaren Volumen-Bewegungen."
+    steps: [
+      "Lege RSI(14) und ATR(14) auf den Chart, beobachte parallel die OI-Daten.",
+      "Setup 1 — LONG (Trend-Continuation): OI steigt > +5% in 6 Kerzen UND Preis steigt UND RSI zwischen 50–75 (frisches Geld kauft, nicht überkauft).",
+      "Setup 2 — SHORT: OI steigt > +5% UND Preis fällt UND RSI zwischen 25–50 (frische Shorts werden eingegangen).",
+      "Setup 3 — LONG-Capitulation: OI fällt < −5% UND Preis fällt UND RSI < 30 (alte Longs liquidiert, oversold = Squeeze nach oben).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR. Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "Open Interest (OI) = Anzahl offener Futures-Kontrakte gerade jetzt.",
+      "Steigendes OI = neues Geld kommt rein. Fallendes OI = Positionen werden geschlossen.",
+      "Capitulation = panischer Massen-Verkauf am Tiefpunkt — oft direkt vor einem Reversal.",
+      "Squeeze = Zwangsschliessung gehebelter Positionen treibt den Preis stark in eine Richtung.",
+      "RSI = 0–100. Unter 30 = überverkauft, über 70 = überkauft.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Krypto-Futures mit verfügbaren OI-Daten."
   },
   "Liquidation Reversal": {
-    desc: "Wenn ein heftiger Crash oder Pump passiert, werden viele gehebelte Positionen liquidiert. Oft folgt eine scharfe Gegenbewegung. Du tradest diese Gegenbewegung.",
-    steps: [
-      "Beobachte plötzliche Preis-Schübe von 3-5% in kurzer Zeit (oft mit Liquidations-Spikes).",
-      "Warte auf eine klare Reversal-Kerze (z.B. Hammer nach unten oder Shooting Star nach oben).",
-      "Sobald die nächste Kerze in Gegenrichtung schließt: trade gegen den Crash/Pump.",
-      "Stopp knapp jenseits des Liquidations-Extrems.",
-      "Schließe bei 50-70% Retracement der Liquidations-Bewegung."
+    desc: "Nach grossen Liquidationswellen ist die schwache Hand draussen — und der Preis dreht oft scharf. Wir handeln den Reversal mit RSI-Filter.",
+    indicators: [
+      "Liquidation Volume (Binance Futures) — Volumen der zwangsgeschlossenen Positionen.",
+      "RSI (14) — als Bestätigungs-Filter.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Volatile Krypto-Märkte mit hohem Hebel. Vor allem in Bull-Cycle-Spitzen oder Bear-Capitulation."
+    steps: [
+      "Beobachte die Liquidations-Daten (im Backtester aus historischen Daten oder im Notfall Body × Volume als Proxy).",
+      "LONG: Long-Liquidations-Volumen > 3× Durchschnitt der letzten 24 Kerzen UND RSI < 25 (oversold).",
+      "SHORT: Short-Liquidations-Volumen > 3× Durchschnitt UND RSI > 75 (overbought).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short).",
+      "Take-Profit: 2.5× Risiko (2.5R)."
+    ],
+    glossary: [
+      "Liquidation = Zwangsglattstellung einer gehebelten Position weil das Margin nicht mehr reicht.",
+      "Long-Liquidationen = Long-Positionen werden gezwungen verkauft (= zusätzlicher Verkaufsdruck nach unten).",
+      "Short-Liquidationen = Short-Positionen werden gezwungen zurückgekauft (= zusätzlicher Kaufdruck nach oben).",
+      "Oversold / Overbought = Preis ist sehr stark gefallen/gestiegen.",
+      "RSI = 0–100.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Krypto-Futures mit Liquidationsdaten."
   },
   "Regime-Switch Master": {
-    desc: "Diese Strategie erkennt ob der Markt gerade trended oder seitwärts läuft, und schaltet automatisch zwischen Trend- und Reversion-Logik um.",
-    steps: [
-      "Prüfe die Trendstärke (ADX): über 25 = Trend, unter 20 = Range.",
-      "Im Trend-Modus: nutze eine einfache Trend-Pullback-Strategie.",
-      "Im Range-Modus: nutze eine Mean-Reversion-Strategie an den Rändern.",
-      "Stopp je nach aktivem Modus.",
-      "Übergänge zwischen Modi werden automatisch erkannt — du musst nichts manuell schalten."
+    desc: "Meta-Strategie: erkennt automatisch ob der Markt im Trend oder Range ist und schaltet zwischen Trend-Pullback (im Trend) und Bollinger-Reversion (in der Range) um.",
+    indicators: [
+      "ADX (14) mit +DI / -DI — für die Regime-Erkennung.",
+      "EMA 9, EMA 21, EMA 55 — für die Trend-Pullback-Logik.",
+      "Bollinger-Bänder (20, 2) — für die Range-Logik.",
+      "RSI (14) — als Filter in beiden Sub-Strategien.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Universell — funktioniert in beiden Marktphasen weil sie sich anpasst."
+    steps: [
+      "Bestimme zuerst das Regime: ADX > 25 mit +DI > -DI = Bull-Trend. ADX > 25 mit -DI > +DI = Bear-Trend. Sonst Sideways.",
+      "Im Bull-Regime: handle Trend-Pullback (EMA9 > EMA21 > EMA55, Tief touched EMA21 ±0.3%, Schluss > EMA9 → LONG).",
+      "Im Bear-Regime: spiegelbildlich (SHORT).",
+      "Im Sideways-Regime: handle Bollinger-Reversion (Tief unter unterem BB + RSI < 35 → LONG; Hoch über oberem BB + RSI > 65 → SHORT).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR. Take-Profit: bei Trend-Setups 2× Risiko, bei Sideways-Setups am BB-Mittelband.",
+      "Wichtig: wechselt das Regime gegen deine Position, sofort Exit."
+    ],
+    glossary: [
+      "Regime = Marktphase (Trend oder Range / Bull oder Bear).",
+      "Meta-Strategie = Strategie die zwischen anderen Strategien umschaltet.",
+      "ADX = Trendstärke 0–100.",
+      "+DI / -DI = Bullen-/Bären-Druck.",
+      "EMA = Exponential Moving Average.",
+      "Bollinger-Bänder = SMA + ±2σ.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Alle Marktphasen — die Strategie passt sich automatisch an."
   },
   "Multi-Strategy Voting": {
-    desc: "Mehrere Strategien laufen gleichzeitig. Ein Trade wird nur eröffnet wenn die Mehrheit der Strategien das gleiche Signal gibt — wie eine demokratische Abstimmung.",
-    steps: [
-      "Wähle 3-5 verschiedene Strategien (z.B. RSI-Reversal, Trend-Pullback, Bollinger).",
-      "Bei jeder Kerze fragst du jede Strategie: \"Long, Short oder kein Signal?\"",
-      "Trade nur wenn die Mehrheit (z.B. 3 von 5) das gleiche Signal gibt.",
-      "Stopp und Gewinn-Ziel als Durchschnitt aller beteiligten Strategien.",
-      "Selten aber qualitativ hochwertige Signale."
+    desc: "Fünf verschiedene Indikatoren stimmen ab. Nur wenn mindestens 3 in dieselbe Richtung zeigen, wird gehandelt. Mehrheits-Demokratie für Trades.",
+    indicators: [
+      "EMA 50 — Trend-Stimme 1.",
+      "EMA 9 vs EMA 21 — Trend-Stimme 2.",
+      "RSI (14) — Stimme 3.",
+      "ADX (14) mit +DI / -DI — Stimme 4.",
+      "Supertrend (10, 3) — Stimme 5.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Universell. Sehr robust weil mehrere Bestätigungen nötig — wenige aber starke Trades."
+    steps: [
+      "Lege alle fünf Indikatoren auf den Chart.",
+      "Zähle die Long-Stimmen: (1) Schluss > EMA50, (2) EMA9 > EMA21, (3) RSI 50–70, (4) ADX > 20 mit +DI > -DI, (5) Supertrend bullisch.",
+      "Zähle die Short-Stimmen entsprechend (jede Bedingung umgekehrt).",
+      "LONG: 3+ Long-Stimmen. SHORT: 3+ Short-Stimmen.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR. Take-Profit: 2× Risiko (2R).",
+      "Der Trade läuft bis SL/TP — keine erneute Abstimmung während des Trades."
+    ],
+    glossary: [
+      "EMA = Exponential Moving Average.",
+      "RSI = 0–100. Unter 30 = überverkauft, über 70 = überkauft.",
+      "ADX = Trendstärke 0–100. +DI/-DI = Bullen-/Bären-Druck.",
+      "Supertrend = ATR-basierter Trend-Indikator der die Seite wechselt.",
+      "ATR = durchschnittliche Schwankung pro Kerze.",
+      "Voting = Abstimmungs-Mehrheit aus mehreren Signalen."
+    ],
+    market: "Alle Märkte — reduziert Fehlsignale durch Mehrheits-Filter."
   },
   "ML Feature Classifier": {
-    desc: "Eine Machine-Learning-Logik: aus historischen Mustern (Volumen, Volatilität, RSI, Trendstärke) wird gelernt welche Kombinationen profitable Trades waren. Sie erkennt diese Muster im Live-Markt.",
-    steps: [
-      "Beim Backtest-Start lernt die Strategie aus den ersten 50% der Daten welche Feature-Kombinationen funktionieren.",
-      "Auf den restlichen 50% (Test-Bereich) tradet sie nach diesen gelernten Mustern.",
-      "Long wenn die Feature-Kombination einem profitablen Long-Muster entspricht.",
-      "Stopp basierend auf typischer Marktschwankung."
+    desc: "Machine Learning: ein einfacher Klassifikator (Decision-Stumps Ensemble) lernt aus 9 technischen Features welche Muster zu Gewinnen führen. Du tradest sein Score.",
+    indicators: [
+      "9 Features: RSI, EMA9/21-Verhältnis, EMA21/50-Verhältnis, ADX, Bollinger-Position, Volumen-Verhältnis, ATR-Verhältnis, 5-Bar-Return, 10-Bar-Return.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Funktioniert wenn der Markt stabile Muster hat. Bei Strukturbrüchen werden alte Muster ungültig — re-trainieren nötig."
+    steps: [
+      "Im Backtester wird das Modell automatisch auf historischen Daten trainiert. Labels: +1 wenn Preis innerhalb 10 Kerzen > 1.5× ATR steigt, -1 bei Fall.",
+      "Nach Training liefert das Modell für jede neue Kerze einen Score zwischen −1 und +1.",
+      "LONG: ML-Score > +0.15.",
+      "SHORT: ML-Score < −0.15.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss: 1.5× ATR. Take-Profit: 2× Risiko (2R)."
+    ],
+    glossary: [
+      "Machine Learning (ML) = Algorithmen die aus Daten Muster lernen statt fester Regeln.",
+      "Klassifikator = ML-Modell das Eingaben in Kategorien einteilt (hier: Long / Short / Neutral).",
+      "Decision Stumps Ensemble = viele kleine Ja/Nein-Entscheidungsbäume die kombiniert werden (Gradient Boosting).",
+      "Feature = Eingabewert für das ML-Modell.",
+      "Label = bekannte Antwort beim Training.",
+      "Overfitting = wenn das Modell die Trainingsdaten auswendig lernt statt echte Muster — gefährlich!",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Alle — passt sich an historische Muster an. Vorsicht: Overfitting möglich, deshalb gut Out-of-Sample testen."
   },
   "FinalBoss Zonen": {
-    desc: "Die hauseigene Strategie kombiniert mehrere Konzepte: 3-Zonen-Analyse, EMA-Filter, Wide-SL und Sniper-Entry. Komplex, aber für aktive Trader gut konfigurierbar.",
-    steps: [
-      "Identifiziere 3 wichtige Preiszonen (Support/Resistance).",
-      "Prüfe den EMA-Filter: trendet der Markt klar?",
-      "Bei Berührung einer Zone in Trend-Richtung: warte auf Reversal-Kerze.",
-      "Wide-SL hinter die nächst-tiefere Zone für Sicherheit.",
-      "Sniper-Entry direkt nach Bestätigungs-Kerze."
+    desc: "Multi-Timeframe-Strategie aus dem FinalBoss-Bot: findet Swing-Sequenzen und Fibonacci-Zonen auf 1h, validiert mit BOS/CHoCH, und triggert den präzisen Entry auf 5m mit EMA-Trendfilter.",
+    indicators: [
+      "Swing-Hochs/Tiefs auf 1h.",
+      "Fibonacci-Zonen 0.5–0.667 vom Impuls-Hoch.",
+      "Break-of-Structure (BOS) und Change-of-Character (CHoCH).",
+      "EMA-Äquivalent (600er EMA auf 5m = grob EMA50 auf 1h) als Trend-Filter.",
+      "ATR (14) — für Stopp-Loss-Puffer."
     ],
-    market: "Volatile Krypto-Märkte mit klaren Zonen. Erfordert manuelles Tuning der Parameter."
+    steps: [
+      "1h-Setup: Swing-Sequenz erkannt, Korrektur-Tiefe ≥ 30% der Impuls-Range, entweder 'Traumsequenz' (BC/AB > 1.5, Korrektur 0.45–0.75) ODER BOS-Bestätigung. Kein CHoCH gegen die Richtung.",
+      "Zone wird im Bereich Fib 0.5–0.667 vom Impuls-Hoch konstruiert.",
+      "5m-Entry: Zone wurde in den letzten 60 Kerzen (5h) berührt UND aktueller Preis ÜBER Zone-Top (Long) UND grüne Kerze UND Schluss ≤ Zone-Top + 2× Zonenbreite UND R/R-Verhältnis (TP1 / SL-Distanz) zwischen 1.5 und 12.",
+      "Trend-Filter: Schluss > EMA-Äquivalent (= 600er EMA auf 5m).",
+      "SHORT: spiegelbildlich.",
+      "Einstieg: bei Eröffnung der nächsten 5m-Kerze.",
+      "Stopp-Loss: Zone-Referenz (Pullback-Tief/Hoch) ± 0.2% Puffer.",
+      "Take-Profit 1 = Impuls-Hoch (B-Punkt). TP 2 = B-Punkt + 0.618× Impuls-Range.",
+      "Cooldown: dieselbe Zone darf erst nach 144 Bars (12h) wieder gehandelt werden."
+    ],
+    glossary: [
+      "Swing-Hoch / Swing-Tief = lokales Hoch/Tief auf dem Chart.",
+      "Impuls = starke Bewegung in eine Richtung.",
+      "Korrektur / Pullback = Gegenbewegung zum Impuls.",
+      "Fibonacci-Zone = Bereich zwischen zwei Fib-Levels (z.B. 0.5–0.667).",
+      "BOS = Break of Structure. Der Preis bricht ein vorheriges Hoch/Tief in Trend-Richtung.",
+      "CHoCH = Change of Character. Trendwechsel — der Preis bricht ein Hoch/Tief gegen den Trend.",
+      "Traumsequenz = bestimmtes Verhältnis-Muster (BC/AB > 1.5) das hohe Trefferquoten hat.",
+      "R/R-Verhältnis = Reward/Risk. Verhältnis zwischen Gewinnziel und maximalem Verlust.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "BTC und ETH — die Coins für die der FinalBoss-Bot designt wurde."
   },
   "MACD Crossover": {
-    desc: "Zwei Linien (eine schnellere, eine langsamere) bewegen sich um einen Nullpunkt. Wenn die schnelle die langsame kreuzt, ist das ein Trend-Wechsel-Signal.",
-    steps: [
-      "Beobachte die zwei MACD-Linien (Schnell + Langsam) und das Histogramm.",
-      "Sobald die schnelle Linie die langsame nach oben kreuzt: kaufe (Bullish Crossover).",
-      "Sobald sie nach unten kreuzt: verkaufe (Bearish Crossover).",
-      "Stopp etwa 2 mal die typische Schwankung.",
-      "Schließe beim nächsten Gegenkreuz."
+    desc: "Klassisches Momentum-Signal: MACD-Linie kreuzt Signal-Linie. Aufwärts-Cross = Long-Signal, Abwärts-Cross = Short.",
+    indicators: [
+      "MACD (12, 26, 9) — der Indikator besteht aus zwei Linien (MACD-Linie und Signal-Linie) plus einem Histogramm.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Trendmärkte. In Seitwärtsphasen kreuzt der MACD ständig — viele Fehlsignale."
+    steps: [
+      "Lege MACD (12, 26, 9) und ATR(14) auf den Chart.",
+      "LONG: MACD-Linie war ≤ Signal-Linie in der Vorkerze UND ist > Signal-Linie in der aktuellen Kerze (Aufwärts-Cross).",
+      "SHORT: MACD-Linie kreuzt nach unten (Abwärts-Cross).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn MACD wieder zurück kreuzt (Reverse-Cross).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "MACD = Moving Average Convergence Divergence. Klassischer Momentum-Indikator von Gerald Appel (1979).",
+      "MACD-Linie = EMA(12) − EMA(26).",
+      "Signal-Linie = EMA(9) der MACD-Linie.",
+      "Crossover = wenn die zwei Linien sich kreuzen — wichtigstes Signal.",
+      "Histogramm = Differenz zwischen MACD-Linie und Signal-Linie.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trend-bis-leicht-volatile Märkte."
   },
   "Stochastic K/D Cross": {
-    desc: "Zwei Linien (K und D) bewegen sich zwischen 0 und 100. Kreuzungen in Extremzonen sind Reversal-Signale.",
-    steps: [
-      "Beobachte die K- und D-Linien.",
-      "Bei K kreuzt D nach oben unter 20: starkes Long-Signal (überverkauft).",
-      "Bei K kreuzt D nach unten über 80: Short-Signal (überkauft).",
-      "Stopp jenseits des Setup-Extrems.",
-      "Schließe wenn die Linien bei 50 wieder kreuzen oder beim Erreichen der gegenüberliegenden Extremzone."
+    desc: "Stochastic-Oszillator hat zwei Linien (K und D). Wenn sie sich in der Extrem-Zone kreuzen, ist ein Reversal wahrscheinlich.",
+    indicators: [
+      "Stochastic (14, 3) — zwei Linien K (schnell) und D (langsam), Skala 0–100.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Seitwärtsmärkte mit klaren Extremen. In Trends bleiben die Linien lange in einer Zone."
+    steps: [
+      "Lege Stochastic (14, 3) und ATR(14) auf den Chart.",
+      "LONG: K-Linie kreuzt D-Linie nach OBEN UND K liegt unter 30 (Oversold-Zone).",
+      "SHORT: K kreuzt D nach UNTEN UND K liegt über 70 (Overbought-Zone).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn K ≥ 80. Take-Profit Short: wenn K ≤ 20.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Stochastic = Oszillator von George Lane. Misst Position des Schluss-Preises innerhalb der Range der letzten X Kerzen.",
+      "K-Linie = schnellere Linie, reagiert direkt auf den Preis.",
+      "D-Linie = SMA der K-Linie, glättet das Signal.",
+      "Oversold = unter 20–30 (überverkauft).",
+      "Overbought = über 70–80 (überkauft).",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range / Mean-Reverting Märkte."
   },
   "Williams %R Reversal": {
-    desc: "Ähnlich wie Stochastic, aber auf negativer Skala (-100 bis 0). Bei Extremwerten kommt oft eine Umkehr.",
-    steps: [
-      "Beobachte den Williams %R Indikator (Skala -100 bis 0).",
-      "Wert unter -80 = überverkauft → bei Drehung nach oben kaufe.",
-      "Wert über -20 = überkauft → bei Drehung nach unten verkaufe.",
-      "Stopp jenseits des Extrems.",
-      "Schließe bei Mittelwert -50 oder beim entgegengesetzten Extrem."
+    desc: "%R misst wo der Schluss relativ zur Range der letzten Kerzen liegt. Wenn er aus dem Oversold/Overbought-Extrem dreht, ist eine Reaktion zu erwarten.",
+    indicators: [
+      "Williams %R (14) — Skala 0 bis −100. Werte unter −80 = Oversold, über −20 = Overbought.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Seitwärtsmärkte. In starken Trends bleibt der Indikator lange im Extrem."
+    steps: [
+      "Lege Williams %R (14) und ATR(14) auf den Chart.",
+      "LONG: %R war ≤ −80 in der Vorkerze UND ist jetzt > −80 (kommt aus Oversold raus).",
+      "SHORT: %R war ≥ −20 UND ist jetzt < −20 (kommt aus Overbought raus).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn %R ≥ −20 (Overbought erreicht). Take-Profit Short: wenn %R ≤ −80.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Williams %R = Oszillator von Larry Williams. Skala 0 bis −100, negativ.",
+      "Oversold = stark gefallen, oft bald Reversal.",
+      "Overbought = stark gestiegen, oft bald Reversal.",
+      "Bounce-Trigger = Signal beim Verlassen der Extrem-Zone (nicht beim Eintritt).",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Mean-Reversion in Range-Phasen."
   },
   "CCI Trend": {
-    desc: "Der Commodity Channel Index zeigt überstarke Bewegungen über/unter ±100 an. Du tradest in Richtung der Ausbruchsbewegung.",
-    steps: [
-      "Beobachte den CCI-Indikator.",
-      "Bricht er über +100: starker Aufwärtsschub → kaufe.",
-      "Bricht er unter -100: starker Abwärtsschub → verkaufe.",
-      "Stopp etwa 2 mal typische Schwankung.",
-      "Schließe wenn CCI wieder unter 0 (long) bzw. über 0 (short) fällt."
+    desc: "Commodity Channel Index. Wenn der CCI über +100 ausbricht, ist Momentum-Long-Signal. Unter −100 = Short. Klassisches Trend-Following.",
+    indicators: [
+      "CCI (20) — Skala typisch −200 bis +200. Werte über +100 oder unter −100 zeigen starkes Momentum.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Klare Trendphasen. Bei Choppy Markt zu viele Fehlsignale."
+    steps: [
+      "Lege CCI (20) und ATR(14) auf den Chart.",
+      "LONG: CCI war ≤ +100 in der Vorkerze UND ist jetzt > +100 (Aufwärts-Breakout).",
+      "SHORT: CCI war ≥ −100 UND ist jetzt < −100.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn CCI < 0 (zurück in negative Zone). Short: wenn CCI > 0.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "CCI = Commodity Channel Index. Entwickelt 1980 von Donald Lambert für Rohstoffe, funktioniert aber überall.",
+      "+100 / −100 = klassische Schwellen für Momentum-Trading.",
+      "Breakout = Ausbruch aus einem Bereich.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Klare Trendphasen."
   },
   "Ichimoku Kumo Breakout": {
-    desc: "Ichimoku zeichnet eine 'Wolke' (Kumo) um den Preis. Bricht der Preis aus der Wolke aus, ist das ein starkes Trend-Signal.",
-    steps: [
-      "Beobachte die Ichimoku-Wolke um den Preis (Kumo).",
-      "Bricht der Schluss klar über die Wolke + Tenkan über Kijun: kaufe.",
-      "Spiegelbildlich für Short: unter die Wolke + Tenkan unter Kijun.",
-      "Stopp innerhalb der Wolke.",
-      "Trade läuft solange Preis auf der Ausbruchs-Seite bleibt."
+    desc: "Ichimoku-Strategie: wenn der Preis über die Kumo-Wolke ausbricht UND Tenkan über Kijun liegt, ist es ein Long-Signal. Sehr robustes Trend-Setup.",
+    indicators: [
+      "Ichimoku Kinko Hyo (Tenkan 9, Kijun 26, Senkou Span B 52) — komplexer Indikator mit mehreren Linien und der Kumo-Wolke.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Mittel- bis langfristige Trends auf 4h und 1d. Robuster japanischer Klassiker."
+    steps: [
+      "Lege Ichimoku (9, 26, 52) und ATR(14) auf den Chart. Die Wolke (Kumo) sieht man als gefärbten Bereich.",
+      "LONG: Vorkerze-Schluss ≤ Kumo-Top UND aktueller Schluss > Kumo-Top (Breakout über die Wolke nach oben) UND Tenkan(9) > Kijun(26).",
+      "SHORT: Schluss bricht unter Kumo-Bottom UND Tenkan < Kijun.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn Schluss < Kumo-Bottom (zurück unter die Wolke). Short: wenn Schluss > Kumo-Top.",
+      "Stopp-Loss: 2.5× ATR (grosszügig wegen 4h-Charts) unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Ichimoku Kinko Hyo = japanisch für 'Ein-Blick-Gleichgewichts-Tabelle'. Indikator von Goichi Hosoda (1968).",
+      "Tenkan-sen (9) = Conversion Line, schnellere Linie.",
+      "Kijun-sen (26) = Base Line, langsamere Linie.",
+      "Senkou Span A/B = bilden die Kumo-Wolke (in die Zukunft projiziert).",
+      "Kumo = die Wolke. Preis darüber = bullisch, darunter = bearisch.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Mittel- bis langfristige Trends auf 4h und 1d."
   },
   "Hull MA Cross": {
-    desc: "Hull-Durchschnitte reagieren viel schneller als normale gleitende Durchschnitte. Kreuzungen sind frühe Trend-Wechsel-Signale.",
-    steps: [
-      "Zeichne zwei Hull-MAs: schnell (9 Kerzen) und langsam (21).",
-      "Schnell kreuzt langsam nach oben: kaufe.",
-      "Schnell kreuzt langsam nach unten: verkaufe.",
-      "Stopp basierend auf typischer Schwankung.",
-      "Schließe beim Gegenkreuz."
+    desc: "Hull Moving Average reagiert deutlich schneller als EMA. Ein Cross zweier HMAs liefert frühe Trendwechsel-Signale.",
+    indicators: [
+      "Hull MA Fast (9) — schneller HMA.",
+      "Hull MA Slow (21) — langsamerer HMA.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Trends mit Pullbacks. Wegen schneller Reaktion gut für kürzere Timeframes."
+    steps: [
+      "Lege Hull MA (9) und Hull MA (21) auf den Chart, dazu ATR(14).",
+      "LONG: HMA-Fast war ≤ HMA-Slow in der Vorkerze UND ist jetzt > HMA-Slow (Aufwärts-Cross).",
+      "SHORT: HMA-Fast kreuzt nach unten.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn die HMAs wieder zurück kreuzen.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Hull MA = Hull Moving Average von Alan Hull (2005). Reagiert schneller als EMA bei weniger Lag.",
+      "Crossover = Kreuzung zweier Linien.",
+      "Lag = Verzögerung eines Indikators gegenüber dem echten Preis.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trends mit Pullbacks."
   },
   "MFI Mean Reversion": {
-    desc: "MFI ist wie RSI, aber mit Volumen gewichtet. Extremwerte zeigen ungewöhnliche Volumen-Aktivität — oft Umkehr-Signale.",
-    steps: [
-      "Beobachte den MFI-Indikator (0-100).",
-      "MFI unter 20 = überverkauft mit Volumen-Bestätigung → kaufe bei Drehung.",
-      "MFI über 80 = überkauft → verkaufe bei Drehung.",
-      "Stopp jenseits des Setup-Extrems.",
-      "Schließe wenn MFI 50 erreicht hat."
+    desc: "Money Flow Index = volumengewichteter RSI. Wenn er aus dem Extrem dreht, ist Reversal wahrscheinlich.",
+    indicators: [
+      "MFI (14) — Skala 0–100. Unter 20 = Oversold, über 80 = Overbought.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Range-Märkte mit Volumen-Spikes. Funktioniert auf liquideren Coins."
+    steps: [
+      "Lege MFI (14) und ATR(14) auf den Chart.",
+      "LONG: MFI war ≤ 20 in der Vorkerze UND ist jetzt > 20 (kommt aus Oversold).",
+      "SHORT: MFI war ≥ 80 UND ist jetzt < 80 (kommt aus Overbought).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn MFI ≥ 50. Short: wenn MFI ≤ 50.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "MFI = Money Flow Index. Wie RSI, aber mit Volumen gewichtet. Berücksichtigt also nicht nur den Preis sondern auch wie viel gehandelt wurde.",
+      "Volume Weighted = volumengewichtet — Kerzen mit hohem Volumen zählen mehr.",
+      "Oversold / Overbought = überverkauft / überkauft.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range-Märkte mit klaren Volumen-Spitzen."
   },
   "CMF Trend": {
-    desc: "Chaikin Money Flow zeigt ob Geld in den Coin fließt (positiv) oder rausfließt (negativ). Du tradest in Richtung des Geldflusses.",
-    steps: [
-      "Beobachte den CMF-Indikator.",
-      "CMF über +0.05 + Preis über Durchschnitt: starker Geld-Zufluss → kaufe.",
-      "CMF unter -0.05 + Preis unter Durchschnitt: Geld-Abfluss → verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe wenn CMF Vorzeichen wechselt."
+    desc: "Chaikin Money Flow = wieviel Geld in den Markt fliesst. Positiv = Akkumulation, negativ = Distribution. Mit EMA-Trendfilter.",
+    indicators: [
+      "CMF (20) — Skala typisch −1 bis +1. Über 0.05 = Akkumulation, unter −0.05 = Distribution.",
+      "EMA (50) — Trend-Filter.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Mittel-fristige Trends mit klarer Volumen-Bestätigung."
+    steps: [
+      "Lege CMF (20), EMA (50) und ATR(14) auf den Chart.",
+      "LONG: CMF war ≤ 0.05 in der Vorkerze UND ist jetzt > 0.05 UND aktueller Schluss > EMA 50.",
+      "SHORT: CMF war ≥ −0.05 UND ist jetzt < −0.05 UND Schluss < EMA 50.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn CMF wieder unter 0 fällt. Short: wenn CMF über 0.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "CMF = Chaikin Money Flow von Marc Chaikin. Misst Geldfluss in/aus dem Markt.",
+      "Akkumulation = Profis kaufen leise auf — Geld fliesst in den Markt.",
+      "Distribution = Profis verkaufen leise — Geld fliesst aus dem Markt.",
+      "EMA = Exponential Moving Average.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Mittelfristige Trends mit Volumen-Bestätigung."
   },
   "TRIX Zero Cross": {
-    desc: "TRIX ist eine dreifach geglättete Rendite-Kurve. Kreuzt sie die Null-Linie, ist das ein verspätetes aber zuverlässiges Trend-Signal.",
-    steps: [
-      "Beobachte die TRIX-Linie um die Null-Linie.",
-      "Kreuzt nach oben über 0: kaufe.",
-      "Kreuzt nach unten: verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe beim Gegenkreuz."
+    desc: "TRIX ist ein dreifach geglätteter Momentum-Indikator. Nullkreuz = Trendwechsel mit wenig Lag.",
+    indicators: [
+      "TRIX (15) — Skala um 0 herum. Über 0 = Aufwärts-Momentum, unter 0 = Abwärts.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Mittel- bis langfristige Trends (4h+). Wegen Glättung wenige aber sichere Signale."
+    steps: [
+      "Lege TRIX (15) und ATR(14) auf den Chart.",
+      "LONG: TRIX war ≤ 0 in der Vorkerze UND ist jetzt > 0 (Nullkreuz nach oben).",
+      "SHORT: TRIX war ≥ 0 UND ist jetzt < 0.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn TRIX wieder die Null kreuzt (Reverse-Cross).",
+      "Stopp-Loss: 2.5× ATR (grosszügig) unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "TRIX = Triple Exponential Moving Average Oscillator. Drei-fach geglätteter Momentum-Indikator von Jack Hutson.",
+      "Triple Smoothing = dreimaliges Glätten = sehr wenig Lärm/Noise.",
+      "Nullkreuz = der Indikator wechselt von negativ auf positiv (oder umgekehrt) — Trendwechsel-Signal.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Mittel- bis langfristig (4h)."
   },
   "StochRSI Reversal": {
-    desc: "Eine Kombination aus Stochastik und RSI — sehr reaktiv. Gut um in Range-Märkten extremes Über-/Unterverkauft zu erkennen.",
-    steps: [
-      "Beobachte K- und D-Linie des StochRSI.",
-      "K kreuzt D unter 0.2: kaufe (extrem überverkauft).",
-      "K kreuzt D über 0.8: verkaufe (extrem überkauft).",
-      "Stopp jenseits des Setup-Extrems.",
-      "Schließe beim Gegenextrem oder bei 0.5."
+    desc: "Stochastic Oszillator angewendet auf RSI = sehr reaktiver Mean-Reversion-Indikator. Cross in der Extrem-Zone = Trade.",
+    indicators: [
+      "StochRSI (14, 14, 3, 3) — vier Parameter: RSI-Periode, Stochastic-Periode, K-Smoothing, D-Smoothing.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Range / Mean-Reversion-Märkte. Sehr empfindlich, viele Signale."
+    steps: [
+      "Lege StochRSI (14, 14, 3, 3) und ATR(14) auf den Chart.",
+      "LONG: K kreuzt D nach OBEN UND K < 30 (Oversold-Zone).",
+      "SHORT: K kreuzt D nach UNTEN UND K > 70 (Overbought-Zone).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn K ≥ 80. Short: wenn K ≤ 20.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "StochRSI = Stochastic angewendet auf RSI-Werte (statt auf Preis). Sehr reaktiv.",
+      "K-Linie / D-Linie = die zwei Linien des Stochastic-Oszillators.",
+      "Oversold / Overbought = überverkauft / überkauft.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range / kurzfristige Mean-Reversion."
   },
   "Awesome Oscillator": {
-    desc: "Eine einfache Histogramm-Anzeige der Marktstärke. Wechselt es Vorzeichen, ist das ein Trend-Wechsel.",
-    steps: [
-      "Beobachte das Awesome-Oscillator-Histogramm um die Null-Linie.",
-      "Histogramm wechselt von rot zu grün: kaufe.",
-      "Wechselt von grün zu rot: verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe beim nächsten Vorzeichen-Wechsel."
+    desc: "Bill Williams' AO = Differenz zweier SMAs (5 und 34) auf dem Median-Preis. Nullkreuz = Momentum-Wechsel.",
+    indicators: [
+      "Awesome Oscillator (5, 34) auf Median-Preis (= (Hoch + Tief) / 2).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Trends. Einfach und sehr beliebt bei Bill Williams-Tradern."
+    steps: [
+      "Lege Awesome Oscillator (5, 34) und ATR(14) auf den Chart. Wird oft als Histogramm angezeigt.",
+      "LONG: AO war ≤ 0 in der Vorkerze UND ist jetzt > 0 (Aufwärts-Cross der Nulllinie).",
+      "SHORT: AO war ≥ 0 UND ist jetzt < 0.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn AO wieder die Null kreuzt (Reverse-Cross).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Awesome Oscillator (AO) = Differenz aus zwei SMAs (5 und 34) auf dem Median-Preis. Von Bill Williams.",
+      "Median-Preis = (Hoch + Tief) / 2.",
+      "Nullkreuz = der Oszillator wechselt das Vorzeichen — Momentum-Wechsel.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trend-Beginn."
   },
   "EMA Ribbon Trend": {
-    desc: "Mehrere Durchschnittslinien (z.B. 5, 10, 15, 20) bilden ein Band. Wenn alle parallel laufen, ist der Trend sehr stabil.",
-    steps: [
-      "Zeichne 4-6 Durchschnittslinien mit verschiedenen Perioden.",
-      "Liegen sie alle in der richtigen Reihenfolge übereinander: starker Trend.",
-      "Beim nächsten Pullback zur obersten Linie und Bounce: kaufe.",
-      "Stopp unter der untersten Linie.",
-      "Schließe wenn Linien sich überschneiden — Trend stirbt."
+    desc: "Fünf EMAs (8/13/21/34/55) gleichzeitig — sind alle perfekt aufsteigend gestaffelt = starker Aufwärtstrend.",
+    indicators: [
+      "EMA 8, EMA 13, EMA 21, EMA 34, EMA 55 — fünf Durchschnitte unterschiedlicher Periode.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Klare langfristige Trends. Ribbon ist visuell sehr deutlich."
+    steps: [
+      "Lege alle fünf EMAs auf den Chart, dazu ATR(14). Sehen aus wie ein Bändermuster (Ribbon).",
+      "LONG: in dieser Kerze sind alle 5 perfekt absteigend gestaffelt (EMA8 > EMA13 > EMA21 > EMA34 > EMA55) UND in der Vorkerze waren sie es noch nicht (Cross-Trigger).",
+      "SHORT: spiegelbildlich (alle 5 absteigend gestaffelt nach unten).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn EMA8 unter EMA21 kreuzt (Long) bzw. darüber (Short).",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "EMA = Exponential Moving Average.",
+      "Ribbon = Bandmuster aus mehreren EMAs unterschiedlicher Länge.",
+      "Staffelung = klare Reihenfolge der EMAs übereinander.",
+      "Cross-Trigger = Signal genau in dem Moment wo die Bedingung erstmals erfüllt ist.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Klare Trendmärkte."
   },
   "Pivot Point Bounce": {
-    desc: "Pivot-Punkte (mathematisch berechnete Niveaus aus dem Vortag) sind klassische Tagesziele. Trader handeln Bounces an diesen Levels.",
-    steps: [
-      "Berechne die Pivot-Punkte für den aktuellen Tag aus dem Vortag (Hoch + Tief + Schluss / 3, plus Support/Resistance daraus).",
-      "Sobald der Preis einen dieser Pivot-Levels berührt + dort bouncet: trade in Bounce-Richtung.",
-      "Stopp knapp jenseits des Pivots.",
-      "Gewinn-Ziel: nächster Pivot."
+    desc: "Klassisches Daytrading: an Tages-Pivot-Levels (Support 1 / Resistance 1) prallt der Preis oft ab. Mit grüner/roter Bestätigungs-Kerze.",
+    indicators: [
+      "Pivot Points (Daily) — automatisch berechnet aus Vortages-OHLC. Liefert PP, S1, S2, R1, R2.",
+      "ATR (14) — für Stopp-Loss falls kein S2/R2 verfügbar."
     ],
-    market: "Intraday-Trading auf liquiden Märkten. Klassisch im Aktien- und Forex-Trading."
+    steps: [
+      "Lege Pivot Points (Daily) auf den Chart, dazu ATR(14).",
+      "LONG: Tief der Kerze ≤ S1 + 0.3% Toleranz (Touch von oben) UND Schluss > S1 (zurück über Support) UND grüne Kerze (Schluss > Open).",
+      "SHORT: Hoch der Kerze ≥ R1 − 0.3% UND Schluss < R1 UND rote Kerze.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: bei der Pivot-Linie PP.",
+      "Stopp-Loss: bei S2 (Long) bzw. R2 (Short), falls vorhanden — sonst 1.5× ATR."
+    ],
+    glossary: [
+      "Pivot Points = Tages-Wendepunkte berechnet aus Vortages-Hoch/Tief/Schluss.",
+      "PP = Pivot Point (Hauptlinie).",
+      "S1, S2 = Support-Levels 1 und 2 (unterhalb).",
+      "R1, R2 = Resistance-Levels 1 und 2 (oberhalb).",
+      "Bounce = Abprallen des Preises an einem Level.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Daytrading auf 1h."
   },
   "Volume Spike Reversal": {
-    desc: "Plötzlich extremes Volumen ist oft ein Signal für eine Umkehr — meistens war's der letzte Pump/Dump bevor's dreht.",
-    steps: [
-      "Berechne das Durchschnitts-Volumen der letzten 20 Kerzen.",
-      "Sobald eine Kerze dreifaches Volumen hat: Volume Spike.",
-      "Wenn diese Spike-Kerze rot ist nach Aufwärtstrend: verkaufe.",
-      "Wenn grün nach Abwärtstrend: kaufe.",
-      "Stopp jenseits des Spike-Extrems.",
-      "Schließe bei 50% Retracement."
+    desc: "Wenn das Volumen plötzlich extrem hoch ist UND eine Reversal-Kerze folgt, ist der bisherige Move oft erschöpft.",
+    indicators: [
+      "Volume SMA (20) — Durchschnittsvolumen der letzten 20 Kerzen.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Coins mit Volumen-Explosionen — oft nach News oder Liquidations-Events."
+    steps: [
+      "Lege Volume SMA (20) und ATR(14) auf den Chart.",
+      "LONG: aktuelles Volumen > 2.5× Volume-SMA(20) UND Vorkerze rot UND aktuelle Kerze grün UND Schluss > Vorkerze-Hoch (echtes Engulfing nach oben).",
+      "SHORT: spiegelbildlich (rote Kerze nach grüner, Schluss < Vorkerze-Tief).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Exit: nach 10 Kerzen (Zeit-Exit) oder beim Stopp-Loss.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Volume Spike = ungewöhnlich hohes Handelsvolumen.",
+      "Engulfing = eine Kerze umfasst die vorige komplett (Body und/oder Range).",
+      "Erschöpfung = wenn ein starker Move keine Kraft mehr hat — oft direkt vor Reversal.",
+      "Zeit-Exit = Trade wird nach X Kerzen automatisch geschlossen.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Krypto / High-Volatility Coins."
   },
   "Choppiness + Trend": {
-    desc: "Der Choppiness-Index zeigt ob der Markt trended (niedrig) oder seitwärts läuft (hoch). Du tradest nur in echten Trendphasen.",
-    steps: [
-      "Beobachte den Choppiness-Index (0-100).",
-      "Wert unter 38 = klarer Trend → handle nach Standard-Trend-Regeln.",
-      "Wert über 62 = Seitwärtsphase → bleib raus.",
-      "Stopp typische Schwankung.",
-      "Trade läuft solange der Markt im Trend-Modus bleibt."
+    desc: "Choppiness Index erkennt Range-Phasen — wir traden NUR wenn der CI niedrig ist (= echter Trend) und zusätzlich ein EMA21-Cross stattfindet.",
+    indicators: [
+      "Choppiness Index (14) — Skala 0–100. Unter 38.2 = Trending, über 61.8 = ranging.",
+      "EMA (21) — als Cross-Trigger.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Filter für Trend-Strategien — vermeidet Fehlsignale in choppy Phasen."
+    steps: [
+      "Lege Choppiness Index (14), EMA (21) und ATR(14) auf den Chart.",
+      "LONG: CI < 38.2 (Trending-Zone) UND Vorkerze-Schluss ≤ EMA21 UND aktueller Schluss > EMA21 (Aufwärts-Cross der EMA).",
+      "SHORT: CI < 38.2 UND Schluss kreuzt nach unten unter EMA21.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn der Schluss wieder die EMA21 kreuzt.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Choppiness Index = Indikator von E.W. Dreiss. Misst ob der Markt trendet (niedrig) oder seitwärts läuft (hoch).",
+      "38.2 / 61.8 = Fibonacci-Werte als Schwellen.",
+      "EMA = Exponential Moving Average.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Vermeidet Range-Phasen, fokussiert auf Trends."
   },
   "Linear Regression Reversion": {
-    desc: "Eine 'Best-Fit-Linie' durch den Preis zeigt den fairen Trendpfad. Bei großen Abweichungen wettest du auf die Rückkehr zur Linie.",
-    steps: [
-      "Zeichne die Linear-Regression-Linie durch die letzten 50 Kerzen.",
-      "Sobald der Preis 2 Standard-Schritte unter der Linie steht: kaufe.",
-      "Sobald 2 Schritte darüber: verkaufe.",
-      "Stopp jenseits.",
-      "Schließe wenn der Preis die Regressions-Linie erreicht."
+    desc: "Lineare Regressionslinie + Standardabweichungs-Bänder. Wenn der Preis das Band touched, wetten wir auf Rückkehr zur Mittellinie.",
+    indicators: [
+      "Linear Regression (20) — Mittellinie ist die Regressions-Gerade über 20 Kerzen.",
+      "Standardabweichungs-Bänder (±2σ) um die Regressionslinie.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Märkte mit klarem statistischem Trendpfad. Gut bei Mean-Reversion."
+    steps: [
+      "Lege Linear Regression (20) mit ±2σ-Bändern und ATR(14) auf den Chart.",
+      "LONG: Schluss < unteres Band (LinReg − 2σ).",
+      "SHORT: Schluss > oberes Band (LinReg + 2σ).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn der Preis zur Regressions-Mittellinie zurückkehrt.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Lineare Regression = mathematische Gerade die die letzten X Punkte am besten fittet.",
+      "Standardabweichung = Mass für die Schwankung um die Mittellinie.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range / leicht trendend."
   },
   "ROC Momentum": {
-    desc: "Rate-of-Change misst wie stark sich der Preis in einer bestimmten Periode verändert hat. Hohe positive Werte = starkes Momentum nach oben.",
-    steps: [
-      "Beobachte den ROC-Indikator.",
-      "Steigt ROC über +5 (= Preis stieg 5% in Periode): starkes Up-Momentum → kaufe.",
-      "Fällt unter -5: kaufe Short.",
-      "Stopp typische Schwankung.",
-      "Schließe wenn ROC zur Null-Linie zurückkehrt."
+    desc: "Rate of Change misst die prozentuale Veränderung über X Kerzen. Bricht ROC eine Schwelle (z.B. +5%), kommt oft ein Folge-Move.",
+    indicators: [
+      "ROC (12) — Skala in Prozent. Über 0 = Preis ist gestiegen, unter 0 = gefallen.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Momentum-getriebene Coins, vor allem nach News oder Listings."
+    steps: [
+      "Lege ROC (12) und ATR(14) auf den Chart.",
+      "LONG: ROC war ≤ +5% in der Vorkerze UND ist jetzt > +5% (Schwellen-Breakout nach oben).",
+      "SHORT: ROC war ≥ −5% UND ist jetzt < −5%.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn ROC wieder unter 0 fällt. Short: wenn ROC über 0.",
+      "Stopp-Loss: 2.5× ATR (grosszügig wegen 4h-Charts) unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "ROC = Rate of Change. Prozentuale Veränderung des Preises über X Perioden.",
+      "Momentum = Geschwindigkeit der Preisbewegung.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Starke Impuls-Phasen."
   },
   "Golden / Death Cross": {
-    desc: "Klassiker: 50-Tages-Durchschnitt kreuzt 200-Tages-Durchschnitt. Nach oben = Golden Cross (Bullisch), nach unten = Death Cross (Bearisch).",
-    steps: [
-      "Zeichne den 50-Tages-Durchschnitt + 200-Tages-Durchschnitt.",
-      "50 kreuzt 200 nach oben: Golden Cross → langfristiges Long-Signal.",
-      "50 kreuzt 200 nach unten: Death Cross → langfristiges Short-Signal.",
-      "Stopp basierend auf höherem Timeframe.",
-      "Trade kann Wochen bis Monate laufen."
+    desc: "Klassiker: EMA 50 kreuzt EMA 200. Aufwärts-Cross = Golden Cross (Long-Signal), Abwärts-Cross = Death Cross (Short). Sehr langfristig.",
+    indicators: [
+      "EMA (50) und EMA (200) — die zwei klassischsten gleitenden Durchschnitte.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Langfristige Trader. Funktioniert auf Tageschart bei großen Coins (BTC, ETH)."
+    steps: [
+      "Lege EMA 50, EMA 200 und ATR(14) auf den Chart.",
+      "LONG (Golden Cross): EMA50 war ≤ EMA200 in der Vorkerze UND ist jetzt > EMA200.",
+      "SHORT (Death Cross): EMA50 kreuzt nach unten unter EMA200.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn EMA50 wieder zurück kreuzt (Reverse-Cross).",
+      "Stopp-Loss: 3× ATR (sehr grosszügig — die Strategie zielt auf Wochen-/Monats-Trends) unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Golden Cross = EMA50 kreuzt EMA200 nach oben. In den Medien oft als bullisches Mega-Signal gefeiert.",
+      "Death Cross = EMA50 kreuzt EMA200 nach unten. Bekannt aus Krypto-Crashes.",
+      "EMA = Exponential Moving Average.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Langfristige Trends auf 4h und 1d."
   },
   "Three Soldiers / Crows": {
-    desc: "Drei aufeinanderfolgende grüne Kerzen (Soldiers) = sehr bullisch. Drei rote Kerzen (Crows) = sehr bearisch.",
-    steps: [
-      "Beobachte die letzten drei Kerzen.",
-      "Drei klar grüne Kerzen mit höherer Schluss + minimalem oberen Docht: kaufe am Close der dritten.",
-      "Drei klar rote Kerzen mit niedrigerem Schluss: verkaufe.",
-      "Stopp unter der ersten der drei Kerzen.",
-      "Schließe bei doppeltem Risiko."
+    desc: "Drei aufeinanderfolgende starke gleichgerichtete Kerzen mit steigenden (oder fallenden) Schlusskursen — klassisches Continuation-Pattern.",
+    indicators: [
+      "Kerzenmuster (3-Kerzen-Sequenz mit Body-Filter).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Klare Trend-Beginn-Phasen oder Reversal an Extremen."
+    steps: [
+      "Beobachte die letzten 3 Kerzen.",
+      "LONG (Three White Soldiers): 3 grüne Kerzen in Folge, jede mit Body ≥ 0.4% des Open (kein Doji), Schluss[i-1] > Schluss[i-2] UND Schluss[i] > Schluss[i-1] (steigende Schlusskurse).",
+      "SHORT (Three Black Crows): 3 rote Kerzen mit fallenden Schlusskursen.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Exit: nach 5 Kerzen (Zeit-Exit) oder beim Stopp-Loss.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short).",
+      "Achtung: das Pattern hat KEINEN Trend-Filter — in Range-Phasen kann es Fehlsignale geben."
+    ],
+    glossary: [
+      "Three White Soldiers = bullisches Kerzen-Pattern. Drei starke grüne Kerzen in Folge.",
+      "Three Black Crows = bearisches Spiegelbild. Drei starke rote Kerzen.",
+      "Doji = Kerze fast ohne Body (Open ≈ Schluss). Wird hier ausgeschlossen.",
+      "Body = breiter Teil der Kerze zwischen Open und Schluss.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trend-Continuation — am besten mit zusätzlichem manuellen Trend-Filter."
   },
   "Inside Bar Breakout": {
-    desc: "Eine Kerze die komplett innerhalb der vorherigen liegt = Konsolidierung. Du tradest den Ausbruch der Inside-Bar.",
-    steps: [
-      "Such eine Inside-Bar (deren Hoch + Tief liegen beide innerhalb der vorherigen Kerze).",
-      "Sobald der Preis das Hoch der vorherigen Kerze (= Mother Bar) bricht: kaufe.",
-      "Bricht er das Tief: verkaufe.",
-      "Stopp am gegenüberliegenden Ende der Mother Bar.",
-      "Zeit-Exit nach 8 Kerzen wenn nichts läuft."
+    desc: "Ein Inside Bar ist eine Kerze die komplett innerhalb der Vorkerze liegt = Konsolidierung. Bricht der Preis aus dieser Range = Trade.",
+    indicators: [
+      "Kerzenmuster: Mother Bar + Inside Bar + Trigger-Kerze.",
+      "ATR (14) — für Sizing-Referenz."
     ],
-    market: "Universell, vor allem bei klaren Konsolidierungen vor Ausbrüchen."
+    steps: [
+      "Beobachte 3 Kerzen: Mother Bar (vor 2 Kerzen), Inside Bar (Vorkerze), aktuelle Kerze.",
+      "Inside-Bar-Setup: Inside Bar liegt KOMPLETT innerhalb der Mother Bar (Inside.High < Mother.High UND Inside.Low > Mother.Low).",
+      "LONG: aktuelle Kerze.High > Mother.High (Range-Bruch nach oben) UND aktueller Schluss > Inside.High (Bestätigung).",
+      "SHORT: spiegelbildlich.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss FIX bei Inside.Low (Long) bzw. Inside.High (Short) — direkt am Inside-Bar-Tief/Hoch (KEIN ATR-Multiplikator).",
+      "Exit: nach 8 Kerzen (Zeit-Exit) oder beim Stopp-Loss."
+    ],
+    glossary: [
+      "Inside Bar = Kerze deren Range komplett innerhalb der Vorkerze (Mother Bar) liegt.",
+      "Mother Bar = die grössere Kerze, in der die Inside Bar liegt.",
+      "Range = Distanz zwischen Hoch und Tief.",
+      "Konsolidierung = Phase mit weniger Bewegung.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Volatilitäts-Expansion nach Konsolidierung."
   },
   "DMI Crossover": {
-    desc: "Plus-DI und Minus-DI zeigen die Kraft der Käufer und Verkäufer. Ein Crossover signalisiert einen Macht-Wechsel.",
-    steps: [
-      "Beobachte +DI und -DI Linien.",
-      "+DI kreuzt -DI nach oben + Trendstärke (ADX) > 20: kaufe.",
-      "-DI kreuzt +DI nach oben: verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe beim nächsten Gegenkreuz."
+    desc: "Directional Movement Index: +DI kreuzt −DI bei genug starkem ADX. Klassisches Trend-Cross-Signal.",
+    indicators: [
+      "ADX (14) mit +DI und −DI — drei Linien.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Trendmärkte. Choppy macht zu viele Fehlsignale, deshalb ADX-Filter."
+    steps: [
+      "Lege ADX/DMI (14) und ATR(14) auf den Chart.",
+      "LONG: +DI war ≤ −DI in der Vorkerze UND ist jetzt > −DI UND ADX > 20 (Mindest-Trend-Stärke).",
+      "SHORT: +DI kreuzt nach unten unter −DI UND ADX > 20.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn +DI und −DI wieder zurück kreuzen.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "DMI = Directional Movement Index. Zeigt Trendstärke und -richtung.",
+      "+DI = Plus Directional Indicator. Bullen-Druck.",
+      "−DI = Minus Directional Indicator. Bären-Druck.",
+      "ADX = Trendstärke 0–100.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Bestätigte Trends."
   },
   "Bollinger Bandwidth Squeeze": {
-    desc: "Eine extreme Verengung der Bollinger-Bänder zeigt dass nach Ruhe oft heftige Bewegung kommt. Du wartest auf den Ausbruch.",
-    steps: [
-      "Beobachte die Breite der Bollinger-Bänder über die letzten 100 Kerzen.",
-      "Wenn aktuelle Breite die niedrigste der letzten 100 ist: extremer Squeeze.",
-      "Bei nächstem klaren Schluss außerhalb der Bänder: trade in Ausbruchsrichtung.",
-      "Stopp zurück in die Squeeze-Zone.",
-      "Lass den Trade laufen — Squeeze-Ausbrüche bringen oft große Bewegungen."
+    desc: "Klassischer Squeeze: wenn die Bollinger-Bandbreite unter ein Perzentil fällt, kommt oft ein heftiger Move. Wir traden den Breakout in seine Richtung.",
+    indicators: [
+      "Bollinger-Bänder (20, 2) plus Bandwidth.",
+      "Bandwidth-Perzentil (Lookback 100) — der Code prüft ob Bandwidth in den unteren 20% der letzten 100 Kerzen liegt.",
+      "ATR (14) — als Referenz."
     ],
-    market: "Phasen extremer Konsolidierung — oft nach längerer Range. Sehr selten aber meistens explosiv."
+    steps: [
+      "Lege Bollinger-Bänder (20, 2), Bandwidth-Anzeige und ATR(14) auf den Chart.",
+      "Squeeze: Vorkerze-Bandwidth muss im untersten 20%-Perzentil der letzten 100 Kerzen liegen.",
+      "LONG: aktueller Schluss > oberes Bollinger-Band (Breakout nach oben).",
+      "SHORT: Schluss < unteres Band.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn Schluss < BB-Mittellinie. Short: wenn Schluss > BB-Mittellinie.",
+      "Stopp-Loss FIX am BB-Mittelband (NICHT ATR-basiert!) — also die SMA20-Linie zum Entry-Zeitpunkt."
+    ],
+    glossary: [
+      "Bandwidth = Distanz zwischen oberem und unterem Bollinger-Band, normalisiert auf die Mittellinie.",
+      "Perzentil = Rangstufe in einer Sortierung. 20%-Perzentil = unter den niedrigsten 20% aller Werte.",
+      "Squeeze = Phase niedriger Volatilität — oft Vorbote eines starken Moves.",
+      "Bollinger-Mittelband = SMA der Bollinger-Bänder (typisch SMA20).",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Konsolidierung → Volatility Expansion."
   },
   "Donchian Mean Reversion": {
-    desc: "Anders als der Donchian-Breakout: hier wettest du dass der Preis nach Berührung der Donchian-Extreme wieder zur Mitte zurück geht.",
-    steps: [
-      "Zeichne die Donchian-Channels (höchstes Hoch + tiefstes Tief der letzten 20 Kerzen).",
-      "Sobald der Preis das Donchian-Tief berührt UND der Markt seitwärts läuft: kaufe.",
-      "Sobald er das Hoch berührt: verkaufe.",
-      "Stopp jenseits des Donchian-Extrems.",
-      "Schließe an der Donchian-Mitte."
+    desc: "Statt Donchian-Breakouts zu kaufen, faden wir sie: Tief touched unteres Band → Bounce-Long. Mit Bestätigungs-Kerze.",
+    indicators: [
+      "Donchian Channel (20) — höchstes Hoch / tiefstes Tief / Mittellinie der letzten 20 Kerzen.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Range-Märkte. Nicht bei Breakout-Phasen — da läuft der Preis weiter."
+    steps: [
+      "Lege Donchian Channel (20) und ATR(14) auf den Chart.",
+      "LONG: Tief der Kerze ≤ unteres Donchian-Band UND Schluss > unteres Band (zurück in Range) UND grüne Kerze.",
+      "SHORT: Hoch ≥ oberes Band UND Schluss < oberes Band UND rote Kerze.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn Schluss die Donchian-Mittellinie erreicht.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Donchian Channel = höchstes Hoch und tiefstes Tief der letzten X Kerzen. Berühmt durch die Turtle-Trader.",
+      "Mean Reversion = Strategie die auf Rückkehr zum Durchschnitt setzt.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range / Mean-Reverting Märkte."
   },
   "VWAP Bands Reversion": {
-    desc: "Wie VWAP-Reversion, aber mit Bändern um die VWAP-Linie (Standardabweichung). Bei Berührung der Bänder ist Umkehr wahrscheinlich.",
-    steps: [
-      "Zeichne VWAP plus 1 und 2 Standard-Schritte als Bänder.",
-      "Berührt der Preis das untere 2-Sigma-Band: starkes Long-Signal.",
-      "Berührt er das obere 2-Sigma-Band: Short-Signal.",
-      "Stopp jenseits des Bands.",
-      "Schließe an der VWAP-Linie."
+    desc: "VWAP-Mittellinie mit Standardabweichungs-Bändern. Bricht der Preis das Band, wetten wir auf Rückkehr zum VWAP.",
+    indicators: [
+      "VWAP (Daily-Anchored) — Anker = jeder neue UTC-Tag.",
+      "Standardabweichungs-Bänder (±2σ).",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Intraday Mean-Reversion. Vor allem bei liquiden Coins."
+    steps: [
+      "Lege VWAP mit Daily-Anchor und ±2σ-Bänder, dazu ATR(14) auf den Chart.",
+      "LONG: aktueller Schluss < unteres VWAP-Band (VWAP − 2σ).",
+      "SHORT: Schluss > oberes Band.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn Schluss wieder den VWAP erreicht.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "VWAP = Volume Weighted Average Price.",
+      "Daily-Anchored = startet bei jedem neuen UTC-Tag neu.",
+      "Sigma (σ) = Standardabweichung.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Tagesgeschäft / kurzfristig."
   },
   "Bollinger %B Reversal": {
-    desc: "%B zeigt wie weit der Preis innerhalb der Bollinger-Bänder steht (0 = unteres Band, 1 = oberes). Extremwerte = Reversal-Setup.",
-    steps: [
-      "Beobachte den %B Indikator.",
-      "%B unter 0 = Preis unter unterem Band → bei Drehung kaufe.",
-      "%B über 1 = Preis über oberem Band → bei Drehung verkaufe.",
-      "Stopp jenseits des Setup-Extrems.",
-      "Schließe wenn %B die 0.5 (Mittellinie) erreicht."
+    desc: "%B normalisiert die Position innerhalb der Bollinger-Bänder. Werte unter 0 = unter Lower Band, über 1 = über Upper Band. Recovery aus dem Extrem = Trade.",
+    indicators: [
+      "Bollinger-Bänder (20, 2) plus %B-Linie.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Range-Märkte. Sehr klassische Bollinger-Reversion-Variante."
+    steps: [
+      "Lege Bollinger-Bänder (20, 2) mit %B-Anzeige und ATR(14) auf den Chart.",
+      "LONG: %B war ≤ 0 in der Vorkerze (Preis war unter Lower Band) UND ist jetzt > 0 (zurück in Range).",
+      "SHORT: %B war ≥ 1 (Preis über Upper Band) UND ist jetzt < 1.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn %B ≥ 0.5 (Mittellinie). Short: wenn %B ≤ 0.5.",
+      "Stopp-Loss: 1.5× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "%B = Position des Preises innerhalb der Bollinger-Bänder. Formel: (Preis − Lower Band) / (Upper Band − Lower Band).",
+      "0 = exakt am unteren Band. 1 = exakt am oberen Band. 0.5 = exakt in der Mitte.",
+      "Recovery-Trigger = Signal beim Verlassen des Extrems.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Range / leichte Trends."
   },
   "Connors RSI 2": {
-    desc: "Eine RSI-Variante mit nur 2 Perioden — extrem reaktiv. Larry Connors' Klassiker für Mean-Reversion.",
-    steps: [
-      "Beobachte den 2-Perioden-RSI.",
-      "Fällt der RSI unter 5 + Preis über 200-Tages-Durchschnitt: kaufe.",
-      "Steigt er über 95 + Preis unter 200-Tages-Durchschnitt: verkaufe.",
-      "Stopp basierend auf 200er-Durchschnitt.",
-      "Schließe wenn RSI 2 wieder bei 70 (long) oder 30 (short) ist."
+    desc: "Larry Connors' kurzfristige Mean-Reversion: ein RSI mit Periode 2 plus Streak-Counter und Percent-Rank — sehr reaktiv.",
+    indicators: [
+      "Connors RSI = Mittelwert aus drei Werten: RSI(2), Streak-RSI(2), PercentRank(100) der 1-Tages-Returns.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Nur in klaren Trends mit kurzfristigen Pullbacks. Nicht in Ranges."
+    steps: [
+      "Lege Connors RSI und ATR(14) auf den Chart.",
+      "LONG: ConnorsRSI war ≤ 10 in der Vorkerze (extremes Oversold) UND ist jetzt > 10 (Recovery-Trigger).",
+      "SHORT: ConnorsRSI war ≥ 90 UND ist jetzt < 90.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn ConnorsRSI ≥ 50. Short: wenn ConnorsRSI ≤ 50.",
+      "Stopp-Loss: 2.5× ATR (grosszügig wegen Tageschart-Lag) unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Connors RSI = Indikator von Larry Connors. Kombiniert drei kurzfristige Momentum-Mass.",
+      "RSI 2 = sehr kurzer RSI (nur 2 Perioden). Reagiert sehr scharf.",
+      "Streak = wie viele Kerzen in Folge in dieselbe Richtung gegangen sind.",
+      "PercentRank = wo der aktuelle Wert im Vergleich zu den letzten 100 Werten steht.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Tageschart, Aktien & Krypto."
   },
   "DPO Reversal": {
-    desc: "Detrended Price Oscillator entfernt den Trend aus dem Preis und zeigt nur noch zyklische Schwankungen — gut für Cycle-Trading.",
-    steps: [
-      "Beobachte den DPO um die Null-Linie.",
-      "DPO unter -2: zyklisches Tief → kaufe bei Drehung nach oben.",
-      "DPO über +2: zyklisches Hoch → verkaufe.",
-      "Stopp jenseits des Extrems.",
-      "Schließe wenn DPO die Null-Linie erreicht."
+    desc: "Detrended Price Oscillator entfernt den Trend aus dem Preis und zeigt nur die Zyklen. Reversal aus dem Extrem = Trade.",
+    indicators: [
+      "DPO (20) — Differenz zwischen aktuellem Preis und einer SMA(20) die um (20/2 + 1) = 11 Kerzen verschoben ist.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Coins mit klaren Zyklen (z.B. wöchentliche Schwankungen)."
+    steps: [
+      "Lege DPO (20) und ATR(14) auf den Chart.",
+      "LONG: DPO war ≤ −0.5 in der Vorkerze (negatives Extrem) UND DPO[i] > DPO[i-1] (Drehung nach oben).",
+      "SHORT: DPO war ≥ +0.5 UND DPO[i] < DPO[i-1] (Drehung nach unten).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn DPO ≥ 0. Short: wenn DPO ≤ 0.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "DPO = Detrended Price Oscillator. Entfernt den langfristigen Trend, zeigt kurzfristige Zyklen.",
+      "Detrended = ohne Trend.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Zyklische Märkte."
   },
   "Ultimate Oscillator": {
-    desc: "Eine Kombination aus drei Zeit-Ebenen (kurz/mittel/lang) zu einem einzigen Indikator. Robuster als einzelne Oszillatoren.",
-    steps: [
-      "Beobachte den Ultimate Oscillator.",
-      "Wert unter 30 + bullishe Divergenz mit dem Preis: kaufe.",
-      "Wert über 70 + bearishe Divergenz: verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe an der Mittellinie 50."
+    desc: "Larry Williams' Ultimate Oscillator kombiniert drei Zeitfenster (7, 14, 28) für ein robustes Mean-Reversion-Signal.",
+    indicators: [
+      "Ultimate Oscillator (7, 14, 28) — Skala 0–100. Unter 30 = Oversold, über 70 = Overbought.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Mehr-Zeit-Ebenen Reversal. Gut bei klaren Divergenzen."
+    steps: [
+      "Lege Ultimate Oscillator (7, 14, 28) und ATR(14) auf den Chart.",
+      "LONG: UO war ≤ 30 in der Vorkerze UND ist jetzt > 30 (Recovery aus Oversold).",
+      "SHORT: UO war ≥ 70 UND ist jetzt < 70.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn UO ≥ 50. Short: wenn UO ≤ 50.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Ultimate Oscillator = Indikator von Larry Williams (1976). Robuster als RSI weil drei Zeitfenster.",
+      "Recovery = Verlassen der Extrem-Zone Richtung Mitte.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Allround Mean-Reversion."
   },
   "KAMA Trend": {
-    desc: "Kaufman's adaptiver Durchschnitt passt seine Geschwindigkeit dem Markt an: schnell bei Trends, langsam in Ranges. Sehr robust.",
-    steps: [
-      "Zeichne die KAMA-Linie.",
-      "Steigt der Preis klar über KAMA + KAMA selbst geht nach oben: kaufe.",
-      "Fällt er klar darunter + KAMA fällt: verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe wenn Preis KAMA in Gegenrichtung kreuzt."
+    desc: "Kaufman Adaptive Moving Average passt seine Glättung automatisch an die Volatilität an. Slope-Wechsel = Trendwechsel.",
+    indicators: [
+      "KAMA (10, 2, 30) — Periode 10, Fast EMA 2, Slow EMA 30.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Universell — passt sich automatisch an. Gut für gemischte Märkte."
+    steps: [
+      "Lege KAMA (10, 2, 30) und ATR(14) auf den Chart.",
+      "Slope = Steigung der KAMA-Linie (über 3 Bars Lookback).",
+      "LONG: Slope war ≤ 0 vorher UND ist jetzt > 0 (KAMA dreht nach oben) UND aktueller Schluss > KAMA.",
+      "SHORT: Slope war ≥ 0 UND ist jetzt < 0 UND Schluss < KAMA.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn Schluss < KAMA. Short: wenn Schluss > KAMA.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "KAMA = Kaufman Adaptive Moving Average von Perry Kaufman. Passt sich an Marktbedingungen an.",
+      "Slope = Steigung. Misst wie schnell der Indikator nach oben/unten geht.",
+      "Adaptive = passt sich an (im Gegensatz zu fester Periode).",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Adaptive Trend-Following."
   },
   "Vortex Crossover": {
-    desc: "Zwei Linien (VI+ und VI-) zeigen ob die positive oder negative Bewegung dominiert. Crossover = Trend-Wechsel.",
-    steps: [
-      "Beobachte VI+ und VI- Linien.",
-      "VI+ kreuzt VI- nach oben: bullisch → kaufe.",
-      "VI- kreuzt VI+ nach oben: bearisch → verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe beim Gegenkreuz."
+    desc: "Vortex Indicator hat zwei Linien (VI+ und VI-). Crossing dieser Linien signalisiert Trendwechsel.",
+    indicators: [
+      "Vortex (14) — zwei Linien VI+ und VI-.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Trends mit klaren Wendepunkten."
+    steps: [
+      "Lege Vortex (14) und ATR(14) auf den Chart.",
+      "LONG: VI+ war ≤ VI- in der Vorkerze UND ist jetzt > VI- (Aufwärts-Cross).",
+      "SHORT: VI+ kreuzt nach unten unter VI-.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn die Linien wieder zurück kreuzen.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Vortex Indicator = Indikator von Etienne Botes und Douglas Siepman (2010). Inspiriert von Wirbel-Bewegungen in der Natur.",
+      "VI+ = positives Vortex-Movement.",
+      "VI- = negatives Vortex-Movement.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Klare Trends."
   },
   "Klinger Volume Oscillator": {
-    desc: "Ein Volumen-Indikator der unterscheidet zwischen 'echten' Volumen-Bewegungen (mit Trend) und 'Schein'-Volumen.",
-    steps: [
-      "Beobachte den Klinger Volume Oscillator.",
-      "Bullishe Divergenz (Preis fällt, KVO steigt): kaufe.",
-      "Bearishe Divergenz (Preis steigt, KVO fällt): verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe wenn KVO Vorzeichen wechselt."
+    desc: "KVO kombiniert Volumen mit Preisbewegung. Cross mit Signal-Linie + Vorzeichen-Filter = Entry.",
+    indicators: [
+      "Klinger Volume Oscillator (34, 55, 13) — KVO-Linie und Signal-Linie.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Volumen-getriebene Märkte. Vor allem bei Reversal-Signalen mit Divergenz."
+    steps: [
+      "Lege Klinger Volume Oscillator (34, 55, 13) und ATR(14) auf den Chart.",
+      "LONG: KVO war ≤ Signal in der Vorkerze UND ist jetzt > Signal UND KVO > 0 (positiver Volumen-Druck).",
+      "SHORT: KVO kreuzt nach unten unter Signal UND KVO < 0.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn KVO und Signal wieder zurück kreuzen.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Klinger Volume Oscillator (KVO) = Volumen-basierter Indikator von Stephen Klinger. Kombiniert Volumen-Trends mit Preis-Trends.",
+      "Volumen-Druck = ob mehr Volumen auf der Kauf- oder Verkaufsseite ist.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Volumen-getriebene Trends."
   },
   "HA Strong Continuation": {
-    desc: "Heikin-Ashi-Spezialität: starke einfarbige Kerzen ohne Gegen-Docht zeigen Trend-Fortsetzung. Du steigst mitten im Trend ein.",
-    steps: [
-      "Beobachte Heikin-Ashi-Kerzen.",
-      "Sobald 2-3 starke grüne Kerzen ohne unteren Docht erscheinen: starker Aufwärtstrend → kaufe am nächsten Pullback.",
-      "Spiegelbildlich für Short.",
-      "Stopp unter der letzten roten HA-Kerze.",
-      "Lass den Trade laufen — solange einfarbige Kerzen kommen."
+    desc: "Heikin-Ashi-Setup mit dehnbaren Kerzen ohne Wick gegen den Trend. Wenn der Open am Hoch (oder Tief) ist, ist es pure Aufwärts- (oder Abwärts-) Kraft.",
+    indicators: [
+      "Heikin-Ashi-Kerzen.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Sehr starke Trends. Bei Wechseln viele Stopouts."
+    steps: [
+      "Stelle den Chart auf Heikin-Ashi um. Lege ATR(14) dazu.",
+      "LONG: GENAU 3 grüne HA-Kerzen in Folge UND die jüngste hat haOpen == haLow (kein unterer Schatten = pure Aufwärts-Kraft).",
+      "SHORT: 3 rote HA-Kerzen UND die jüngste hat haOpen == haHigh (kein oberer Schatten).",
+      "Wichtig: bei 4 oder mehr Kerzen Streak triggert kein Entry mehr — die Streak muss exakt 3 sein.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: erste Kerze die die Farbe wechselt.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Heikin-Ashi = japanische Kerzen-Berechnungsmethode die Trends glättet.",
+      "haOpen, haHigh, haLow, haClose = die Werte einer Heikin-Ashi-Kerze.",
+      "Schatten / Wick / Docht = die dünnen Linien oben/unten an einer Kerze.",
+      "Streak = aufeinanderfolgende Sequenz.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Starke Trends mit Momentum."
   },
   "Schaff Trend Cycle": {
-    desc: "STC ist eine MACD-Variante die zusätzlich Zyklus-Analyse einsetzt. Reagiert schneller als MACD, weniger Lag.",
-    steps: [
-      "Beobachte den STC-Indikator (0-100).",
-      "STC steigt über 25 nach Tief: kaufe.",
-      "STC fällt unter 75 nach Hoch: verkaufe.",
-      "Stopp typische Schwankung.",
-      "Schließe wenn STC wieder das Gegenextrem erreicht."
+    desc: "STC = MACD durch Stochastic-Filter geschickt. Schneller als MACD, glatter als Stochastic. Recovery aus Extrem = Trade.",
+    indicators: [
+      "Schaff Trend Cycle (10, 23, 50) — Skala 0–100. Unter 25 = Oversold, über 75 = Overbought.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Mittelfristige Trends. Schneller als MACD aber stabiler als reine Oszillatoren."
+    steps: [
+      "Lege Schaff Trend Cycle und ATR(14) auf den Chart.",
+      "LONG: STC war ≤ 25 in der Vorkerze UND ist jetzt > 25 (Recovery aus Oversold).",
+      "SHORT: STC war ≥ 75 UND ist jetzt < 75.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn STC ≥ 75. Short: wenn STC ≤ 25.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Schaff Trend Cycle (STC) = Indikator von Doug Schaff. Kombiniert MACD-Idee mit Stochastic-Glättung.",
+      "Recovery = Verlassen der Extrem-Zone.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Mittelfristig, alle Phasen."
   },
   "Chandelier Exit Trend": {
-    desc: "Ein Trailing-Stop der mit dem Preis mitläuft. Der Stopp 'hängt' an einem Maß über/unter dem Preis und zieht nach.",
-    steps: [
-      "Berechne den Chandelier Exit (typisch 22 Kerzen Hoch minus 3x typische Schwankung für Long).",
-      "Bei Aufwärtstrend + Preis über 50er Durchschnitt: kaufe wenn Preis Chandelier nach oben durchbricht.",
-      "Stopp = aktueller Chandelier-Wert (zieht mit).",
-      "Spiegelbildlich für Short.",
-      "Schließe wenn Preis den Chandelier-Stopp trifft."
+    desc: "Chuck LeBeau's Chandelier-Exit-Linie als Trend-Signal: Bruch der Trail-Linie + EMA-Trendfilter.",
+    indicators: [
+      "Chandelier Exit (22, 3.0) — ATR-basierte Trail-Linie.",
+      "EMA (50) — Trend-Filter.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Klare Trends mit starker Volatilität. Gut zum Profit-Mitnehmen."
+    steps: [
+      "Lege Chandelier Exit (22, 3.0), EMA (50) und ATR(14) auf den Chart.",
+      "LONG: Vorkerze-Schluss ≤ Chandelier-Long-Linie UND aktueller Schluss > Chandelier-Long-Linie (Breakout) UND Schluss > EMA 50 (Trend-Filter).",
+      "SHORT: spiegelbildlich (Bruch der Chandelier-Short-Linie nach unten + Schluss < EMA 50).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit Long: wenn Schluss < Chandelier-Long-Linie. Short: wenn Schluss > Chandelier-Short-Linie.",
+      "Stopp-Loss: zusätzlicher harter Stopp 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "Chandelier Exit = ATR-basierte Trail-Linie von Chuck LeBeau. Hängt 'wie ein Kronleuchter' vom höchsten Hoch (Long) bzw. tiefsten Tief (Short) der letzten 22 Kerzen.",
+      "EMA = Exponential Moving Average.",
+      "Trail = nachgezogener Stopp.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trends mit Trailing-Risk-Management."
   },
   "TTM Squeeze": {
-    desc: "Ein Squeeze entsteht wenn die Bollinger-Bänder INNERHALB des Keltner-Channels liegen — extreme Konsolidierung. Wenn er aufbricht, kommt heftige Bewegung.",
-    steps: [
-      "Beobachte ob Bollinger-Bänder innerhalb des Keltner-Channels sind = Squeeze aktiv.",
-      "Squeeze löst sich + Momentum-Histogramm grün: kaufe.",
-      "Squeeze löst sich + Histogramm rot: verkaufe.",
-      "Stopp am Squeeze-Bereich.",
-      "Schließe wenn Histogramm Vorzeichen wechselt."
+    desc: "John Carter's TTM Squeeze: Bollinger-Bänder innerhalb des Keltner Channel = Squeeze. Wenn der Squeeze sich löst plus Momentum-Richtung = Trade.",
+    indicators: [
+      "Bollinger-Bänder (20, 2).",
+      "Keltner Channel (20, 1.5).",
+      "Momentum-Histogramm.",
+      "ATR (14) — für Stopp-Loss."
     ],
-    market: "Konsolidierungs-Phasen vor Ausbrüchen. Klassiker von John Carter."
+    steps: [
+      "Lege Bollinger-Bänder (20, 2), Keltner Channel (20, 1.5), Momentum-Histogramm und ATR(14) auf den Chart.",
+      "Squeeze: wenn die Bollinger-Bänder INNERHALB des Keltner Channel liegen.",
+      "Trigger: in der aktuellen Kerze hat sich der Squeeze gerade gelöst (Bollinger-Bänder verlassen den Keltner Channel).",
+      "LONG: Trigger UND Momentum > 0.",
+      "SHORT: Trigger UND Momentum < 0.",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: wenn Momentum das Vorzeichen wechselt.",
+      "Stopp-Loss: 2× ATR unter Einstieg (Long) bzw. darüber (Short)."
+    ],
+    glossary: [
+      "TTM Squeeze = Indikator von John Carter (Trade The Markets). Sehr populär in der Trader-Community.",
+      "Bollinger-Bänder = SMA + ±2σ.",
+      "Keltner Channel = EMA + ±n× ATR.",
+      "Squeeze = Bollinger innerhalb Keltner = niedrige Volatilität.",
+      "Momentum-Histogramm = Bar-Chart das Momentum-Stärke und -Richtung zeigt.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Volatility Expansion nach Konsolidierung."
   },
   "Engulfing + Volume": {
-    desc: "Eine Engulfing-Kerze (umschließende Body) ist nur dann zuverlässig wenn sie mit hohem Volumen kommt — sonst Fehlsignal.",
-    steps: [
-      "Beobachte ob eine bullishe Engulfing-Kerze (grün, umschließt vorherige rote Body) erscheint.",
-      "Prüfe ob das Volumen 1.5x über dem Durchschnitt liegt.",
-      "Plus: Preis muss über dem 50er-Durchschnitt sein (Trendfilter).",
-      "Wenn alles passt: kaufe am Schluss der Engulfing-Kerze.",
-      "Stopp unter Engulfing-Tief.",
-      "Spiegelbildlich für Short."
+    desc: "Klassisches Engulfing-Pattern, aber nur in Trend-Richtung UND mit Volumen-Bestätigung. Damit deutlich höhere Trefferquote.",
+    indicators: [
+      "Kerzenmuster (Bullisches/Bearisches Engulfing).",
+      "Volume SMA (20) — Durchschnittsvolumen.",
+      "EMA (50) — Trend-Filter.",
+      "ATR (14) — als Referenz."
     ],
-    market: "Universell mit Trendfilter. Volumen + Engulfing ist deutlich besser als Engulfing alleine."
+    steps: [
+      "Lege Volume SMA (20), EMA (50) und ATR(14) auf den Chart.",
+      "LONG: Vorkerze rot, aktuelle Kerze grün, aktueller Open ≤ Vor-Schluss, aktueller Schluss ≥ Vor-Open (vollständiges Body-Engulfing) UND Volumen > 1.5× Volume-SMA(20) UND Schluss > EMA 50.",
+      "SHORT: spiegelbildlich (bear engulfing + Schluss < EMA 50).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Stopp-Loss FIX bei min(Vor.Tief, Aktuell.Tief) für Long bzw. max(Vor.Hoch, Aktuell.Hoch) für Short — am gemeinsamen Pattern-Tief/Hoch (KEIN ATR-Multi).",
+      "Exit: nach 8 Kerzen (Zeit-Exit) oder beim Stopp-Loss."
+    ],
+    glossary: [
+      "Engulfing = eine Kerze umfasst die vorige komplett (Body).",
+      "Bullisches Engulfing = grün nach rot, Body verschluckt den roten Body.",
+      "Bearisches Engulfing = rot nach grün, Body verschluckt den grünen Body.",
+      "Volume SMA = Durchschnittsvolumen.",
+      "EMA = Exponential Moving Average.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Allround mit klarer Trendrichtung."
   },
   "21 EMA Bounce/Retest": {
-    desc: "Die 21-Perioden-EMA ist die meist-respektierte Durchschnittslinie im Krypto. Wenn der Preis sie als Support/Resistance behandelt und retestet, kannst du gezielt einsteigen.",
-    steps: [
-      "Beobachte ob der Preis die 21er-EMA von unten nach oben durchbricht (Cross).",
-      "Innerhalb der nächsten 30 Kerzen muss der Preis zur EMA zurückkommen (Retest).",
-      "Die Retest-Kerze muss die EMA mit dem Docht berühren, aber MIT der Body über der EMA schließen — kein Slice durch.",
-      "Sie muss bullisch (grün) sein, mit unterem Docht und vernünftiger Größe — kein Doji.",
-      "Sicherstellen: die 200er EMA liegt darüber als Gewinnziel und keine Resistance dazwischen.",
-      "Kaufen am Schluss der Retest-Kerze, Stopp unter dem Tief, Gewinn-Ziel an der 200er EMA."
+    desc: "Klassischer 21-EMA-Bounce aus dem Notizbuch. Die 21 EMA gilt als die meistrespektierte EMA. Bricht der Preis durch sie hindurch, wird sie automatisch zum neuen Support oder Widerstand. Gehandelt wird der RETEST, nicht der Bruch selbst.",
+    indicators: [
+      "EMA 21 — das Bounce-Level.",
+      "EMA 200 — das Take-Profit-Ziel.",
+      "ATR (14) — Kerzengrösse-Filter und Stopp-Loss-Puffer."
     ],
-    market: "Klare Trend-Phasen mit respektierter 21er EMA. 1h-Timeframe ideal."
+    steps: [
+      "Lege EMA 21, EMA 200 und ATR(14) auf den Chart.",
+      "Schritt 1: warte auf einen Aufwärts-Bruch der 21 EMA (Schluss-Cross von unten nach oben). Setze einen mentalen Marker.",
+      "Schritt 2: in den nächsten 30 Kerzen muss der Preis die 21 EMA RETESTEN (zurückkommen).",
+      "Schritt 3: prüfe die Retest-Kerze auf alle Must-Haves: (1) unterer Docht berührt EMA21 (Toleranz 0.3%), (2) Schluss bleibt ÜBER der EMA, (3) Open & Schluss beide ≥ EMA (Body schneidet nicht durch), (4) grün, (5) Body ≥ 25% der Range, (6) Range ≤ 2.5× ATR, (7) unterer Docht > 0, (8) EMA 200 liegt ÜBER dem Entry (= Platz nach oben), (9) keine Resistance zwischen Entry und EMA 200.",
+      "LONG: bei Eröffnung der nächsten Kerze nach der gültigen Retest-Kerze. SHORT: spiegelbildlich (Cross nach unten, Retest mit oberem Docht).",
+      "Take-Profit: bei der EMA 200.",
+      "Stopp-Loss: knapp unter dem Tief der Retest-Kerze (oder unter EMA 21, je tiefer) plus 0.3× ATR."
+    ],
+    glossary: [
+      "EMA 21 = Exponential Moving Average der letzten 21 Kerzen. Sehr populär bei Day-Tradern.",
+      "EMA 200 = Langzeit-Trend-Linie. Wird oft als grosses Ziel gehandelt.",
+      "Retest = der Preis kommt nach einem Bruch zur EMA zurück.",
+      "Must-Have = Pflicht-Kriterium für ein gültiges Setup.",
+      "Body / Range / Docht = Bestandteile einer Kerze.",
+      "Resistance = Widerstand, vorheriges Hoch.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trendmärkte mit klar respektierter 21 EMA, mittlere bis höhere Timeframes (1h / 4h / 1d). NICHT in Ranges oder choppigen Märkten."
   },
   "Delphin (EMA Fakeout)": {
-    desc: "Ein Setup nur für Short-Trades im Abwärtstrend: der Preis poppt kurz über die 21 oder 50 EMA (Fakeout), kommt zurück darunter, und du verkaufst beim Retest.",
-    steps: [
-      "Prüfe ob ein klarer Abwärtstrend läuft (21er EMA unter 50er unter 200er).",
-      "Aktueller Preis ist unter der 21er EMA.",
-      "In den letzten 15 Kerzen gab's einen kurzen Pop ÜBER die 21er oder 50er EMA, gefolgt von einer Drehung darunter.",
-      "Innerhalb 15 weiterer Kerzen kommt der Preis zurück zur EMA von unten — Retest.",
-      "Wenn die Retest-Kerze bearisch ist + Docht die EMA berührt + Body unter EMA schließt: verkaufe.",
-      "Stopp knapp über dem Retest-Hoch, Gewinn-Ziel: das Tief vor dem Fakeout."
+    desc: "Bearisches Continuation-Setup aus dem Notizbuch. Im Downtrend pokt der Preis kurz ÜBER die 21 oder 50 EMA (Fakeout / Stop-Hunt) und kommt zurück. Beim Retest von unten wird er an der EMA abgewiesen — wir traden die Ablehnungskerze.",
+    indicators: [
+      "EMA 21 und EMA 50 — Trigger-Levels.",
+      "EMA 200 — Trend-Filter (zeigt klaren Downtrend).",
+      "ATR (14) — Kerzen-Filter und Stopp-Loss-Puffer."
     ],
-    market: "Klare Downtrends mit gestaffelten EMAs."
+    steps: [
+      "Voraussetzungen prüfen: EMAs sind nach unten gestaffelt (EMA21 < EMA50 < EMA200, klarer Downtrend) UND aktueller Preis unter EMA21.",
+      "Sequenz finden: in den letzten 15 Kerzen muss es einen Up-Cross über EMA21 oder EMA50 gegeben haben, gefolgt von einem Down-Cross zurück darunter.",
+      "Innerhalb der nächsten 15 Kerzen: Ablehnungskerze die die EMA RETESTET. Must-Haves: (1) oberer Docht berührt die EMA (Toleranz 0.3%), (2) Schluss bleibt UNTER der EMA, (3) Body schneidet nicht durch, (4) rot, (5) Body ≥ 25% der Range, (6) Range ≤ 2.5× ATR, (7) oberer Docht > 0.",
+      "Beide EMAs werden parallel geprüft — der erste Treffer wird gehandelt.",
+      "Short-only: Einstieg bei Eröffnung der nächsten Kerze nach der gültigen Ablehnungskerze.",
+      "Take-Profit: bei dem tiefsten Tief der letzten 30 Kerzen VOR dem Fakeout (Swing-Low).",
+      "Stopp-Loss: knapp über dem Hoch der Retest-Kerze plus 0.3× ATR.",
+      "Min-RR-Filter (1.5): wenn das Reward/Risk-Verhältnis kleiner ist, wird der Trade verworfen."
+    ],
+    glossary: [
+      "Fakeout = falscher Ausbruch der schnell wieder zurückkommt.",
+      "Stop-Hunt = bewusste Bewegung um Stop-Loss-Cluster auszulösen.",
+      "Ablehnungskerze = Kerze die ein Level testet und abgewiesen wird (langer Docht in eine Richtung, Body in die andere).",
+      "Swing-Low = lokales Tief auf dem Chart.",
+      "EMA-Fan = mehrere EMAs klar gestaffelt (zeigt starken Trend).",
+      "RR / R:R = Reward zu Risk = Verhältnis Gewinnziel zu maximalem Verlust.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Klare Downtrends mit gestaffelten EMAs, vor allem in Krypto/Bitcoin auf 1h–4h. Lebt von Stop-Hunts über wichtigen MAs."
   },
   "Advancing/Retracing Wicks (Scalping)": {
-    desc: "Zwei Kerzen mit langen Dochten an der 21er EMA — die Stopps der Trader werden zweimal getestet. Die zweite Kerze ist etwas schwächer.",
-    steps: [
-      "Aktueller Preis muss über (für Long) bzw. unter (für Short) der 21er EMA sein.",
-      "Marktstärke (ADX) muss über 18 sein — kein Seitwärts.",
-      "Beide Kerzen müssen einen langen Docht haben (mind. 30% der Kerzen-Range).",
-      "Die Dochte berühren die 21er EMA, aber der Body bleibt darüber.",
-      "Bei Long: das zweite Tief muss leicht höher sein als das erste (Käufer werden stärker).",
-      "Kaufen am Schluss der zweiten Kerze, Stopp unter dem tiefsten Wick, Gewinn = 1.5x Risiko."
+    desc: "Scalping-Setup aus dem Notizbuch (Teil 5). Zwei Kerzen mit langen Dochten am 21 EMA — Käufer testen das Level zweimal, das zweite Mal weniger tief. Sehr schnelles, präzises Setup für niedrige Timeframes.",
+    indicators: [
+      "EMA 21 — Trigger-Level.",
+      "ADX (14) — Sideways-Filter (ADX > 18 = nur in Trends).",
+      "ATR (14) — Wick-Sizing und Stopp-Loss-Puffer."
     ],
-    market: "Scalping auf 5m oder 15m mit klar respektierter 21 EMA."
+    steps: [
+      "Lege EMA 21, ADX (14) und ATR(14) auf den 5m- oder 15m-Chart.",
+      "Voraussetzung Long: aktueller Preis ÜBER EMA 21 UND ADX > 18.",
+      "Suche zwei Kerzen mit langen unteren Dochten (jeweils ≥ 30% der Kerzen-Range), beide Dochte berühren EMA 21 (Toleranz 0.3%), beide Bodies bleiben ÜBER der EMA.",
+      "Das zweite Tief muss STRIKT höher liegen als das erste (advancing — gleich = Tweezer Bottom = wird abgelehnt).",
+      "Differenz zwischen den Tiefs ≤ 10% der grösseren Kerzen-Range.",
+      "Zwischen den beiden Kerzen dürfen 0–2 weitere Kerzen liegen.",
+      "Long-Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Short (Retracing Wicks): spiegelbildlich am 21 EMA bei Preis darunter.",
+      "Take-Profit: 1.5× Risiko (Scalping-konform).",
+      "Stopp-Loss: knapp jenseits des extremsten Dochtes plus 0.3× ATR."
+    ],
+    glossary: [
+      "Scalping = Trading auf sehr kurzen Timeframes (Sekunden bis wenige Minuten) mit kleinen Gewinnzielen.",
+      "Wick / Docht = die dünnen Linien oben und unten an einer Kerze.",
+      "Advancing Wicks = die Tiefs werden höher (Top-1-Pattern aus dem Notizbuch).",
+      "Retracing Wicks = die Hochs werden tiefer.",
+      "Tweezer Bottom = zwei Kerzen mit identischem Tief — wird hier ABGELEHNT (kein advancing).",
+      "EMA 21 = beliebter mittel-kurzer Durchschnitt.",
+      "ADX = Trendstärke 0–100.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Trending-Märkte (ADX > 18) auf niedrigen Timeframes (5m / 15m), mit klar respektierter 21 EMA. Verboten in Seitwärtsphasen — der ADX-Filter blockiert das automatisch."
   },
   "Old Money Stacks Breakout": {
-    desc: "Eine S/R-Breakout-Strategie mit strikten Filtern. Ein Trade nur wenn der Breakout sauber durch eine Resistance schließt + 1:2 Risk-Reward möglich ist.",
-    steps: [
-      "Wähle einen Coin mit mind. 5 Mio Tagesvolumen.",
-      "Zeichne die 3 wichtigsten Support- und Resistance-Linien manuell ein.",
-      "Bei einem Long-Breakout: Body schließt zu mind. 50% über der Resistance, oberer Docht max. 30% des Body, Kerze nicht zu groß.",
-      "Die nächste Resistance darüber muss mindestens 1:2 Gewinn-Risiko bieten.",
-      "Kaufen am Schluss der Breakout-Kerze, Stopp unter Tief, Gewinn-Ziel: nächste Resistance."
+    desc: "Klassische Support/Resistance-Breakout-Strategie nach dem Old-Money-Stacks-Rule-Sheet. Erkennt Pivot-S/R automatisch und triggert nur wenn die Breakout-Kerze sauber ist UND das nächste S/R mindestens 1:2 Risk-Reward erlaubt.",
+    indicators: [
+      "Pivot-Hochs/Tiefs (Default 5L/5R, bestätigt nach 5 Kerzen, Lookback 100).",
+      "ATR (14) — Kerzen-Filter und Stopp-Loss-Puffer."
     ],
-    market: "Liquide Coins mit klaren Pivot-Strukturen. 1h und 4h."
+    steps: [
+      "Lege ATR(14) auf den Chart und identifiziere die Pivot-Levels (5L/5R bedeutet: Pivot-Hoch hat 5 Kerzen links und 5 Kerzen rechts, beide niedriger).",
+      "LONG: Pivot-Resistance wird identifiziert. Breakout-Kerze muss bullisch sein (Schluss > Open), ihr Body schliesst zu mindestens 50% ÜBER der Resistance, der OBERE Docht ist max. 30% des Body, Range max. 2.5× ATR.",
+      "Filter: die nächste höhere Pivot-Resistance muss ≥ 1:2 Risk-Reward vom Entry liefern — sonst Trade verwerfen.",
+      "SHORT: spiegelbildlich am Support (bearishe Kerze, Body majoritär unter Support, unterer Docht max. 30% vom Body).",
+      "Einstieg: bei Eröffnung der nächsten Kerze.",
+      "Take-Profit: bei der nächsten Pivot-S/R-Linie.",
+      "Stopp-Loss: knapp unter dem Tief der Breakout-Kerze plus 0.2× ATR (oder 0.3× ATR bei Marubozu).",
+      "Coin-Vorfilter (manuell): 24h-Volumen ≥ 5 Mio $, durchschnittliches TP-Ziel ≥ 0.5%."
+    ],
+    glossary: [
+      "Pivot-Hoch / Pivot-Tief = lokales Hoch/Tief mit X Kerzen links und rechts die niedriger/höher sind.",
+      "Support / Resistance = Niveau wo der Preis öfter abprallt.",
+      "Breakout = Bruch eines Levels.",
+      "Risk-Reward (RR) = Gewinn-Ziel geteilt durch Risiko. 1:2 = doppelt so viel zu gewinnen wie zu verlieren.",
+      "Marubozu = Kerze ohne Schatten. Sehr starker Move.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Liquide Coins mit klaren Pivot-Strukturen, am besten 1h / 4h auf Major-Coins (BTC, ETH, BNB, SOL). NICHT auf Coins mit < 5 Mio $ Tagesvolumen."
   },
   "LSOB (Liquidity Sweep Order Block)": {
-    desc: "Smart Money jagt zuerst Stopps (Sweep), dann reagiert der Markt scharf. Du tradest die Reaktion — eine der hochwertigsten SMC-Strategien.",
-    steps: [
-      "Such ein Pivot-Tief im Chart das vom Preis kurz unterschritten wurde (Wick darunter), aber dann zurückgeholt wurde (Body schließt drüber) = Sweep.",
-      "Innerhalb 5 Kerzen muss eine bullishe Reaktions-Kerze kommen.",
-      "Markiere die Kerze mit dem TIEFSTEN Tief im Sweep-Bereich (high-to-low) als Box.",
-      "Warte bis der Preis aus der Box nach oben ausbricht.",
-      "Wenn er später zur Box zurückkommt + die Box bullisch verteidigt: kaufe.",
-      "Stopp unter dem Box-Tief, Gewinn-Ziel: 1:2 Risk-Reward."
+    desc: "Klassisches SMC-Setup aus dem Notizbuch (Teil 7). Sweep eines Pivots → Reaktion → Order Block → Breakout → Retest = Trade. Sehr selektives 6-Phasen-Setup mit hoher Trefferquote.",
+    indicators: [
+      "Pivot-Hochs/Tiefs (Default 5L/5R) — für Sweep-Detection.",
+      "Box-Tracking — der Code zeichnet die Order-Block-Box automatisch.",
+      "ATR (14) — für Sizing und Stopp-Loss-Puffer."
     ],
-    market: "Universell auf höheren Timeframes (1h-4h). Setups sind selten aber qualitativ stark."
+    steps: [
+      "Phase 1 — Sweep: ein bestätigtes Pivot-Tief wird unterboten. Kerzen-Tief unter Pivot, aber Schluss ÜBER Pivot (Stop-Hunt + Reclaim).",
+      "Phase 2 — Reaktion: in den nächsten 5 Kerzen erscheint mind. 1 grüne Kerze (bullische Reaktion).",
+      "Phase 3 — Box-Definition: auf der Kerze mit dem TIEFSTEN Tief im Sweep-Bereich wird die Order-Block-Box gezeichnet (Hoch zu Tief inkl. Docht).",
+      "Phase 4 — Breakout: später bricht der Preis ÜBER box.high.",
+      "Phase 5 — Retest: in den nächsten 30 Kerzen kommt der Preis zurück zur Box. Der Docht darf in die Box, der Body darf MINIMAL drin schliessen (max. 30% der Box-Tiefe).",
+      "Phase 6 — Trigger: die Retest-Kerze ist grün (bullische Reaktion am Order Block).",
+      "LONG: bei Eröffnung der nächsten Kerze. SHORT: alles spiegelbildlich.",
+      "Take-Profit: 1:2 Risk-Reward (kann je nach TF höher gesetzt werden).",
+      "Stopp-Loss: knapp unter Box-Tief minus 0.5% Puffer.",
+      "Pro Box wird nur EIN Trade ausgelöst.",
+      "Profi-Tipp: LSOB auf höherem TF suchen (1h/4h/1d), auf kleinerem TF (5m/15m) traden = besseres CRV."
+    ],
+    glossary: [
+      "Smart Money Concept (SMC) = Trading-Philosophie die institutionelle Orderflows nachvollzieht.",
+      "Sweep = Stop-Hunt durchsticht ein Pivot-Tief/Hoch und kehrt zurück.",
+      "Reclaim = der Preis kommt nach dem Sweep über das Level zurück.",
+      "Order Block = Kerze die institutionellen Druck markiert.",
+      "Box = der gezeichnete Bereich des Order Blocks.",
+      "Breakout-Retest-Setup = klassisches Trade-Schema (durchbrechen, zurückkommen, weitergehen).",
+      "Risk-Reward / CRV = Gewinn-zu-Risk-Verhältnis.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Funktioniert auf allen Timeframes — Profi-Tipp aus dem Notizbuch: Setup auf hohem TF suchen, auf kleinem traden. Counter-Trend möglich. Confluences mit Fib, Trendlinien, RSI-Divergenz, FVG verbessern Trefferquote."
   },
   "Custom Builder": {
-    desc: "Dein eigener Bauplan: kombiniere Indikator-Bausteine zu deiner persönlichen Strategie. Du wählst was an deine Bedürfnisse passt.",
+    desc: "Dein eigener Bauplan: kombiniere Indikator-Bausteine aus dem Strategy-Builder zu deiner persönlichen Strategie. Verhalten hängt komplett von deinen gewählten Bedingungen ab.",
+    indicators: [
+      "Frei wählbar — die Bausteine im Strategy-Builder sind: RSI, EMA, SMA, MACD, Bollinger-Bänder, ADX, Stochastic, MFI, Volume, ATR und mehr.",
+      "ATR (14) — für ATR-basierte Stopp-Loss / Take-Profit (im Builder konfigurierbar)."
+    ],
     steps: [
       "Geh in den Strategy-Builder-Tab.",
-      "Wähle aus den Bausteinen: RSI, EMA, MACD, Bollinger, Volumen usw.",
-      "Definiere Entry-Bedingungen (z.B. RSI < 30 UND Preis über EMA50).",
-      "Definiere Exit-Bedingungen (z.B. RSI > 70 ODER Stop-Loss erreicht).",
-      "Speichere und teste die Strategie im Backtest.",
-      "Tune Parameter mit dem Optimizer."
+      "Wähle Indikator-Bausteine aus (z.B. RSI(14), EMA(50)).",
+      "Definiere Entry-Bedingungen mit AND/OR-Logik (z.B. „RSI < 30 UND Preis über EMA50“).",
+      "Definiere Exit-Bedingungen ODER lass den ATR-basierten Stopp-Loss/Take-Profit den Trade managen.",
+      "Speichere die Strategie und teste sie im Backtest.",
+      "Tune Parameter mit dem Optimizer-Tab.",
+      "Beachte: keine Auto-Filter — was du baust, läuft auch genau so. Auch Quatsch-Setups."
     ],
-    market: "Hängt von deinen Bausteinen ab. Maximaler Flexibilität — wenn du weißt was du willst."
+    glossary: [
+      "Strategy Builder = das App-Modul zum Zusammenklicken eigener Strategien.",
+      "AND-Logik = alle Bedingungen müssen gleichzeitig erfüllt sein.",
+      "OR-Logik = mindestens eine der Bedingungen muss erfüllt sein.",
+      "Optimizer = Tool das automatisch verschiedene Parameter-Kombinationen testet.",
+      "Out-of-Sample-Test = Test auf Daten die das System NIE gesehen hat — wichtig gegen Overfitting.",
+      "ATR = durchschnittliche Schwankung pro Kerze."
+    ],
+    market: "Hängt von deinen Bausteinen ab. Maximaler Flexibilität — wenn du weisst was du willst."
   }
 };
 
@@ -21501,12 +22431,29 @@ function renderAcademy() {
     const isSimpleFormat = (mode === 'simple') && Array.isArray(info.steps);
     let bodyHtml = '';
     if (isSimpleFormat) {
+      const lblIndicatorsBox = isEn ? 'Add these indicators to your chart:' : 'Indikatoren auf den Chart legen:';
+      const lblGlossary = isEn ? 'What the terms mean' : 'Was die Begriffe bedeuten';
+      const indicatorsHtml = (Array.isArray(info.indicators) && info.indicators.length) ? `
+        <div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:12px 14px;border-radius:4px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📊 ${lblIndicatorsBox}</div>
+          <ul style="margin:0;padding-left:22px;line-height:1.8">
+            ${info.indicators.map(s => `<li>${s}</li>`).join('')}
+          </ul>
+        </div>` : '';
+      const glossaryHtml = (Array.isArray(info.glossary) && info.glossary.length) ? `
+        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--text-muted)">
+          <div style="font-weight:700;color:var(--text-secondary);margin-bottom:6px">📚 ${lblGlossary}</div>
+          <ul style="margin:0;padding-left:18px;line-height:1.7">
+            ${info.glossary.map(g => `<li>${g}</li>`).join('')}
+          </ul>
+        </div>` : '';
       bodyHtml = `
         <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${info.desc}</p>
         <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
           ${_academySvg(schema, isEn)}
         </div>
+        ${indicatorsHtml}
         <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:8px">📖 ${lblHowto}</div>
           <ol style="margin:0;padding-left:22px;line-height:1.8">
@@ -21515,7 +22462,8 @@ function renderAcademy() {
         </div>
         ${info.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
           <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${info.market}
-        </div>` : ''}`;
+        </div>` : ''}
+        ${glossaryHtml}`;
     } else {
       bodyHtml = `
         <p style="margin:0 0 12px;color:var(--text-primary)">${info.desc}</p>
@@ -21531,29 +22479,26 @@ function renderAcademy() {
         </div>
         ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}`;
     }
-    // Per-Strategie Mini-Toggle (Einfach/Detailliert) oben in der aufgeklappten Karte
-    const lblView = isEn ? 'View:' : 'Anzeige:';
+    // Per-Strategie Mini-Toggle (Einfach/Detailliert) — direkt neben dem Namen in der Summary
     const lblSimple = isEn ? '📖 Simple' : '📖 Einfach';
     const lblDetailed = isEn ? '🔬 Detailed' : '🔬 Detailliert';
-    const miniToggleHtml = `
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:0 0 12px;font-size:11px;color:var(--text-muted)">
-        <span>${lblView}</span>
-        <div style="display:flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:5px;overflow:hidden">
-          <button type="button" onclick="event.stopPropagation();setAcademyMode('simple')" style="padding:4px 10px;background:${mode==='simple'?'var(--blue)':'transparent'};color:${mode==='simple'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:11px">${lblSimple}</button>
-          <button type="button" onclick="event.stopPropagation();setAcademyMode('detailed')" style="padding:4px 10px;background:${mode==='detailed'?'var(--blue)':'transparent'};color:${mode==='detailed'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:11px">${lblDetailed}</button>
-        </div>
-      </div>`;
+    const summaryToggleHtml = `
+      <span class="academy-card-toggle" style="display:inline-flex;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:5px;overflow:hidden;flex-shrink:0;margin-left:4px">
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();setAcademyMode('simple')" style="padding:3px 9px;background:${mode==='simple'?'var(--blue)':'transparent'};color:${mode==='simple'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:10px;letter-spacing:0.2px">${lblSimple}</button>
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();setAcademyMode('detailed')" style="padding:3px 9px;background:${mode==='detailed'?'var(--blue)':'transparent'};color:${mode==='detailed'?'#fff':'var(--text-muted)'};border:none;cursor:pointer;font-weight:600;font-size:10px;letter-spacing:0.2px">${lblDetailed}</button>
+      </span>`;
     // data-strat Attribut zum Wiedererkennen der offenen Karten beim Re-Render
     const stratAttr = strat.name.replace(/"/g, '&quot;');
     html += `
       <details data-strat="${stratAttr}" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
-        <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
+        <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none;flex-wrap:wrap">
           <span style="color:var(--blue);font-size:11px">▶</span>
-          <span style="flex:1">${strat.name}</span>
+          <span>${strat.name}</span>
+          ${summaryToggleHtml}
+          <span style="flex:1"></span>
           <span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;background:var(--bg-tertiary);padding:2px 8px;border-radius:10px">${schema.replace('-', ' ')}</span>
         </summary>
         <div style="padding:0 16px 16px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
-          ${miniToggleHtml}
           ${bodyHtml}
         </div>
       </details>`;
