@@ -5633,7 +5633,10 @@ const STRATEGIES = [
       traumBC: { label: "Traum BC Ratio", value: 1.5, min: 0.5, max: 3.0, step: 0.1 },
       traumCorrMin: { label: "Traum Corr Min", value: 0.45, min: 0.2, max: 0.7, step: 0.05 },
       traumCorrMax: { label: "Traum Corr Max", value: 0.75, min: 0.5, max: 0.9, step: 0.05 },
-      corrMin: { label: "Corr Min", value: 0.30, min: 0.1, max: 0.6, step: 0.05 }
+      corrMin: { label: "Corr Min", value: 0.30, min: 0.1, max: 0.6, step: 0.05 },
+      minSlPct: { label: "Min SL %", value: 0.5, min: 0.1, max: 2.0, step: 0.1 },
+      touchLookback: { label: "Touch Lookback (5m)", value: 15, min: 5, max: 60, step: 1 },
+      entryLookback: { label: "Entry Lookback (5m)", value: 3, min: 1, max: 5, step: 1 }
     },
     init(candles, params) {
       // ── Multi-Timeframe: Resample 5m → 1h for zone detection ──
@@ -5688,9 +5691,17 @@ const STRATEGIES = [
       const opens = htfCandles.map(c => c.open);
       const n = htfCandles.length;
 
-      // EMA50 on 5m candles for trend filter (used in shouldEnter)
-      const ltfCloses = candles.map(c => c.close);
-      this._ema50 = Indicators.ema(ltfCloses, 600); // 600 x 5m = 50h ≈ EMA50 on 1h
+      // ── EMA50 auf 1h-Kerzen (LIVE-BOT konform): ema50 auf htfCandles berechnen ──
+      // Live-Bot scan_sk_zones() überschreibt ema_trend mit AKTUELLEM 1h-EMA50.
+      // Wir berechnen EMA50 echt auf 1h-Kerzen und mappen den jeweiligen 1h-Wert auf alle 5m-Kerzen
+      // dieser Stunde zurück → trendfilter ist konsistent zur aktuellen 1h-Marktlage.
+      const htfCloses = htfCandles.map(c => c.close);
+      const htfEma50 = Indicators.ema(htfCloses, 50);
+      this._ema50 = new Array(candles.length);
+      for (let i = 0; i < candles.length; i++) {
+        const hi = ltfToHtf[i];
+        this._ema50[i] = (hi !== undefined && hi < htfEma50.length) ? htfEma50[hi] : NaN;
+      }
 
       // ── Swing Detection (on 1h) ──
       const lb = params.swingLB;
@@ -5901,84 +5912,134 @@ const STRATEGIES = [
     },
 
     shouldEnter(candles, i, params) {
-      // Entry detection on 5m candles — granular touch/bounce detection
+      // Entry detection on 5m candles — LIVE-BOT konform mit 3-Kerzen-Lookback
+      // und 1h-EMA50-Trendfilter (wie scan_sk_zones EMA-Override)
       if (i < 2 || isNaN(this._ema50[i])) return null;
       const c = candles[i];
       const curPrice = c.close;
       const emaTrend = curPrice > this._ema50[i] ? "bullish" : "bearish";
       const slBuf = params.slBuffer / 100;
+      const minSlPct = (params.minSlPct || 0.5) / 100;
+      const touchLB = params.touchLookback || 15;
+      const entryLB = params.entryLookback || 3;
 
       for (let zi = 0; zi < this._zones.length; zi++) {
         const z = this._zones[zi];
-        // activeFrom and expiresAt are already in 5m index space
+        // activeFrom / expiresAt sind bereits in 5m-Index
         if (z.activeFrom > i || z.expiresAt < i) continue;
-        // Cooldown: skip zone if traded within last 144 5m-candles (12h)
+        // Cooldown: gleiche Zone darf nur 1× am Tag (engine: täglicher Reset → 144 5m-Kerzen ≈ 12h)
         if (this._zoneUsed.has(zi) && (i - this._zoneUsed.get(zi)) < 144) continue;
 
-        // Trend filter (EMA on 5m, period scaled to match 1h EMA50)
+        // ── EMA50-Trendfilter (LIVE-BOT: aktueller 1h-EMA50-Trend) ──
         if (z.dir === "long" && emaTrend === "bearish") continue;
         if (z.dir === "short" && emaTrend === "bullish") continue;
 
         const zw = Math.abs(z.zt - z.zb);
         if (zw <= 0) continue;
 
-        // Zone touch + bounce check on 5m (last 60 candles = 5h, similar granularity)
-        if (z.dir === "long") {
-          let touched = false;
-          for (let j = Math.max(0, i - 60); j < i; j++) {
-            if (candles[j].low <= z.zt) touched = true;
-          }
-          if (!touched) continue;
-          if (!(curPrice > z.zt && c.close > c.open && curPrice <= z.zt + zw * 2.0)) continue;
-
-          const sl = z.slRef * (1 - slBuf);
-          const slDist = curPrice - sl;
-          const tpDist = z.tp1 - curPrice;
-          if (slDist <= 0 || tpDist <= 0) continue;
-          const rr = tpDist / slDist;
-          if (rr < params.minRR || rr > 12) continue;
-
-          this._zoneUsed.set(zi, i);
-          return {
-            dir: "long", sl,
-            tp: z.tp1,
-            tp2: z.tp2,
-            _zone: z,
-            _rr: rr
-          };
-        } else {
-          let touched = false;
-          for (let j = Math.max(0, i - 60); j < i; j++) {
-            if (candles[j].high >= z.zb) touched = true;
-          }
-          if (!touched) continue;
-          if (!(curPrice < z.zb && c.close < c.open && curPrice >= z.zb - zw * 2.0)) continue;
-
-          const sl = z.slRef * (1 + slBuf);
-          const slDist = sl - curPrice;
-          const tpDist = curPrice - z.tp1;
-          if (slDist <= 0 || tpDist <= 0) continue;
-          const rr = tpDist / slDist;
-          if (rr < params.minRR || rr > 12) continue;
-
-          this._zoneUsed.set(zi, i);
-          return {
-            dir: "short", sl,
-            tp: z.tp1,
-            tp2: z.tp2,
-            _zone: z,
-            _rr: rr
-          };
+        // ── LOST-ZONE-BLOCK ±2% für 24h (LIVE-BOT konform) ──
+        // 24h = 288 5m-Kerzen, ±2% Distanz zum Mid der Lost-Zone
+        if (this._lostZones && this._lostZones.length > 0) {
+          const zMid = (z.zt + z.zb) / 2;
+          const blocked = this._lostZones.some(lz => 
+            (i - lz.idx) < 288 && Math.abs(zMid - lz.price) / lz.price < 0.02
+          );
+          if (blocked) continue;
         }
+
+        // ── 3-Kerzen-Entry-Lookback (LIVE-BOT check_5m_entry_live) ──
+        // Prüft die letzten N Kerzen (default 3): aktuelle + 2 abgeschlossene
+        let entryConfirmed = false;
+        let entryPrice = 0;
+        for (let lookOffset = 0; lookOffset < entryLB; lookOffset++) {
+          const ci = i - lookOffset;
+          if (ci < touchLB) continue;
+          const ck = candles[ci];
+
+          if (z.dir === "long") {
+            // Touch in den letzten touchLB Kerzen VOR ci
+            let touched = false;
+            for (let j = Math.max(0, ci - touchLB); j < ci; j++) {
+              if (candles[j].low <= z.zt) { touched = true; break; }
+            }
+            if (!touched) continue;
+            // Close > zone_top + grüne Kerze + Distanz <= 2× Zonenbreite
+            if (ck.close > z.zt && ck.close > ck.open && ck.close <= z.zt + zw * 2.0) {
+              entryConfirmed = true;
+              entryPrice = ck.close;
+              break; // neueste passende Kerze gewinnt
+            }
+          } else {
+            let touched = false;
+            for (let j = Math.max(0, ci - touchLB); j < ci; j++) {
+              if (candles[j].high >= z.zb) { touched = true; break; }
+            }
+            if (!touched) continue;
+            if (ck.close < z.zb && ck.close < ck.open && ck.close >= z.zb - zw * 2.0) {
+              entryConfirmed = true;
+              entryPrice = ck.close;
+              break;
+            }
+          }
+        }
+        if (!entryConfirmed) continue;
+
+        // ── SL/TP/RR berechnen ──
+        let sl, slDist, tpDist;
+        if (z.dir === "long") {
+          sl = z.slRef * (1 - slBuf);
+          slDist = entryPrice - sl;
+          tpDist = z.tp1 - entryPrice;
+        } else {
+          sl = z.slRef * (1 + slBuf);
+          slDist = sl - entryPrice;
+          tpDist = entryPrice - z.tp1;
+        }
+        if (slDist <= 0 || tpDist <= 0) continue;
+
+        // ── L1 Min-SL-Distanz: mindestens 0.5% (LIVE-BOT l1_min_sl_pct) ──
+        const slDistPct = slDist / entryPrice;
+        if (slDistPct < minSlPct) continue;
+
+        const rr = tpDist / slDist;
+        // ── L1 RR-Filter: 1.5–12 (LIVE-BOT min_rr_ratio / l1_max_rr) ──
+        if (rr < params.minRR || rr > 12) continue;
+
+        this._zoneUsed.set(zi, i);
+        return {
+          dir: z.dir, sl,
+          tp: z.tp1,
+          tp2: z.tp2,
+          _zone: z,
+          _zi: zi,
+          _rr: rr,
+          _entryPrice: entryPrice
+        };
       }
       return null;
     },
 
     shouldExit(candles, i, position, params) {
-      // TP2 check (after TP1 is managed by engine)
+      // ── TP1-vor-SL Priority (LIVE-BOT): wenn beide in derselben Bar getroffen werden,
+      //   gilt TP1 zuerst. Engine handhabt TP1 → BE; wir prüfen hier TP2.
       if (position._zone && position._zone.tp2) {
         if (position.dir === "long" && candles[i].high >= position._zone.tp2) return true;
         if (position.dir === "short" && candles[i].low <= position._zone.tp2) return true;
+      }
+      // ── Lost-Zone-Tracking bei SL-Hit (LIVE-BOT: ±2% Block für 24h) ──
+      // Wir registrieren den Entry-Preis als "Lost Zone" wenn SL getriggert wird,
+      // damit shouldEnter zukünftig diese Zone meidet.
+      if (position._zone && position.sl != null) {
+        const slHit = (position.dir === "long" && candles[i].low <= position.sl)
+                   || (position.dir === "short" && candles[i].high >= position.sl);
+        if (slHit) {
+          if (!this._lostZones) this._lostZones = [];
+          const ep = position._entryPrice || position._zone.slRef;
+          this._lostZones.push({ price: ep, idx: i });
+          // Alte (>288 Bars) entfernen damit der Array nicht wächst
+          this._lostZones = this._lostZones.filter(lz => (i - lz.idx) < 288);
+          // Engine schliesst eh automatisch — wir geben false zurück (kein doppelter Exit)
+        }
       }
       return false;
     }
@@ -8854,11 +8915,11 @@ const STRATEGY_INFO = {
     indicators: "9 ML-Features (RSI, EMAs, ADX, BB-Pos, Vol, ATR, Returns), ATR(14)"
   },
   "FinalBoss Zonen": {
-    desc: "Multi-Timeframe SMC-Strategie: Findet Swing-Hochs/Tiefs auf 1h, baut Fibonacci-Zonen, validiert mit Break-of-Structure (BOS) und Change-of-Character (CHoCH), und handelt Touch+Bounce auf 5m mit EMA-Trendfilter.",
-    entry: "1h-Setup: Swing-Sequenz erkannt, Korrektur-Tiefe ≥ 0.30 der Impuls-Range, entweder Traumsequenz (BC/AB > 1.5, Korr 0.45-0.75) ODER BOS-Bestätigung. Kein CHoCH gegen die Richtung. Zone wird als Fib 0.5-0.667 vom Impuls-High konstruiert. 5m-Entry: Zone wurde in den letzten 60 Kerzen (5h) berührt, jetzt Preis ÜBER Zone-Top (Long) UND grüne Kerze UND Close <= Zone-Top + 2× Zonenbreite UND R/R-Verhältnis (TP1 / SL-Distanz) zwischen 1.5 und 12. Trend-Filter: Close > EMA50-Äquivalent (600er EMA auf 5m). Short spiegelbildlich. Cooldown: gleiche Zone darf erst nach 144 Bars (12h) wieder gehandelt werden.",
-    exit: "SL: Zone-Referenz (Pullback-Tief/Hoch) ± slBuffer (default 0.2%). TP1 = Impuls-High (B-Punkt der Sequenz). TP2 = B-Punkt + 0.618× Impuls-Range (Fib-Extension). Trade endet bei TP1 (gemanaged in Engine) oder TP2 (in shouldExit).",
-    market: "BTC und ETH - die Coins des FinalBoss Bots",
-    indicators: "1h Swings + Fibonacci-Zonen (0.5-0.667), BOS/CHoCH/Traumsequenz, 5m EMA-Äquivalent, ATR(14)"
+    desc: "Multi-Timeframe SMC-Strategie aus dem FinalBoss Live-Bot v4: findet Swing-Hochs/Tiefs auf 1h, baut Fibonacci-Zonen (0.5-0.667 Retracement), validiert mit Break-of-Structure (BOS), Pullback (PB), Change-of-Character (CHoCH) und Fib-786-Filter. Entry-Trigger auf 5m mit 3-Kerzen-Lookback + EMA50-Trendfilter (aktueller 1h-Trend, kein Stale-Cache). Risk-Management: Min-SL 0.5%, Max-RR 12, Lost-Zone-Block ±2% für 24h nach SL.",
+    entry: "1h-SETUP: Swing-Sequenz mit höherem Tief (Long) bzw. tieferem Hoch (Short), Korrektur-Tiefe ≥ 0.30 der Impuls-Range, entweder Traumsequenz (BC/AB > 1.5, Korr 0.45-0.75) ODER BOS-Bestätigung. Kein CHoCH gegen die Richtung. Kein Fib-786-Overshoot. Zone = Fib 0.5-0.667 vom B-Punkt (Impuls-High/Low). 5m-ENTRY: Zone in den letzten 15 Kerzen (~75 Min) berührt, jetzt 5m-Close > Zone-Top (Long) UND grüne Kerze UND Close ≤ Zone-Top + 2× Zonenbreite. Bei Short spiegelbildlich. Drei-Kerzen-Lookback: prüft die letzten 3 5m-Kerzen, damit kein Close verpasst wird (Live-Bot check_5m_entry_live). FILTER: EMA50-Trend auf 1h-Kerzen (aktueller Trend, NICHT vom Sequenz-Discovery-Zeitpunkt — siehe Live-Bot scan_sk_zones EMA-Override). Min-SL-Distanz 0.5% des Entry-Preises (l1_min_sl_pct). RR (TP1/SL-Dist) zwischen 1.5 und 12. Lost-Zone-Block: nach SL-Hit wird der Entry-Preis als ±2%-Zone für 288 5m-Bars (24h) gesperrt.",
+    exit: "SL = Zone-Referenz (slRef = C-Punkt der Sequenz / Pullback-Tief bzw. -Hoch) ± slBuffer (default 0.2%). TP1 = B-Punkt der Sequenz (Impuls-Hoch/Tief). Bei TP1-Hit: 50% Teilverkauf + SL → Break-Even (Engine-managed). TP2 = B-Punkt + 0.618× Impuls-Range. Doppel-Bestätigung bei TP1: zweiter Ticker-Preis wird abgefragt um Glitch-Trigger zu verhindern. TP1-vor-SL: wenn TP1 und SL in derselben Bar getroffen werden, gilt TP1 zuerst (Live-Bot Fix vom 06.05.).",
+    market: "Krypto (BTC/USDT, ETH/USDT etc.) — der Live-Bot tradet aktuell 8 Coins: BLUR, FET, DOT, FLOKI, COMP, DOGE, SAND, ADA. ETH und JUP wurden am 06.05.2026 entfernt (negative Backtest-Performance).",
+    indicators: "1h-Swings (LB=3) + Fibonacci-Zonen (0.5-0.667), BOS/PB/CHoCH/Fib786-Filter, 1h-EMA50 (aktueller Trend), 5m-Close-Above + grüne/rote Confirmation-Kerze, 24h-Lost-Zone-Block ±2%"
   },
   "MACD Crossover": {
     desc: "Klassisches Momentum-Signal: MACD-Linie kreuzt die Signal-Linie.",
@@ -9186,7 +9247,7 @@ const STRATEGY_INFO_EN = {
   "Regime-Switch Master": { desc: "Detects market regime (trend/range/volatility) and switches sub-strategy automatically.", entry: "Depends on regime — trend strategy in trends, mean reversion in range.", exit: "Regime change or sub-strategy exit.", market: "All — adapts automatically", indicators: "ADX, BB-Width, ATR" },
   "Multi-Strategy Voting": { desc: "Multiple sub-strategies vote — entry only when N out of M agree.", entry: "Long when ≥3 of 5 indicators signal bullish: EMA-50 trend, EMA-9/21 cross, RSI direction, ADX+DI, Supertrend. Short reverse.", exit: "Majority votes opposite or stop-loss.", market: "All — robust against single-strategy weakness", indicators: "EMA-50, EMA-9/21, RSI, ADX/DI, Supertrend" },
   "ML Feature Classifier": { desc: "Simple Random-Forest-style classifier with technical features. Predicts up/down probability.", entry: "Long when probability > 0.6. Short when < 0.4.", exit: "Signal ends or stop-loss.", market: "All — adapts to historical patterns (caution: overfitting possible!)", indicators: "RSI, ADX, BB-position, EMA-slopes, volatility, volume — as ML features" },
-  "FinalBoss Zonen": { desc: "The FinalBoss Bot strategy: trades at predefined price zones acting as support/resistance.", entry: "Long when price falls into a buy zone and reverses. Short in sell zones.", exit: "Opposite zone reached or stop-loss.", market: "BTC and ETH — the FinalBoss Bot coins", indicators: "Price zones, ATR" },
+  "FinalBoss Zonen": { desc: "Multi-timeframe SMC strategy from the FinalBoss live bot v4: finds 1h swing highs/lows, builds Fibonacci zones (0.5-0.667 retracement), validates with Break-of-Structure (BOS), Pullback (PB), Change-of-Character (CHoCH) and Fib-786 invalidation. Entry trigger on 5m with 3-candle lookback + 1h-EMA50 trend filter (current trend, no stale cache). Risk: Min-SL 0.5%, Max-RR 12, Lost-Zone block ±2% for 24h after SL.", entry: "1h SETUP: swing sequence with higher low (long) / lower high (short), correction depth >= 0.30 of impulse range, either Traumsequenz (BC/AB > 1.5, corr 0.45-0.75) OR BOS confirmation. No CHoCH against direction. No Fib-786 overshoot. Zone = Fib 0.5-0.667 from B point. 5m ENTRY: zone touched in last 15 candles (~75 min), now 5m close > zone top (long) AND green candle AND close <= zone top + 2x zone width. Short mirrored. 3-candle lookback (check_5m_entry_live). EMA50 on 1h closes (current trend). Min-SL-distance 0.5% of entry price. RR (TP1/SL-dist) between 1.5 and 12. Lost-zone block: after SL hit, entry price is blocked +-2% for 288 5m bars (24h).", exit: "SL = zone reference (C point / pullback low/high) +- slBuffer (default 0.2%). TP1 = B point of sequence (impulse high/low). On TP1 hit: 50% partial close + SL -> break-even (engine-managed). TP2 = B point + 0.618 x impulse range. Double-confirm at TP1 (second ticker fetch to prevent glitch triggers). TP1-before-SL: if TP1 and SL hit in the same bar, TP1 takes priority (live bot fix 06.05.).", market: "Crypto (BTC/USDT, ETH/USDT etc.) — live bot currently trades 8 coins: BLUR, FET, DOT, FLOKI, COMP, DOGE, SAND, ADA. ETH and JUP removed on 06.05.2026 (negative backtest performance).", indicators: "1h swings (LB=3) + Fibonacci zones (0.5-0.667), BOS/PB/CHoCH/Fib786 filters, 1h EMA50 (current trend), 5m close-above + green/red confirmation candle, 24h lost-zone block +-2%" },
   "MACD Crossover": { desc: "Classic momentum signal: MACD line crosses signal line.", entry: "Long when MACD crosses above signal. Short for opposite cross.", exit: "Opposite cross or stop-loss.", market: "Trending to mildly volatile markets", indicators: "MACD (12/26/9), ATR" },
   "Stochastic K/D Cross": { desc: "Stochastic oscillator: K line crosses D line in extreme zones.", entry: "Long: K crosses D upward in oversold (<30). Short: K crosses D downward in overbought (>70).", exit: "Stochastic reaches opposite extreme or stop-loss.", market: "Range / mean-reverting", indicators: "Stochastic (14,3), ATR" },
   "Williams %R Reversal": { desc: "%R measures where close lies relative to last N candles' range. Extreme values signal reversal.", entry: "Long when %R turns up from -80 (oversold). Short when down from -20 (overbought).", exit: "Other side of range reached or stop-loss.", market: "Mean-reversion", indicators: "Williams %R (14), ATR" },
@@ -9963,37 +10024,52 @@ const STRATEGY_INFO_SIMPLE = {
     market: "Alle — passt sich an historische Muster an. Vorsicht: Overfitting möglich, deshalb gut Out-of-Sample testen."
   },
   "FinalBoss Zonen": {
-    desc: "Multi-Timeframe-Strategie aus dem FinalBoss-Bot: findet Swing-Sequenzen und Fibonacci-Zonen auf 1h, validiert mit BOS/CHoCH, und triggert den präzisen Entry auf 5m mit EMA-Trendfilter.",
+    desc: "Die echte Strategie aus dem FinalBoss Live-Bot v4. Findet auf der 1h-Chart 'Traumsequenzen' (Impulsbewegung + saubere Korrektur) und legt eine Kauf- oder Verkaufszone in den 0.5-0.667 Fibonacci-Bereich. Auf der 5m-Chart wartest du dann auf das exakte Einstiegssignal: Touch + Bestätigungskerze. Mit Lost-Zone-Block, Min-SL und Multi-Filter.",
     indicators: [
-      "Swing-Hochs/Tiefs auf 1h.",
-      "Fibonacci-Zonen 0.5–0.667 vom Impuls-Hoch.",
-      "Break-of-Structure (BOS) und Change-of-Character (CHoCH).",
-      "EMA-Äquivalent (600er EMA auf 5m = grob EMA50 auf 1h) als Trend-Filter.",
-      "ATR (14) — für Stopp-Loss-Puffer."
+      "Swing-Hochs/Tiefs auf 1h (Lookback 3).",
+      "Fibonacci-Zone 0.5-0.667 vom Impuls-Hoch (B-Punkt).",
+      "Break-of-Structure (BOS) + Pullback (PB) als Confluence.",
+      "CHoCH-Filter: kein Trade bei Trendwechsel gegen die Richtung.",
+      "Fib-786-Filter: Zone wird verworfen wenn Preis zu tief in Korrektur ging.",
+      "EMA50 auf 1h-Kerzen — AKTUELLER Trend (kein Stale-Cache).",
+      "5m-Close-Above + grüne/rote Bestätigungskerze."
     ],
     steps: [
-      "1h-Setup: Swing-Sequenz erkannt, Korrektur-Tiefe ≥ 30% der Impuls-Range, entweder 'Traumsequenz' (BC/AB > 1.5, Korrektur 0.45–0.75) ODER BOS-Bestätigung. Kein CHoCH gegen die Richtung.",
-      "Zone wird im Bereich Fib 0.5–0.667 vom Impuls-Hoch konstruiert.",
-      "5m-Entry: Zone wurde in den letzten 60 Kerzen (5h) berührt UND aktueller Preis ÜBER Zone-Top (Long) UND grüne Kerze UND Schluss ≤ Zone-Top + 2× Zonenbreite UND R/R-Verhältnis (TP1 / SL-Distanz) zwischen 1.5 und 12.",
-      "Trend-Filter: Schluss > EMA-Äquivalent (= 600er EMA auf 5m).",
-      "SHORT: spiegelbildlich.",
-      "Einstieg: bei Eröffnung der nächsten 5m-Kerze.",
-      "Stopp-Loss: Zone-Referenz (Pullback-Tief/Hoch) ± 0.2% Puffer.",
-      "Take-Profit 1 = Impuls-Hoch (B-Punkt). TP 2 = B-Punkt + 0.618× Impuls-Range.",
-      "Cooldown: dieselbe Zone darf erst nach 144 Bars (12h) wieder gehandelt werden."
+      "1H-CHART: Schau dir die letzten ~7 Tage an. Such Swing-Sequenzen mit höherem Tief (für Long) bzw. tieferem Hoch (für Short).",
+      "Korrektur muss mindestens 30% der Impuls-Range tief gehen (sonst zu impulsiv, kein Setup).",
+      "Entweder 'Traumsequenz' (Korrektur dauert mehr als 1.5× so lange wie der Impuls und ist 45-75% tief) ODER ein klares BOS (Break of Structure: der Impuls bricht das vorherige Swing-Hoch/Tief).",
+      "Kein CHoCH gegen dich (Trendwechsel) und kein Fib-786-Overshoot.",
+      "Zeichne die Zone ein: vom B-Punkt (Impuls-Hoch) zurück 0.5 bis 0.667 der Impuls-Range.",
+      "EMA50-Filter auf 1h: Long nur wenn Close > EMA50, Short nur wenn Close < EMA50. Wichtig: AKTUELLER 1h-Close, nicht vom Sequenz-Discovery-Zeitpunkt.",
+      "5M-CHART: Warte bis der Preis die Zone berührt (in den letzten 15 5m-Kerzen, ca. 75 Min).",
+      "Einstieg: 5m-Close ÜBER der Zone (Long) mit grüner Kerze, max. 2× Zonenbreite Distanz vom Zone-Top. Short spiegelbildlich.",
+      "Drei-Kerzen-Lookback: prüf die letzten 3 5m-Kerzen — wenn eine davon das Signal erfüllt, geht der Trade auf der nächsten Eröffnung.",
+      "STOPP-LOSS = C-Punkt der Sequenz (Pullback-Tief / Pullback-Hoch) ± 0.2% Puffer.",
+      "MIN-SL: Distanz muss mindestens 0.5% vom Entry sein — sonst kein Trade (zu eng = Stop-Loss-Hunt).",
+      "RR-FILTER: Verhältnis TP1/SL-Distanz zwischen 1.5 und 12. Außerhalb → kein Trade.",
+      "TAKE-PROFIT 1 = B-Punkt der Sequenz (Impuls-Hoch/Tief). Bei TP1-Hit: 50% Position schließen + SL auf Break-Even ziehen.",
+      "TAKE-PROFIT 2 = B-Punkt + 0.618× Impuls-Range (Fibonacci-Extension 1.618).",
+      "TP1-DOPPEL-CHECK: Im Live-Bot wird TP1 erst getriggert wenn ein zweiter Ticker-Preis das bestätigt (verhindert Glitch-Triggers).",
+      "TP1-VOR-SL: Wenn TP1 und SL in derselben 5m-Kerze getroffen werden, wird TP1 zuerst gezählt (höhere Wahrscheinlichkeit dass TP1 gefüllt wurde, da meistens näher am Entry).",
+      "LOST-ZONE-BLOCK: Wird ein SL getriggert, wird der Entry-Preis als 'tote Zone' markiert. ±2% um diesen Preis ist 24h gesperrt — keine erneuten Re-Entries an derselben Stelle."
     ],
     glossary: [
-      "Swing-Hoch / Swing-Tief = lokales Hoch/Tief auf dem Chart.",
-      "Impuls = starke Bewegung in eine Richtung.",
-      "Korrektur / Pullback = Gegenbewegung zum Impuls.",
-      "Fibonacci-Zone = Bereich zwischen zwei Fib-Levels (z.B. 0.5–0.667).",
-      "BOS = Break of Structure. Der Preis bricht ein vorheriges Hoch/Tief in Trend-Richtung.",
-      "CHoCH = Change of Character. Trendwechsel — der Preis bricht ein Hoch/Tief gegen den Trend.",
-      "Traumsequenz = bestimmtes Verhältnis-Muster (BC/AB > 1.5) das hohe Trefferquoten hat.",
-      "R/R-Verhältnis = Reward/Risk. Verhältnis zwischen Gewinnziel und maximalem Verlust.",
-      "ATR = durchschnittliche Schwankung pro Kerze."
+      "Swing-Hoch / Swing-Tief = lokales Hoch/Tief auf dem Chart, das von 3 Kerzen rechts und links überboten wird.",
+      "Impuls (A→B) = starke Bewegung in eine Richtung (Phase 1 der Sequenz).",
+      "Korrektur (B→C) = Gegenbewegung zum Impuls (Phase 2 der Sequenz). Der C-Punkt ist dein SL-Anker.",
+      "Fibonacci-Zone = Preisbereich zwischen zwei Fib-Levels. Die 0.5-0.667 Zone ist die 'goldene Pocket' wo Big Money oft kauft/verkauft.",
+      "BOS = Break of Structure. Der Impuls bricht ein vorheriges Swing-Hoch (bullisch) oder -Tief (bearisch).",
+      "PB = Pullback. Innerhalb des Impulses gab's eine kleine Korrektur — Confluence-Bonus.",
+      "CHoCH = Change of Character. Der Markt dreht — vorheriger Trend wird durchbrochen, gegen die Richtung. Killt das Setup.",
+      "Fib-786 = 78.6%-Fibonacci. Wenn die Korrektur tiefer als 78.6% geht, ist das fast ein voller Reversal — Setup ungültig.",
+      "Traumsequenz = ideales Verhältnis BC/AB > 1.5 + Korrektur 45-75%. Höchste Win-Rate.",
+      "EMA50 = exponentieller gleitender Durchschnitt über 50 Kerzen. Trend-Indikator.",
+      "RR = Reward/Risk. RR 2.0 = doppelt so viel Gewinn-Potenzial wie Risiko.",
+      "Min-SL% = mindestens 0.5% Stop-Loss-Distanz. Zu enge Stops werden vom Markt-Noise getroffen.",
+      "Lost-Zone-Block = nach SL gesperrte Zone. Verhindert dass du 3× hintereinander an derselben Stelle SL kassierst.",
+      "Break-Even (BE) = SL auf Entry-Preis verschieben — Trade kann nicht mehr ins Minus."
     ],
-    market: "BTC und ETH — die Coins für die der FinalBoss-Bot designt wurde."
+    market: "Krypto-Coins mit klarer Struktur und ausreichender Volatilität. Der Live-Bot tradet derzeit 8 Coins: BLUR, FET, DOT, FLOKI, COMP, DOGE, SAND, ADA. ETH und JUP wurden am 06.05.2026 entfernt (waren die einzigen Verlierer im 365-Tage-Backtest)."
   },
   "MACD Crossover": {
     desc: "Klassisches Momentum-Signal: MACD-Linie kreuzt Signal-Linie. Aufwärts-Cross = Long-Signal, Abwärts-Cross = Short.",
