@@ -824,6 +824,14 @@ input[type=number] { -moz-appearance:textfield }
   color: var(--blue);
   border-bottom-color: var(--blue);
 }
+@keyframes pulseBtn {
+  0%, 100% { box-shadow: 0 4px 12px rgba(251,191,36,0.30), 0 0 0 0 rgba(251,191,36,0.40); }
+  50%      { box-shadow: 0 4px 16px rgba(251,191,36,0.50), 0 0 0 8px rgba(251,191,36,0.00); }
+}
+@keyframes pulseSettings {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.50); }
+  50%      { box-shadow: 0 0 0 6px rgba(251,191,36,0.00); }
+}
 .tab-content { display: none; }
 .tab-content.active { display: block; overflow-x: hidden; }
 
@@ -1234,11 +1242,18 @@ input[type=number] { -moz-appearance:textfield }
   </div>
 
 </div>
-<div style="padding:8px 24px;display:flex;gap:10px;flex-wrap:wrap;">
+<div style="padding:8px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
   <button id="runBtn" onclick="runBacktest()" style="padding:10px 20px;font-weight:600;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.backtest">Backtest starten</button>
   <button id="stopBtn" onclick="abortBacktest()" style="display:none;padding:10px 20px;font-weight:600;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.stop">Stop</button>
   <button class="secondary" onclick="runFavStrategies()" style="padding:10px 20px" title="Testet alle Strategien die du im Strategie-Dropdown mit Stern favorisiert hast" data-i18n="btn.favtest">⭐ Favoriten testen</button>
   <button onclick="runCoinScan()" style="padding:10px 20px;font-weight:600;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.coinscan">Coin-Scan</button>
+
+  <!-- Eigene Builder-Gruppe: fester moderater Abstand, klarer abgesetzter Container -->
+  <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:rgba(168,85,247,0.05);border:1px dashed rgba(168,85,247,0.30);border-radius:10px;margin-left:50px">
+    <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-right:4px">Eigene Strategien</span>
+    <button class="tab-btn" data-tab="builder" style="padding:10px 18px;font-weight:600;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span data-i18n="tab.builder">🧩 Strategy Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();">i<span class="info-tip" data-i18n-html="tip.btn.builder"><strong>Strategy Builder</strong> — baue eigene Strategien <strong>visuell ohne Code</strong>. Wähle Bedingungen aus Bausteinen: z.B. <em>"RSI &lt; 30 UND EMA-Cross UND Volume-Spike"</em> als Entry, <em>"RSI &gt; 70 ODER ATR-Stop"</em> als Exit. SL/TP via ATR. Direkt im Backtest testbar — kein Programmieren nötig. Ideal für Anfänger oder schnelles Prototyping.</span></span></button>
+    <button class="tab-btn" data-tab="aibuilder" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(168,85,247,0.30)"><span data-i18n="tab.aibuilder">🤖 KI-Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.aibuilder"><strong>KI-Strategie-Builder</strong> — beschreibe eine Strategie auf Deutsch oder Englisch, <strong>die KI generiert sofort den fertigen Code</strong>. Auch: <strong>YouTube-Link oder Artikel-URL einfügen</strong> — die KI extrahiert die Strategie daraus. Beispiel: <em>"EMA50/200 Cross + RSI&gt;50, SL bei 1.5× ATR, TP bei 3× ATR"</em>. Sandbox-validiert auf 200 Test-Kerzen, direkt im Backtest nutzbar, lokal gespeichert. <br><br><strong>4 Anbieter zur Auswahl:</strong> <strong>Groq</strong> (KOSTENLOS &amp; funktioniert in CH/EU — empfohlen, Llama 3.3 70B), <strong>Gemini</strong> (gratis 1500/Tag, in CH manchmal gesperrt), <strong>Claude</strong> (beste Qualität ab $5 Guthaben) oder <strong>Ollama lokal</strong> (kostenlos &amp; privat, läuft auf deinem PC). API-Key (außer Ollama) holst du dir selber direkt beim Anbieter — bleibt nur in deinem Browser.</span></span></button>
+  </div>
 </div>
 
 <!-- ── Coin-Scan Auswahl ── -->
@@ -1277,8 +1292,7 @@ input[type=number] { -moz-appearance:textfield }
     <button class="tab-btn" data-tab="walkforward"><span data-i18n="tab.walkforward">Walk-Forward</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.walkforward">Robustheits-Test gegen Overfitting. Strategie wird in vielen rollenden Zeitfenstern abwechselnd trainiert und auf unbekannten Folgedaten getestet. Wenn die Test-Performance auch profitabel ist, ist der Edge echt.</span></span></button>
     <button class="tab-btn" data-tab="heatmap"><span data-i18n="tab.heatmap">Heatmap</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.heatmap">Testet zwei Parameter (z.B. RSI-Periode &times; SL-%) in vielen Kombinationen als farbiges Raster. Suche eine <strong>große grüne Fläche</strong> statt der einzelnen Spitze — das ist robust statt Zufall.</span></span></button>
     <button class="tab-btn" data-tab="liquidation"><span data-i18n="tab.liquidation">Liquidation</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.liquidation">Liquidations-Heatmap im CoinGlass-Stil. Zeigt geschätzte <strong>Magnet-Zonen</strong> wo gehebelte Long/Short-Positionen liquidiert würden (10×, 25×, 50×, 100×). Helle Cluster = noch nicht abgeräumt → Preis tendiert dahin. Schätzung basiert auf Volumen + Hebel-Annahmen, nicht auf Echtdaten.</span></span></button>
-<button class="tab-btn" data-tab="builder"><span data-i18n="tab.builder">Strategy Builder</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.builder">Baue eigene Strategien aus Indikator-Bausteinen. Wähle Entry-/Exit-Bedingungen (z.B. RSI&lt;30 + MA-Cross) und teste sie direkt im Backtest.</span></span></button>
-    <button class="tab-btn" data-tab="academy"><span data-i18n="tab.academy">Akademie</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.academy">Lerne jede Strategie im Detail: Entry-Bedingungen, SL/TP-Platzierung, schematische Chart-Beispiele und Tipps. Hier verstehst du wie eine Strategie funktioniert — bevor du sie tradest.</span></span></button>
+<button class="tab-btn" data-tab="academy"><span data-i18n="tab.academy">Akademie</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.academy">Lerne jede Strategie im Detail: Entry-Bedingungen, SL/TP-Platzierung, schematische Chart-Beispiele und Tipps. Hier verstehst du wie eine Strategie funktioniert — bevor du sie tradest.</span></span></button>
     <button class="tab-btn" data-tab="timeanalysis"><span data-i18n="tab.timeanalysis">Zeitanalyse</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.timeanalysis">PnL und Win-Rate aufgeschlüsselt nach <strong>Tageszeit</strong> (Stunde, UTC) und <strong>Wochentag</strong>. Hilft zu erkennen wann die Strategie funktioniert — z.B. nur US-Session, oder Wochenende abschalten.</span></span></button>
     <button class="tab-btn" data-tab="optimizer"><span data-i18n="tab.optimizer">Optimizer</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.optimizer">Multi-dimensionale Parameter-Optimierung. Wähle 2–5 Parameter mit Bereich/Schritt — <strong>Grid-Search</strong> testet alle Kombinationen, <strong>Genetic Algorithm</strong> sucht intelligent in großen Räumen. Top-20-Ranking mit In-Sample- und Out-of-Sample-Metriken (Overfitting-Check inklusive).</span></span></button>
     <button class="tab-btn" data-tab="portfolio"><span data-i18n="tab.portfolio">Portfolio</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.portfolio">Multi-Coin-Backtest mit gemeinsamem Kapital. Eine Strategie läuft parallel auf vielen Coins — geteilte Balance, max. N gleichzeitige Positionen. Zeigt Portfolio-Equity, Drawdown und Vergleich gegen Equal-Weight-Buy&amp;Hold.</span></span></button>
@@ -1327,6 +1341,16 @@ input[type=number] { -moz-appearance:textfield }
       <div id="lowTradeWarning" style="display:none;background:rgba(240,136,62,0.1);border:1px solid rgba(240,136,62,0.4);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.5">
         <strong style="color:var(--orange)">⚠ <span id="lowTradeWarningTitle">Wenig Trades — Ergebnisse mit Vorsicht zu interpretieren</span></strong>
         <div style="color:var(--text-secondary);margin-top:4px"><span id="lowTradeWarningBody">Mit weniger als 30 Trades sind Win-Rate, Profit-Faktor und Sharpe stark vom Zufall geprägt. Empfehlung: längeren Zeitraum wählen, kürzeren Timeframe, oder die Strategie auf mehr Trades tunen.</span></div>
+      </div>
+      <!-- KI-Refine-Banner (nur sichtbar wenn aktuelle Strategie KI-generiert) -->
+      <div id="aiRefineBanner" style="display:none;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.35);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;display:none;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="color:var(--text-primary);line-height:1.4">
+          <strong style="color:#a855f7">🤖 KI-generierte Strategie</strong> — diese Backtest-Ergebnisse kannst du direkt mit der KI optimieren lassen.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" onclick="aiRefineCurrentSelected()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🔧 Verfeinern</button>
+          <button type="button" onclick="aiDeleteCurrentSelected()" title="Diese KI-Strategie löschen" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.40);color:#ef4444;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🗑️ Löschen</button>
+        </div>
       </div>
       <!-- Metrics -->
       <div class="metrics-row" id="metricsRow"></div>
@@ -1906,11 +1930,14 @@ input[type=number] { -moz-appearance:textfield }
   <!-- Tab: Akademie / Academy -->
   <div class="tab-content" id="tab-academy">
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
-      <!-- Sub-Navigation: Strategien | Chart-Patterns | Candlestick-Patterns -->
-      <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:8px">
+      <!-- Sub-Navigation: Strategien | Chart-Patterns | Candlestick-Patterns + globaler KI-Tutor -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:8px;align-items:center;flex-wrap:wrap">
         <button class="academy-subtab" data-section="strategies" style="background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600"><span data-i18n="academy.subtab.strategies">📚 Strategien</span></button>
         <button class="academy-subtab" data-section="chart-patterns" style="background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600"><span data-i18n="academy.subtab.chart">📊 Chart-Patterns</span></button>
         <button class="academy-subtab" data-section="candle-patterns" style="background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600"><span data-i18n="academy.subtab.candle">🕯 Candlestick-Patterns</span></button>
+        <!-- Spacer + globaler "Frag die KI" Button -->
+        <div style="flex:1"></div>
+        <button type="button" onclick="aiOpenAkademieGeneral()" title="Stell der KI eine allgemeine Trading-Frage — z.B. 'Was ist ein EMA?' oder 'Wann shorten vs longen?'" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(168,85,247,0.30);margin-right:56px"><span data-i18n="academy.ask.ai">💬 Frag die KI (Trading-Coach)</span></button>
       </div>
 
       <!-- Sektion 1: Strategien -->
@@ -2144,6 +2171,195 @@ input[type=number] { -moz-appearance:textfield }
             <tbody id="paperJournalBody"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: KI-Strategie-Builder -->
+  <div class="tab-content" id="tab-aibuilder">
+    <div style="display:flex;flex-direction:column;height:100%;gap:14px;padding:4px">
+
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.30);border-radius:10px;padding:14px 18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">🤖 KI-Strategie-Builder</div>
+            <div style="font-size:12px;color:var(--text-muted)">Beschreibe eine Strategie oder füg eine YouTube/Artikel-URL ein — die KI generiert den Code. Mit Gemini Free-Tier oder Ollama: 100% kostenlos.</div>
+          </div>
+          <button id="aiSettingsBtn" type="button" onclick="aiOpenSettings()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">🔑 API-Key &amp; Einstellungen</button>
+        </div>
+      </div>
+
+      <!-- API-Key Hinweis (wird ausgeblendet wenn Key gesetzt) -->
+      <div id="aiNoKeyBanner" style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(168,85,247,0.08));border:2px solid rgba(251,191,36,0.50);border-radius:12px;padding:18px 22px;font-size:13px;color:var(--text-primary)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:14px">
+          <div style="flex:1;min-width:280px">
+            <div style="font-weight:800;font-size:18px;color:#fbbf24;margin-bottom:4px">🔑 API-Key fehlt — kostenlos in 30 Sek einrichten</div>
+            <div style="line-height:1.6;color:var(--text-secondary);font-size:13px">Damit die KI für dich Strategien generieren kann, brauchst du einen API-Key. Wähle einen Anbieter unten, hol dir den Key (kostenlos), und trag ihn dann hier ein.</div>
+          </div>
+          <button type="button" onclick="aiOpenSettings()" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;color:#1a1a1a;padding:14px 24px;border-radius:8px;cursor:pointer;font-weight:800;font-size:14px;white-space:nowrap;box-shadow:0 4px 12px rgba(251,191,36,0.30);animation:pulseBtn 2s ease-in-out infinite">🔑 API-Key eintragen →</button>
+        </div>
+        <div style="margin-bottom:10px;font-weight:700;font-size:12px;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px">Schritt 1: Anbieter wählen + Key holen</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:12px">
+          <div style="background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.30);border-radius:8px;padding:10px 12px">
+            <div style="font-weight:700;color:#22c55e;margin-bottom:4px">⚡ Groq <span style="font-size:10px;background:#22c55e;color:#000;padding:2px 6px;border-radius:8px;margin-left:4px">EMPFOHLEN</span></div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Kostenlos, ultraschnell, funktioniert in CH/DE/AT</div>
+            <a href="https://console.groq.com/keys" target="_blank" style="color:var(--blue);font-size:11px;font-weight:600">→ console.groq.com/keys</a>
+          </div>
+          <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+            <div style="font-weight:700;color:var(--text-primary);margin-bottom:4px">🔵 Google Gemini</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Gratis 1500/Tag, manchmal in CH gesperrt</div>
+            <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue);font-size:11px;font-weight:600">→ aistudio.google.com/apikey</a>
+          </div>
+          <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+            <div style="font-weight:700;color:var(--text-primary);margin-bottom:4px">⚪ Ollama lokal</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Auf eigenem PC, kein Key nötig, dauerhaft gratis</div>
+            <a href="https://ollama.com" target="_blank" style="color:var(--blue);font-size:11px;font-weight:600">→ ollama.com</a>
+          </div>
+          <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+            <div style="font-weight:700;color:var(--text-primary);margin-bottom:4px">🟣 Anthropic Claude</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Beste Qualität, $5 Mindest-Guthaben</div>
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);font-size:11px;font-weight:600">→ console.anthropic.com</a>
+          </div>
+        </div>
+        <div style="font-weight:700;font-size:12px;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Schritt 2: Key in der App eintragen</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">Klick auf den großen <strong style="color:#fbbf24">🔑 API-Key eintragen</strong>-Button oben rechts. Modal öffnet sich → Key reinpasten → Speichern. <em style="color:var(--text-muted)">Dein Key bleibt nur in deinem Browser (localStorage), geht direkt zum Anbieter — kein Server dazwischen, keine Anmeldung in unserer App nötig.</em></div>
+      </div>
+
+      <!-- Hauptbereich: Chat + Output -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0">
+
+        <!-- LINKS: Chat -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;min-height:0">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center">
+            <span>💬 Beschreibung</span>
+            <button type="button" onclick="aiClearChat()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px">↺ Neu</button>
+          </div>
+          <div id="aiChatHistory" style="flex:1;overflow-y:auto;padding:12px 16px;font-size:13px;line-height:1.6;min-height:200px"></div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border)">
+            <!-- URL-Input: YouTube / Artikel / Blog-Post → automatisch Inhalt holen -->
+            <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+              <input id="aiUrlInput" type="url" placeholder="🔗 YouTube-Video, Artikel oder Blog-URL eingeben (optional)..." style="flex:1;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:6px;font-size:12px;font-family:inherit">
+              <button type="button" onclick="aiFetchUrlContent()" id="aiFetchBtn" title="Holt Transkript (YouTube) oder Artikel-Text (URL) — wird als Kontext für die KI genutzt" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">📥 Inhalt holen</button>
+            </div>
+            <div id="aiUrlStatus" style="display:none;margin-bottom:10px;padding:8px 12px;border-radius:6px;font-size:12px"></div>
+            <textarea id="aiChatInput" placeholder='Beschreibe deine Strategie. z.B.:&#10;&#10;"EMA-Cross 9/21 mit RSI-Filter (RSI &gt; 50 für Long, &lt; 50 für Short). SL bei 1.5× ATR. TP bei 2× ATR. Trailing Stop nach 1×R."&#10;&#10;Oder: "Bollinger-Band-Reversion auf 1h. Long wenn Close unter unteres Band UND grüne Reversal-Kerze. Exit bei Mittellinie oder oberes Band."' rows="5" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap">
+              <button type="button" onclick="aiOpenSettings()" id="aiInlineKeyBtn" title="API-Key eintragen oder ändern" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.40);color:#fbbf24;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px">🔑 Key</button>
+              <select id="aiQuickProviderSelect" onchange="aiQuickSwitchProvider()" title="Provider wechseln" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:7px 10px;border-radius:6px;font-size:12px;font-weight:600;min-width:130px">
+                <option value="groq">⚡ Groq</option>
+                <option value="gemini">🔵 Gemini</option>
+                <option value="claude">🟣 Claude</option>
+                <option value="ollama">⚪ Ollama</option>
+              </select>
+              <select id="aiModelSelect" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:7px 10px;border-radius:6px;font-size:12px;flex:1;min-width:140px"></select>
+              <button id="aiGenerateBtn" type="button" onclick="aiGenerateStrategy()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;white-space:nowrap">✨ Generieren</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RECHTS: Output -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;min-height:0">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;color:var(--text-primary)">
+            📋 Generierte Strategie
+          </div>
+          <div id="aiOutputArea" style="flex:1;overflow-y:auto;padding:14px 16px;font-size:13px;line-height:1.6">
+            <div style="color:var(--text-muted);text-align:center;padding:40px 0">
+              Hier erscheint deine fertige Strategie sobald du auf <strong>Generieren</strong> klickst.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Strategien Liste -->
+      <div id="aiCustomList" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:none">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:10px">🗂️ Deine KI-Strategien</div>
+        <div id="aiCustomListBody" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal: KI-Einstellungen -->
+  <div id="aiSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <div style="font-size:18px;font-weight:700">⚙️ KI-Einstellungen</div>
+        <button type="button" onclick="aiCloseSettings()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px">Anbieter</label>
+          <select id="aiProviderSelect" onchange="aiUpdateSettingsUI()" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:13px">
+            <option value="groq">⚡ Groq — KOSTENLOS, ultraschnell, funktioniert in CH (empfohlen)</option>
+            <option value="gemini">🔵 Google Gemini — gratis im Free-Tier, aber in CH oft "limit: 0"</option>
+            <option value="claude">🟣 Anthropic Claude — beste Qualität, ab $5 Guthaben, danach $0.01-0.05/Strategie</option>
+            <option value="ollama">⚪ Ollama lokal — KOSTENLOS und unbegrenzt, läuft auf deinem PC</option>
+          </select>
+          <div id="aiProviderHint" style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5"></div>
+        </div>
+
+        <!-- Provider-Felder: API-Key (für Cloud-Provider) -->
+        <div id="aiKeyFieldWrap" style="margin-bottom:18px">
+          <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px">
+            <span id="aiKeyLabel">API-Key</span>
+            <span id="aiKeyLink" style="font-weight:400;font-size:11px;margin-left:8px"></span>
+          </label>
+          <input type="password" id="aiApiKeyInput" placeholder="" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:13px;font-family:monospace;box-sizing:border-box">
+          <div id="aiKeyHelp" style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5"></div>
+        </div>
+
+        <!-- Ollama-spezifisch: URL-Feld -->
+        <div id="aiOllamaFieldWrap" style="display:none;margin-bottom:18px">
+          <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px">Ollama URL</label>
+          <input type="text" id="aiOllamaUrlInput" placeholder="http://localhost:11434" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:13px;font-family:monospace;box-sizing:border-box">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.6">Standard ist <code>http://localhost:11434</code>. <strong>WICHTIG:</strong> Damit Ollama im Browser akzeptiert wird, musst du es mit CORS starten:<br><code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:3px;font-size:11px">OLLAMA_ORIGINS=* ollama serve</code><br>(unter Windows: <code>$env:OLLAMA_ORIGINS="*"; ollama serve</code>)</div>
+        </div>
+
+        <!-- Sicherheitshinweis -->
+        <div id="aiSecBanner" style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:10px 12px;border-radius:4px;font-size:12px;margin-bottom:14px">
+          <strong style="color:#22c55e">🔒 Sicherheit:</strong> Dein <span id="aiSecText">API-Key</span> bleibt in deinem Browser. Keine Server, kein Tracking. Anfragen gehen direkt zum Anbieter.
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button type="button" onclick="aiCloseSettings()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Abbrechen</button>
+        <button type="button" onclick="aiSaveSettings()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: KI-Tutor (Akademie) — Fragen zu Strategien stellen -->
+  <div id="aiAkademieModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:20px;max-width:780px;width:100%;max-height:90vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:2px">💬 KI-Tutor</div>
+          <div id="aiAkademieStratName" style="font-size:13px;color:#a855f7;font-weight:600">—</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Stell eine Frage zu dieser Strategie. Die KI hat alle Details und antwortet anfänger-freundlich.</div>
+        </div>
+        <button type="button" onclick="aiCloseAkademie()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
+      </div>
+      <div id="aiAkademieChat" style="flex:1;overflow-y:auto;padding:10px;background:var(--bg-tertiary);border-radius:8px;margin-bottom:10px;min-height:200px;max-height:50vh"></div>
+      <div id="aiAkademieSuggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <textarea id="aiAkademieInput" placeholder="Frag mich was zu dieser Strategie..." rows="2" style="flex:1;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box"></textarea>
+        <button type="button" id="aiAkademieSendBtn" onclick="aiAkademieSend()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:0 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;white-space:nowrap;align-self:stretch">Senden</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Provider: <span id="aiAkademieProvider">—</span> · <a href="#" onclick="event.preventDefault();aiCloseAkademie();aiOpenSettings();" style="color:var(--blue)">Provider wechseln</a></div>
+    </div>
+  </div>
+
+  <!-- Modal: Strategie verfeinern -->
+  <div id="aiRefineModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:18px;font-weight:700">🔧 Strategie verfeinern</div>
+        <button type="button" onclick="aiCloseRefine()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      <div id="aiRefineBody" style="font-size:13px;color:var(--text-secondary);line-height:1.7"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button type="button" onclick="aiCloseRefine()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Abbrechen</button>
+        <button type="button" id="aiRefineApplyBtn" onclick="aiApplyRefine()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">✨ Verfeinern</button>
       </div>
     </div>
   </div>
@@ -8688,10 +8904,18 @@ function updateStrategyParams() {
   const idx = parseInt(document.getElementById('strategySelect').value);
   const strat = STRATEGIES[idx];
   const container = document.getElementById('strategyParamsContainer');
+  if (!container) return;
+  // Defensive: bei kaputtem/fehlendem Strategie-Objekt nicht crashen
+  if (!strat) {
+    console.warn('updateStrategyParams: strat undefined bei idx=' + idx);
+    container.innerHTML = '';
+    return;
+  }
 
   // Auto-set timeframe only on first load, not when user manually changed it
   if (!window._userChangedTF) {
-    document.getElementById('tfSelect').value = strat.defaultTF;
+    const tfSel = document.getElementById('tfSelect');
+    if (tfSel && strat.defaultTF) tfSel.value = strat.defaultTF;
   }
 
   if (!strat.params || Object.keys(strat.params).length === 0) {
@@ -17020,7 +17244,7 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
 // ═══════════════════════════════════════════════
 //  TAB SWITCHING (Fullscreen for non-results tabs)
 // ═══════════════════════════════════════════════
-const FULLSCREEN_TABS = ['chart', 'replay', 'journal', 'walkforward', 'heatmap', 'liquidation', 'matrix', 'builder', 'academy', 'timeanalysis', 'optimizer', 'portfolio', 'distribution', 'correlation', 'edgedecay', 'risk', 'paper'];
+const FULLSCREEN_TABS = ['chart', 'replay', 'journal', 'walkforward', 'heatmap', 'liquidation', 'matrix', 'builder', 'academy', 'timeanalysis', 'optimizer', 'portfolio', 'distribution', 'correlation', 'edgedecay', 'risk', 'paper', 'aibuilder'];
 const TAB_TITLES = {
   chart: 'Chart',
   replay: 'Bar Replay',
@@ -17037,6 +17261,7 @@ const TAB_TITLES = {
   paper: '🔴 Paper Trading (Live Forward Test)',
   matrix: 'Strategie Matrix',
   builder: 'Strategy Builder',
+  aibuilder: '🤖 KI-Strategie-Builder',
   timeanalysis: 'Zeitanalyse',
   academy: 'Akademie'
 };
@@ -17321,6 +17546,7 @@ async function runBacktest() {
 
     log(`Fertig! ${result.trades.length} Trades, PF ${result.totalMetrics.profitFactor.toFixed(2)}, WR ${result.totalMetrics.winRate.toFixed(1)}%`, 'success');
     setStatus(`${strategy.name} — ${result.trades.length} Trades`, 'ready');
+    if (typeof aiUpdateRefineBanner === 'function') aiUpdateRefineBanner();
 
     // Set overlay data for unified chart
     backtestOverlayTrades = result.trades;
@@ -28603,7 +28829,11 @@ function renderAcademy() {
         ${simpleInfo.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
           <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${simpleInfo.market}
         </div>` : ''}
-        ${glossaryHtml}`;
+        ${glossaryHtml}
+        <div style="margin-top:14px;padding:10px 12px;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.30);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">${isEn ? 'Got questions about this strategy?' : 'Fragen zu dieser Strategie?'} <span style="color:var(--text-muted)">${isEn ? 'The AI knows all the details and answers in plain language.' : 'Die KI kennt alle Details und antwortet verständlich.'}</span></div>
+          <button type="button" onclick="event.preventDefault();event.stopPropagation();aiOpenAkademie('${strat.name.replace(/'/g, "\\'")}')" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">💬 ${isEn ? 'Ask the AI' : 'Frag die KI'}</button>
+        </div>`;
     } else {
       // Fallback fuer Strategien ohne simple-Daten (sollte aktuell keine geben — alle 71 sind drin)
       const di = detailedInfo || simpleInfo;
@@ -28625,7 +28855,11 @@ function renderAcademy() {
           <span style="color:var(--yellow);font-weight:600">${lblMarket}</span><span>${di.market || '—'}</span>
           <span style="color:var(--blue);font-weight:600">${lblIndicators}</span><span>${di.indicators || '—'}</span>
         </div>
-        ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}`;
+        ${tips ? `<div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 12px;border-radius:4px;font-size:12px">${tips}</div>` : ''}
+        <div style="margin-top:14px;padding:10px 12px;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.30);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">${isEn ? 'Got questions?' : 'Fragen?'}</div>
+          <button type="button" onclick="event.preventDefault();event.stopPropagation();aiOpenAkademie('${strat.name.replace(/'/g, "\\'")}')" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">💬 ${isEn ? 'Ask the AI' : 'Frag die KI'}</button>
+        </div>`;
     }
     // Per-Strategie „Für Profis"-Toggle — sitzt in der Summary, ist aber nur sichtbar wenn die Karte offen ist (CSS unten)
     const lblPro = isEn ? '🔬 Pros' : '🔬 Für Profis';
@@ -31399,6 +31633,24 @@ function _showErrorToast(msg, durationMs = 6000) {
   setTimeout(() => toast.remove(), durationMs + 500);
 }
 
+function _showSuccessToast(msg, durationMs = 4000) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:60px;right:20px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:10000;max-width:420px;animation:slideIn 0.3s';
+  toast.innerHTML = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, durationMs);
+  setTimeout(() => toast.remove(), durationMs + 500);
+}
+
+function _showInfoToast(msg, durationMs = 4000) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:60px;right:20px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:10000;max-width:420px;animation:slideIn 0.3s';
+  toast.innerHTML = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, durationMs);
+  setTimeout(() => toast.remove(), durationMs + 500);
+}
+
 // Globale Fehler-Handler — fängt unbehandelte Exceptions ab
 window.addEventListener('error', (e) => {
   // Nicht alle Fehler anzeigen (Browser-Extensions etc.) — nur wenn Stack auf unsere App verweist
@@ -31433,6 +31685,1607 @@ if (typeof fetchCandles === 'function') {
       throw e;
     }
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  KI-STRATEGIE-BUILDER (Stufe 1) — Chat → Strategie via Claude API
+// ═══════════════════════════════════════════════════════════════
+const AI_LS_CONFIG = 'fb_ai_config';
+const AI_LS_CUSTOM = 'fb_ai_custom_strategies';
+const AI_DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+
+const AI_PROVIDERS = {
+  claude: {
+    name: 'Anthropic Claude',
+    keyLink: 'https://console.anthropic.com/settings/keys',
+    keyPlaceholder: 'sk-ant-...',
+    keyHelp: 'Free-Tier ~25 Anfragen/Tag. Danach Pay-as-you-go (~$0.02/Strategie mit Sonnet, ~$0.005 mit Haiku).',
+    defaultModel: 'claude-sonnet-4-5-20250929',
+    models: [
+      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (empfohlen — schnell & smart)' },
+      { id: 'claude-opus-4-5-20250929',   label: 'Claude Opus 4.5 (beste Qualität, teurer)' },
+      { id: 'claude-haiku-4-5-20251001',  label: 'Claude Haiku 4.5 (sehr günstig & schnell)' },
+    ],
+  },
+  groq: {
+    name: 'Groq',
+    keyLink: 'https://console.groq.com/keys',
+    keyPlaceholder: 'gsk_...',
+    keyHelp: 'KOSTENLOS und funktioniert in der Schweiz. Login via Google auf console.groq.com → API-Keys → Create Key. Dauert 30 Sek. Ultraschnelle Inferenz: Antwort in 1-2 Sek.',
+    defaultModel: 'llama-3.3-70b-versatile',
+    models: [
+      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (empfohlen — beste Qualität, gratis)' },
+      { id: 'qwen-qwq-32b',            label: 'Qwen QwQ 32B (sehr gut für Code, gratis)' },
+      { id: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek-R1 Distill 70B (Reasoning)' },
+      { id: 'llama-3.1-8b-instant',    label: 'Llama 3.1 8B Instant (am schnellsten, einfacher)' },
+      { id: 'gemma2-9b-it',            label: 'Gemma2 9B (Google-Modell, schnell)' },
+    ],
+  },
+  gemini: {
+    name: 'Google Gemini',
+    keyLink: 'https://aistudio.google.com/apikey',
+    keyPlaceholder: 'AIza...',
+    keyHelp: 'GRATIS-Key auf aistudio.google.com (Google-Login, 30 Sek). Free-Tier: 1500 Anfragen/Tag — reicht für 100+ Strategien/Tag KOSTENLOS. Hinweis: in einigen Regionen (CH, manche EU-Länder) kann der Free-Tier eingeschränkt sein — dann bekommst du "limit: 0".',
+    defaultModel: 'gemini-2.5-flash',
+    models: [
+      { id: 'gemini-2.5-flash',           label: 'Gemini 2.5 Flash (empfohlen — neueste Version, schnell)' },
+      { id: 'gemini-2.5-pro',             label: 'Gemini 2.5 Pro (max. Qualität, langsamer)' },
+      { id: 'gemini-2.0-flash',           label: 'Gemini 2.0 Flash (stabil, etwas älter)' },
+      { id: 'gemini-2.0-flash-lite',      label: 'Gemini 2.0 Flash-Lite (klein, sehr günstig)' },
+      { id: 'gemini-2.0-flash-thinking-exp-01-21', label: 'Gemini 2.0 Thinking (Reasoning, exp.)' },
+    ],
+  },
+  ollama: {
+    name: 'Ollama lokal',
+    keyLink: 'https://ollama.com',
+    keyPlaceholder: '',
+    keyHelp: '',
+    defaultModel: 'llama3.2',
+    models: [
+      { id: 'llama3.2',         label: 'Llama 3.2 (3B — schnell, klein)' },
+      { id: 'llama3.1:8b',      label: 'Llama 3.1 8B (besser, mehr RAM)' },
+      { id: 'qwen2.5-coder',    label: 'Qwen 2.5 Coder (für Code optimiert)' },
+      { id: 'qwen2.5-coder:14b', label: 'Qwen 2.5 Coder 14B (beste Code-Qualität, viel RAM)' },
+      { id: 'mistral',          label: 'Mistral 7B (Allrounder)' },
+      { id: 'codellama',        label: 'CodeLlama (Meta, für Code)' },
+    ],
+  },
+};
+
+function aiLoadConfig() {
+  try {
+    const raw = localStorage.getItem(AI_LS_CONFIG);
+    // Default: Gemini (Free-Tier) statt Claude — fairer Default da kostenlos
+    const def = { provider: 'groq', keys: {}, model: 'llama-3.3-70b-versatile', ollamaUrl: 'http://localhost:11434' };
+    if (!raw) return def;
+    const c = JSON.parse(raw);
+    // Backwards-compat: alter Single-Key wird in keys.claude migriert
+    let keys = c.keys || {};
+    if (typeof keys !== 'object') keys = {};
+    if (c.apiKey && !keys[c.provider || 'claude']) keys[c.provider || 'claude'] = c.apiKey;
+    return {
+      provider: c.provider || 'claude',
+      keys: keys,
+      model: c.model || AI_DEFAULT_MODEL,
+      ollamaUrl: c.ollamaUrl || 'http://localhost:11434',
+    };
+  } catch(e) { return { provider: 'groq', keys: {}, model: 'llama-3.3-70b-versatile', ollamaUrl: 'http://localhost:11434' }; }
+}
+function aiSaveConfig(cfg) {
+  try { localStorage.setItem(AI_LS_CONFIG, JSON.stringify(cfg)); } catch(e) {}
+}
+function aiHasKey() {
+  const cfg = aiLoadConfig();
+  if (cfg.provider === 'ollama') return !!cfg.ollamaUrl;
+  return !!(cfg.keys && cfg.keys[cfg.provider]);
+}
+function aiCurrentKey() {
+  const cfg = aiLoadConfig();
+  return cfg.keys && cfg.keys[cfg.provider] ? cfg.keys[cfg.provider] : '';
+}
+
+function aiOpenSettings() {
+  const cfg = aiLoadConfig();
+  document.getElementById('aiProviderSelect').value = cfg.provider;
+  document.getElementById('aiApiKeyInput').value = (cfg.keys && cfg.keys[cfg.provider]) || '';
+  document.getElementById('aiOllamaUrlInput').value = cfg.ollamaUrl || 'http://localhost:11434';
+  aiUpdateSettingsUI();
+  document.getElementById('aiSettingsModal').style.display = 'flex';
+}
+function aiCloseSettings() {
+  document.getElementById('aiSettingsModal').style.display = 'none';
+}
+function aiSaveSettings() {
+  const provider = document.getElementById('aiProviderSelect').value;
+  const apiKey = document.getElementById('aiApiKeyInput').value.trim();
+  const ollamaUrl = (document.getElementById('aiOllamaUrlInput').value || '').trim() || 'http://localhost:11434';
+  const cfg = aiLoadConfig();
+  cfg.provider = provider;
+  if (!cfg.keys) cfg.keys = {};
+  if (provider !== 'ollama' && apiKey) cfg.keys[provider] = apiKey;
+  cfg.ollamaUrl = ollamaUrl;
+  // Modell: wenn aktuelles Modell nicht zum neuen Provider passt, defaultModel setzen
+  const provInfo = AI_PROVIDERS[provider];
+  if (provInfo) {
+    const validModelIds = provInfo.models.map(m => m.id);
+    if (!validModelIds.includes(cfg.model)) cfg.model = provInfo.defaultModel;
+  }
+  aiSaveConfig(cfg);
+  aiCloseSettings();
+  aiUpdateBanner();
+  aiPopulateModelDropdown();
+  aiSyncQuickProviderSelect();
+}
+function aiUpdateBanner() {
+  const hasKey = aiHasKey();
+  const banner = document.getElementById('aiNoKeyBanner');
+  if (banner) banner.style.display = hasKey ? 'none' : 'block';
+  // Settings-Button pulsen lassen wenn kein Key
+  const settingsBtn = document.getElementById('aiSettingsBtn');
+  if (settingsBtn) {
+    if (hasKey) {
+      settingsBtn.style.animation = '';
+      settingsBtn.style.background = 'var(--bg-tertiary)';
+      settingsBtn.style.color = 'var(--text-primary)';
+      settingsBtn.style.borderColor = 'var(--border)';
+    } else {
+      settingsBtn.style.animation = 'pulseSettings 2s ease-in-out infinite';
+      settingsBtn.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
+      settingsBtn.style.color = '#1a1a1a';
+      settingsBtn.style.borderColor = '#f59e0b';
+    }
+  }
+  // Inline-Key-Button im Footer auch hervorheben wenn kein Key
+  const inlineBtn = document.getElementById('aiInlineKeyBtn');
+  if (inlineBtn) {
+    if (hasKey) {
+      inlineBtn.style.background = 'var(--bg-tertiary)';
+      inlineBtn.style.color = 'var(--text-muted)';
+      inlineBtn.style.borderColor = 'var(--border)';
+    } else {
+      inlineBtn.style.background = 'rgba(251,191,36,0.15)';
+      inlineBtn.style.color = '#fbbf24';
+      inlineBtn.style.borderColor = 'rgba(251,191,36,0.40)';
+    }
+  }
+}
+
+// ── Settings-Dialog adaptiv pro Provider ──
+function aiUpdateSettingsUI() {
+  const sel = document.getElementById('aiProviderSelect');
+  if (!sel) return;
+  const provider = sel.value;
+  const info = AI_PROVIDERS[provider];
+  if (!info) return;
+  const isOllama = provider === 'ollama';
+  // Provider-Beschreibung als Hint
+  const hint = document.getElementById('aiProviderHint');
+  if (hint) {
+    let text = '';
+    if (provider === 'groq') text = '⚡ EMPFOHLEN für CH/DE/AT — KOSTENLOS, funktioniert zuverlässig, ultraschnell (1-2s pro Antwort). 30 Anfragen/Min Free-Tier reicht easy. Llama 3.3 70B ist top für Code-Generierung.';
+    else if (provider === 'gemini') text = '🎯 1500 Anfragen/Tag gratis — wenn dein Account Zugriff hat. In manchen Regionen leider "limit: 0". Kann YouTube-Videos direkt analysieren.';
+    else if (provider === 'claude') text = '✨ Beste Code-Qualität. Brauchst $5 Mindest-Guthaben (Free-Tier abgeschafft 2024). Danach ~$0.02/Strategie.';
+    else if (provider === 'ollama') text = '🏠 Komplett kostenlos & privat (läuft auf deinem PC, kein Key). Setup ~5 Min: Ollama.com installieren + Modell pullen + mit OLLAMA_ORIGINS=* starten.';
+    hint.textContent = text;
+  }
+  // Key-Feld
+  const keyWrap = document.getElementById('aiKeyFieldWrap');
+  const ollamaWrap = document.getElementById('aiOllamaFieldWrap');
+  if (keyWrap) keyWrap.style.display = isOllama ? 'none' : 'block';
+  if (ollamaWrap) ollamaWrap.style.display = isOllama ? 'block' : 'none';
+  if (!isOllama) {
+    const keyLabel = document.getElementById('aiKeyLabel');
+    const keyLink = document.getElementById('aiKeyLink');
+    const keyHelp = document.getElementById('aiKeyHelp');
+    const keyInput = document.getElementById('aiApiKeyInput');
+    if (keyLabel) keyLabel.textContent = info.name + '-Key';
+    if (keyLink) keyLink.innerHTML = `<a href="${info.keyLink}" target="_blank" style="color:var(--blue)">→ Key holen</a>`;
+    if (keyHelp) keyHelp.textContent = info.keyHelp;
+    if (keyInput) {
+      keyInput.placeholder = info.keyPlaceholder;
+      // Aktuellen Key des gewählten Providers anzeigen (Switch zwischen Providers)
+      const cfg = aiLoadConfig();
+      keyInput.value = (cfg.keys && cfg.keys[provider]) || '';
+    }
+  }
+  // Sicherheitstext anpassen
+  const secText = document.getElementById('aiSecText');
+  if (secText) secText.textContent = isOllama ? 'lokaler Ollama-Server' : 'API-Key';
+}
+
+// ── Modell-Dropdown an Provider anpassen ──
+function aiPopulateModelDropdown() {
+  const sel = document.getElementById('aiModelSelect');
+  if (!sel) return;
+  const cfg = aiLoadConfig();
+  const info = AI_PROVIDERS[cfg.provider] || AI_PROVIDERS.claude;
+  sel.innerHTML = '';
+  for (const m of info.models) {
+    const opt = document.createElement('option');
+    opt.value = m.id; opt.textContent = m.label;
+    sel.appendChild(opt);
+  }
+  // Aktuelles Modell wiederherstellen falls passend, sonst Default
+  const validIds = info.models.map(m => m.id);
+  sel.value = validIds.includes(cfg.model) ? cfg.model : info.defaultModel;
+}
+
+// ── Provider-agnostisches Interface ──
+// messagesOrText kann sein: ein String (single user message) ODER ein Array von {role, content} (Chat-Verlauf)
+async function aiCallLLM(systemPrompt, messagesOrText, model) {
+  const cfg = aiLoadConfig();
+  const provider = cfg.provider || 'claude';
+  const useModel = model || cfg.model || (AI_PROVIDERS[provider] && AI_PROVIDERS[provider].defaultModel) || AI_DEFAULT_MODEL;
+  // Normalisiere zu messages-Array
+  const messages = (typeof messagesOrText === 'string')
+    ? [{ role: 'user', content: messagesOrText }]
+    : messagesOrText;
+  if (provider === 'ollama') {
+    if (!cfg.ollamaUrl) throw new Error('Keine Ollama-URL gesetzt');
+    return aiCallOllama(systemPrompt, messages, useModel, cfg.ollamaUrl);
+  }
+  const apiKey = (cfg.keys && cfg.keys[provider]) || '';
+  if (!apiKey) throw new Error('Kein API-Key für ' + provider + ' — bitte in Einstellungen eintragen');
+  if (provider === 'claude')   return aiCallClaude(systemPrompt, messages, useModel, apiKey);
+  if (provider === 'gemini')   return aiCallGemini(systemPrompt, messages, useModel, apiKey);
+  if (provider === 'groq')     return aiCallGroq(systemPrompt, messages, useModel, apiKey);
+  throw new Error('Provider unbekannt: ' + provider);
+}
+
+// ── Anthropic Claude ──
+async function aiCallClaude(systemPrompt, messages, model, apiKey) {
+  const url = 'https://api.anthropic.com/v1/messages';
+  const body = {
+    model: model,
+    max_tokens: 4000,
+    system: systemPrompt,
+    messages: messages.map(m => ({ role: m.role, content: m.content }))
+  };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    let err = `HTTP ${resp.status}`;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    throw new Error(err);
+  }
+  const data = await resp.json();
+  if (!data.content || !data.content[0] || !data.content[0].text) throw new Error('Leere Antwort von Claude');
+  return data.content[0].text;
+}
+
+// ── Google Gemini ──
+async function aiCallGemini(systemPrompt, messages, model, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  // Gemini nutzt role "model" statt "assistant"
+  const contents = messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : m.role,
+    parts: [{ text: m.content }]
+  }));
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: contents,
+    generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
+  };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    let err = `HTTP ${resp.status}`;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    // Erkennen typische Gemini-Fehler und freundlicher formulieren
+    if (/limit:\s*0/i.test(err) || /quota.*free_tier/i.test(err)) {
+      throw new Error('Gemini: dein Google-Account hat in deiner Region keinen Free-Tier-Zugriff (limit: 0). Lösungen:\n1. Wechsle zu Claude oder Ollama in den Einstellungen\n2. Oder aktiviere Billing auf https://console.cloud.google.com (dann nicht mehr gratis)');
+    }
+    if (/not found.*generateContent/i.test(err) || /is not supported/i.test(err)) {
+      throw new Error('Gemini: dieses Modell ist nicht (mehr) verfügbar. Wähle ein anderes Modell oder wechsle den Provider.');
+    }
+    throw new Error('Gemini: ' + err);
+  }
+  const data = await resp.json();
+  const cand = data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts && cand.content.parts.map(p => p.text || '').join('');
+  if (!text) throw new Error('Gemini: leere Antwort');
+  return text;
+}
+
+// ── Groq (OpenAI-kompatible API, ultraschnell, free-tier in EU/CH) ──
+async function aiCallGroq(systemPrompt, messages, model, apiKey) {
+  const url = 'https://api.groq.com/openai/v1/chat/completions';
+  const body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({ role: m.role, content: m.content }))
+    ],
+    temperature: 0.4,
+    max_tokens: 4000,
+  };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'authorization': 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    let err = `HTTP ${resp.status}`;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    if (/rate.?limit|429/i.test(err)) {
+      throw new Error('Groq: Rate-Limit erreicht — kurz warten und nochmal versuchen (Free-Tier hat 30 Anfragen/Min). Detail: ' + err);
+    }
+    if (/model.*decommissioned|not found/i.test(err)) {
+      throw new Error('Groq: Modell ist nicht mehr verfügbar. Wähle ein anderes Modell aus dem Dropdown.');
+    }
+    throw new Error('Groq: ' + err);
+  }
+  const data = await resp.json();
+  const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if (!text) throw new Error('Groq: leere Antwort');
+  return text;
+}
+
+// ── Gemini mit YouTube-Video-Input (file_data) ──
+async function aiCallGeminiWithVideo(systemPrompt, userMessage, model, apiKey, videoUrl) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{
+      role: 'user',
+      parts: [
+        { file_data: { file_uri: videoUrl, mime_type: 'video/youtube' } },
+        { text: userMessage }
+      ]
+    }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
+  };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    let err = `HTTP ${resp.status}`;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    throw new Error('Gemini (Video): ' + err);
+  }
+  const data = await resp.json();
+  const cand = data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts && cand.content.parts.map(p => p.text || '').join('');
+  if (!text) throw new Error('Gemini (Video): leere Antwort');
+  return text;
+}
+
+// ── Ollama (lokaler Server, kein Key) ──
+async function aiCallOllama(systemPrompt, messages, model, baseUrl) {
+  const url = (baseUrl || 'http://localhost:11434').replace(/\/$/, '') + '/api/chat';
+  const body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({ role: m.role, content: m.content }))
+    ],
+    stream: false,
+    options: { temperature: 0.4, num_predict: 4000 }
+  };
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch(e) {
+    throw new Error('Ollama nicht erreichbar — läuft der Server? (Tipp: in Konsole "OLLAMA_ORIGINS=* ollama serve" starten damit der Browser akzeptiert wird)');
+  }
+  if (!resp.ok) {
+    let err = `HTTP ${resp.status}`;
+    try { const j = await resp.json(); err = j.error || JSON.stringify(j); } catch(e) {}
+    if (resp.status === 404) err = `Modell "${model}" nicht installiert. In Terminal: \nollama pull ${model}`;
+    throw new Error('Ollama: ' + err);
+  }
+  const data = await resp.json();
+  const text = data.message && data.message.content;
+  if (!text) throw new Error('Ollama: leere Antwort');
+  return text;
+}
+
+// ── System-Prompt: erklärt Claude die Strategie-API ──
+const AI_SYSTEM_PROMPT = `Du bist ein Experte für quantitatives Trading. Du baust JavaScript-Trading-Strategien für die FinalBoss-Backtest-Engine. Du chattest auf Deutsch (oder Englisch wenn der User Englisch schreibt) und kannst dich an den bisherigen Chat-Verlauf erinnern.
+
+ZWEI ANTWORT-MODI:
+
+**A) WENN DER USER EINE STRATEGIE BAUEN ODER ÄNDERN WILL:**
+Antworte mit einem \`\`\`json Codeblock der das vollständige Strategie-Schema enthält. Du kannst kurzen Text DAVOR schreiben (max. 1-2 Sätze) um zu erklären was du gemacht hast — aber das JSON ist Pflicht.
+
+**B) WENN DER USER EINE FRAGE STELLT, KLÄRUNG BRAUCHT, ODER NUR INFORMATION WILL:**
+Antworte normal in Prosa, ohne JSON. Sei knapp und präzise. Beispiele:
+- "Welche RSI-Schwellen sind sinnvoll?" → erklär 30/70 vs 40/60 etc.
+- "Was ist Bollinger-Squeeze?" → erklär kurz
+- "Lohnt sich Volume-Filter?" → ehrliche Einschätzung
+
+ENTSCHEIDUNGS-LOGIK:
+- "bau", "mach", "erstelle", "generiere", "ändere", "füg dazu" → Modus A (JSON)
+- "was", "wie", "warum", "lohnt sich", "was meinst du", "welche" → Modus B (Prosa)
+- Unklar → frag kurz nach was der User möchte
+
+WENN DER USER EINE QUELLE LIEFERT (YouTube-Transkript, Artikel):
+- Lies aufmerksam
+- Extrahiere konkrete Regeln (Indikatoren, Entry, Exit, SL/TP, Timeframe)
+- Wenn User keine eigene Beschreibung: extrahiere ALLES aus der Quelle als Strategie
+- Bei unklaren Werten: sinnvolle Defaults + erwähne im description-Feld
+
+WICHTIG: Bei einer Folge-Anfrage die auf eine bestehende Strategie referenziert ("mach den SL enger", "füg RSI dazu", "ändere..."), BEHALTE die existierenden Felder bei und ändere nur was der User wünscht. Du DARFST den Namen anpassen (z.B. "+ enger SL" anhängen) damit die alte Version nicht überschrieben wird.
+
+OUTPUT-FORMAT (STRIKT EINHALTEN):
+Antworte NUR mit einem JSON-Block in einem \`\`\`json Codeblock. Kein Vor-/Nachtext, keine Erklärungen außerhalb des JSON.
+
+JSON-Schema:
+{
+  "name": "Strategie-Name (max 40 Zeichen)",
+  "description": "Kurze deutsche Beschreibung (1-2 Sätze)",
+  "defaultTF": "1h" | "5m" | "15m" | "4h" | "1d",
+  "params": { "paramName": { "label": "Anzeigename", "value": <num>, "min": <num>, "max": <num>, "step": <num> } },
+  "initCode": "JS-Code für init(candles, params) — pre-compute Indikatoren auf this._xxx",
+  "enterCode": "JS-Code für shouldEnter(candles, i, params) — return { dir: 'long'|'short', sl: number } oder null",
+  "exitCode": "JS-Code für shouldExit(candles, i, position, params) — return true | false"
+}
+
+VERFÜGBARE INDICATORS (im Code: Indicators.X(...)):
+- ema(closes, period), sma(closes, period), wma, dema, tema, hma, kama, mcginley, zlema, smma, vwma(closes, vols, p)
+- rsi(closes, period), stochRsi(closes, rsiP, stochP, kSm, dSm), connorsRsi
+- atr(highs, lows, closes, period), adx(highs, lows, closes, period) → {adx, plusDi, minusDi}
+- bollinger(closes, period, mult) → {upper, mid, lower}, keltner(highs, lows, closes, ema, atr, mult) → {upper, mid, lower}, donchian(highs, lows, period) → {upper, lower, mid}
+- macd(closes, fast=12, slow=26, sig=9) → {macd, signal, histogram}, ppo, kst, trix
+- stochastic(highs, lows, closes, k=14, d=3) → {k, d}, williamsR, cci, ultimateOscillator
+- supertrend(highs, lows, closes, period=10, mult=3) → {supertrend, direction}, parabolicSar(highs, lows, closes) → {sar, direction}
+- ichimoku(highs, lows, closes) → {tenkan, kijun, senkouA, senkouB, chikou}
+- vwap(candles), pivotPoints(candles) → {pp, r1, s1, r2, s2}
+- highestHigh(highs, period), lowestLow(lows, period), linearRegression(closes, period) → {line, slope}
+- obv(closes, vols), cmf(highs, lows, closes, vols, period), mfi(highs, lows, closes, vols, period), forceIndex
+- patternHammer(candles), patternEngulfing(candles), patternDoji(candles), patternMorningStar(candles), patternHarami(candles), patternPinBar(candles)
+- swingHighLow(highs, lows, lookback) → {swingHighs[], swingLows[]}
+- structureBreak(highs, lows, closes, lookback) → {bullishBreaks, bearishBreaks}
+- supportResistance(highs, lows, closes, lookback) → {support, resistance}
+- aroon(highs, lows, period) → {up, down}, vortex → {vmPlus, vmMinus}, choppiness, awesomeOscillator
+- All return Arrays mit gleicher Länge wie input. NaN für Warmup-Periode.
+
+CANDLE-FORMAT: { open, high, low, close, volume, ts }
+this._xxx = persistente Strategie-State (z.B. this._ema, this._atr).
+
+ENTRY-RETURN: { dir: "long"|"short", sl: <Stop-Loss-Preis> }
+Optional auch: tp: <Target>, tp2: <Second-Target>, _meta: any
+sl MUSS gesetzt sein (Engine-Anforderung).
+
+EXIT-RETURN: true (schließen) oder false (halten)
+
+WICHTIGE REGELN:
+1. Im Code KEINE neuen Funktionen mit "function" definieren — nur Indicators.X-Aufrufe + Math + Conditionals
+2. Beachte NaN-Werte am Anfang: \`if (i < period || isNaN(this._ema[i])) return null;\`
+3. Realistische SL-Distanzen: ATR-basiert ist Standard
+4. Params nutzen: \`params.atrMult.value || params.atrMult\` (Engine reicht beides)
+5. KEINE externen API-Calls, kein localStorage, kein DOM-Zugriff
+6. KEINE Indikatoren erfinden die nicht in der Liste oben stehen
+
+BEISPIEL OUTPUT für "EMA 9/21 Cross + RSI > 50":
+\`\`\`json
+{
+  "name": "EMA 9/21 Cross + RSI Filter",
+  "description": "Trendfolge mit zwei EMAs und RSI-Bestätigung. SL via ATR.",
+  "defaultTF": "1h",
+  "params": {
+    "fastEma": { "label": "Fast EMA", "value": 9, "min": 3, "max": 50, "step": 1 },
+    "slowEma": { "label": "Slow EMA", "value": 21, "min": 10, "max": 100, "step": 1 },
+    "rsiPeriod": { "label": "RSI Period", "value": 14, "min": 5, "max": 30, "step": 1 },
+    "atrPeriod": { "label": "ATR Period", "value": 14, "min": 5, "max": 30, "step": 1 },
+    "slMult": { "label": "SL × ATR", "value": 1.5, "min": 0.5, "max": 5.0, "step": 0.1 }
+  },
+  "initCode": "const closes = candles.map(c => c.close); this._fast = Indicators.ema(closes, params.fastEma.value || params.fastEma); this._slow = Indicators.ema(closes, params.slowEma.value || params.slowEma); this._rsi = Indicators.rsi(closes, params.rsiPeriod.value || params.rsiPeriod); this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod.value || params.atrPeriod);",
+  "enterCode": "if (i < 2 || isNaN(this._fast[i]) || isNaN(this._slow[i]) || isNaN(this._rsi[i]) || isNaN(this._atr[i])) return null; const slM = params.slMult.value || params.slMult; const c = candles[i].close; if (this._fast[i-1] <= this._slow[i-1] && this._fast[i] > this._slow[i] && this._rsi[i] > 50) return { dir: 'long', sl: c - slM * this._atr[i] }; if (this._fast[i-1] >= this._slow[i-1] && this._fast[i] < this._slow[i] && this._rsi[i] < 50) return { dir: 'short', sl: c + slM * this._atr[i] }; return null;",
+  "exitCode": "if (isNaN(this._fast[i]) || isNaN(this._slow[i])) return false; if (position.dir === 'long' && this._fast[i] < this._slow[i]) return true; if (position.dir === 'short' && this._fast[i] > this._slow[i]) return true; return false;"
+}
+\`\`\``;
+
+// ── Chat-State ──
+let _aiChatHistory = [];
+function aiAppendChatMsg(role, text) {
+  _aiChatHistory.push({ role, text });
+  const box = document.getElementById('aiChatHistory');
+  if (!box) return;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-bottom:10px;padding:8px 12px;border-radius:6px;' +
+    (role === 'user'
+      ? 'background:rgba(88,166,255,0.10);border-left:3px solid var(--blue)'
+      : 'background:rgba(168,85,247,0.10);border-left:3px solid #a855f7');
+  const lbl = document.createElement('div');
+  lbl.style.cssText = 'font-size:10px;font-weight:700;color:' + (role === 'user' ? 'var(--blue)' : '#a855f7') + ';margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px';
+  // Label dynamisch: zeige aktuellen Provider-Namen statt hardgecoded "Claude"
+  let assistantLabel = 'KI';
+  try {
+    const cfg = aiLoadConfig();
+    const info = AI_PROVIDERS[cfg.provider];
+    if (info && info.name) assistantLabel = info.name;
+  } catch(e) {}
+  lbl.textContent = role === 'user' ? 'Du' : assistantLabel;
+  const body = document.createElement('div');
+  body.style.cssText = 'font-size:13px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6';
+  body.textContent = text;
+  wrap.appendChild(lbl); wrap.appendChild(body);
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+}
+function aiClearChat() {
+  _aiChatHistory = [];
+  const box = document.getElementById('aiChatHistory');
+  if (box) box.innerHTML = '';
+  const out = document.getElementById('aiOutputArea');
+  if (out) out.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px 0">Hier erscheint deine fertige Strategie sobald du auf <strong>Generieren</strong> klickst.</div>';
+}
+
+// ════════════════════════════════════════════
+//  URL/YouTube Fetcher — Inhalt holen für KI
+// ════════════════════════════════════════════
+let _aiFetchedContent = null;   // { source, text, isYouTube, url }
+const AI_CORS_PROXIES = [
+  'https://corsproxy.io/?url=',
+  'https://api.codetabs.com/v1/proxy/?quest=',
+  'https://api.allorigins.win/raw?url=',
+];
+
+function aiExtractYouTubeId(url) {
+  if (!url) return null;
+  // Common YouTube URL patterns
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:.*&)?v=)([\w-]{11})/,
+    /(?:youtu\.be\/)([\w-]{11})/,
+    /(?:youtube\.com\/embed\/)([\w-]{11})/,
+    /(?:youtube\.com\/shorts\/)([\w-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+async function aiFetchViaProxy(targetUrl) {
+  let lastErr = null;
+  for (const proxy of AI_CORS_PROXIES) {
+    try {
+      const url = proxy + encodeURIComponent(targetUrl);
+      const resp = await fetch(url);
+      if (!resp.ok) { lastErr = new Error('HTTP ' + resp.status); continue; }
+      return await resp.text();
+    } catch(e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Alle CORS-Proxies haben versagt');
+}
+
+async function aiFetchYouTubeTranscript(videoId) {
+  // Strategie: hol die Watch-Seite via Proxy, parse captionTracks, hol XML-Transkript
+  const watchUrl = 'https://www.youtube.com/watch?v=' + videoId;
+  const html = await aiFetchViaProxy(watchUrl);
+  // Suche caption tracks: "captionTracks":[{"baseUrl":"...","name":...,"languageCode":"de"|"en",...}]
+  const match = html.match(/"captionTracks":\s*(\[[^\]]+\])/);
+  if (!match) throw new Error('Keine Untertitel-Spuren gefunden — Video hat evtl. keine Captions');
+  let tracks;
+  try { tracks = JSON.parse(match[1].replace(/\\u0026/g, '&')); }
+  catch(e) { throw new Error('Caption-Tracks konnten nicht geparst werden'); }
+  if (!tracks || !tracks.length) throw new Error('Keine Caption-Tracks');
+  // Bevorzuge: nicht-asr Deutsch → nicht-asr Englisch → erstes verfügbares
+  const preferOrder = (t) => {
+    let score = 0;
+    if (t.kind !== 'asr') score += 10;  // human transcripts > auto
+    if (t.languageCode === 'de') score += 5;
+    if (t.languageCode === 'en') score += 4;
+    return score;
+  };
+  tracks.sort((a, b) => preferOrder(b) - preferOrder(a));
+  const baseUrl = tracks[0].baseUrl.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+  // Transcript holen (XML), texte rausziehen
+  const xmlText = await aiFetchViaProxy(baseUrl);
+  // Quick-and-dirty: <text ...>Inhalt</text> matches
+  const textParts = [];
+  const reText = /<text[^>]*>([\s\S]*?)<\/text>/g;
+  let m;
+  while ((m = reText.exec(xmlText)) !== null) {
+    const decoded = m[1]
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, '/')
+      .replace(/&#10;/g, ' ')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+    if (decoded) textParts.push(decoded);
+  }
+  if (textParts.length === 0) throw new Error('Transkript leer');
+  return textParts.join(' ');
+}
+
+async function aiFetchArticleText(url) {
+  const html = await aiFetchViaProxy(url);
+  // Versuche Haupt-Content via <article>, <main>, fallback <body>
+  const tryExtract = (tag) => {
+    const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
+    const m = html.match(re);
+    return m ? m[1] : null;
+  };
+  let body = tryExtract('article') || tryExtract('main') || tryExtract('body') || html;
+  // Strip script/style
+  body = body.replace(/<script[\s\S]*?<\/script>/gi, '');
+  body = body.replace(/<style[\s\S]*?<\/style>/gi, '');
+  body = body.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+  body = body.replace(/<nav[\s\S]*?<\/nav>/gi, '');
+  body = body.replace(/<footer[\s\S]*?<\/footer>/gi, '');
+  body = body.replace(/<aside[\s\S]*?<\/aside>/gi, '');
+  // Tags entfernen
+  let text = body.replace(/<[^>]+>/g, ' ');
+  // Entitäten dekodieren (Basis)
+  text = text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+  // Whitespace normalisieren
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+}
+
+async function aiFetchUrlContent() {
+  const urlInput = document.getElementById('aiUrlInput');
+  const status = document.getElementById('aiUrlStatus');
+  const btn = document.getElementById('aiFetchBtn');
+  const url = (urlInput.value || '').trim();
+  if (!url) { _showErrorToast('Bitte eine URL eingeben'); return; }
+  if (!/^https?:\/\//.test(url)) { _showErrorToast('URL muss mit http:// oder https:// beginnen'); return; }
+  btn.disabled = true;
+  btn.textContent = '⏳ lädt...';
+  status.style.display = 'block';
+  status.style.background = 'rgba(88,166,255,0.10)';
+  status.style.border = '1px solid rgba(88,166,255,0.30)';
+  status.style.color = 'var(--text-primary)';
+  status.innerHTML = '⏳ Inhalt wird geholt...';
+  try {
+    const ytId = aiExtractYouTubeId(url);
+    let content, source;
+    const cfg = aiLoadConfig();
+    if (ytId && cfg.provider === 'gemini') {
+      // Bei Gemini: URL direkt durchreichen — Gemini transkribiert das Video selbst
+      content = '[YouTube-Video wird direkt von Gemini analysiert: ' + url + ']';
+      source = 'youtube-direct';
+      _aiFetchedContent = { source, text: content, isYouTube: true, url, useGeminiVideo: true };
+      status.style.background = 'rgba(34,197,94,0.10)';
+      status.style.border = '1px solid rgba(34,197,94,0.40)';
+      status.innerHTML = '🎬 <strong>Gemini-Modus:</strong> Video wird direkt von Gemini analysiert (Audio + Bild). Keine Transkript-Extraktion nötig — gib unten deine Anweisung ein und klick "Generieren".';
+    } else if (ytId) {
+      content = await aiFetchYouTubeTranscript(ytId);
+      source = 'youtube-transcript';
+      _aiFetchedContent = { source, text: content, isYouTube: true, url };
+      status.style.background = 'rgba(34,197,94,0.10)';
+      status.style.border = '1px solid rgba(34,197,94,0.40)';
+      const preview = content.slice(0, 240).replace(/\s+/g, ' ');
+      status.innerHTML = '✓ <strong>YouTube-Transkript geladen</strong> (' + content.length.toLocaleString() + ' Zeichen) <button type="button" onclick="aiTogglePreview()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;float:right">▾ anzeigen</button><div id="aiContentPreview" style="display:none;margin-top:8px;padding:8px;background:var(--bg-tertiary);border-radius:4px;max-height:160px;overflow-y:auto;font-size:11px;color:var(--text-secondary);line-height:1.5">' + content.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]) + '</div><div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Vorschau: <em>' + preview.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]) + (content.length > 240 ? '...' : '') + '</em></div>';
+    } else {
+      content = await aiFetchArticleText(url);
+      // Auf 8000 Zeichen kappen — typisch reicht das, schont Tokens
+      const original = content.length;
+      if (content.length > 8000) content = content.slice(0, 8000) + '\n[...gekürzt — Original ' + original + ' Zeichen]';
+      source = 'article';
+      _aiFetchedContent = { source, text: content, isYouTube: false, url };
+      status.style.background = 'rgba(34,197,94,0.10)';
+      status.style.border = '1px solid rgba(34,197,94,0.40)';
+      const preview = content.slice(0, 200).replace(/\s+/g, ' ');
+      status.innerHTML = '✓ <strong>Artikel geladen</strong> (' + content.length.toLocaleString() + ' Zeichen) <button type="button" onclick="aiTogglePreview()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;float:right">▾ anzeigen</button><div id="aiContentPreview" style="display:none;margin-top:8px;padding:8px;background:var(--bg-tertiary);border-radius:4px;max-height:160px;overflow-y:auto;font-size:11px;color:var(--text-secondary);line-height:1.5">' + content.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]) + '</div><div style="margin-top:6px;font-size:11px;color:var(--text-muted)">Vorschau: <em>' + preview.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]) + (content.length > 200 ? '...' : '') + '</em></div>';
+    }
+  } catch(e) {
+    _aiFetchedContent = null;
+    status.style.background = 'rgba(239,68,68,0.10)';
+    status.style.border = '1px solid rgba(239,68,68,0.40)';
+    status.style.color = '#ef4444';
+    let msg = (e.message || String(e));
+    if (msg.includes('Caption') || msg.includes('Untertitel')) {
+      msg += '<div style="font-size:11px;margin-top:6px;color:var(--text-muted)">💡 Tipp: Wähle in den Einstellungen <strong>Google Gemini</strong> als Provider — Gemini kann YouTube-Videos direkt analysieren ohne Transkript.</div>';
+    }
+    status.innerHTML = '❌ Fehler: ' + msg;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📥 Inhalt holen';
+  }
+}
+
+function aiTogglePreview() {
+  const el = document.getElementById('aiContentPreview');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Hauptaktion: Strategie generieren ──
+async function aiGenerateStrategy() {
+  const input = document.getElementById('aiChatInput');
+  const userDesc = (input.value || '').trim();
+  if (!userDesc && !_aiFetchedContent) { _showErrorToast('Bitte beschreibe die Strategie oder hole zuerst Inhalt von einer URL'); return; }
+  if (!aiHasKey()) {
+    _showErrorToast('Kein API-Key — bitte in Einstellungen eintragen');
+    aiOpenSettings();
+    return;
+  }
+  const btn = document.getElementById('aiGenerateBtn');
+  const model = document.getElementById('aiModelSelect').value;
+  const cfg = aiLoadConfig();
+  // Bauen der finalen User-Message: Beschreibung + ggf. Inhalt
+  let userMessage = userDesc;
+  let chatPreview = userDesc;
+  if (_aiFetchedContent) {
+    if (_aiFetchedContent.useGeminiVideo) {
+      chatPreview = (userDesc || 'Strategie aus dem Video extrahieren') + '\n[+ YouTube-Video direkt analysiert: ' + _aiFetchedContent.url + ']';
+    } else if (_aiFetchedContent.isYouTube) {
+      const ytTxt = _aiFetchedContent.text;
+      const safeTxt = ytTxt.length > 12000 ? ytTxt.slice(0, 12000) + '\n[...Transkript gekürzt]' : ytTxt;
+      userMessage = (userDesc ? userDesc + '\n\n' : '') +
+        'Quelle: YouTube-Transkript (' + _aiFetchedContent.url + ')\n\n--- TRANSKRIPT ---\n' + safeTxt + '\n--- ENDE TRANSKRIPT ---\n\n' +
+        (userDesc ? '' : 'Bitte extrahiere die im Video beschriebene Trading-Strategie und gib sie als JSON-Spezifikation zurück.');
+      chatPreview = (userDesc || 'Strategie aus dem Video extrahieren') + '\n[+ ' + ytTxt.length.toLocaleString() + '-Zeichen YouTube-Transkript]';
+    } else {
+      const artTxt = _aiFetchedContent.text;
+      userMessage = (userDesc ? userDesc + '\n\n' : '') +
+        'Quelle: Artikel/Webseite (' + _aiFetchedContent.url + ')\n\n--- INHALT ---\n' + artTxt + '\n--- ENDE INHALT ---\n\n' +
+        (userDesc ? '' : 'Bitte extrahiere die im Artikel beschriebene Trading-Strategie und gib sie als JSON-Spezifikation zurück.');
+      chatPreview = (userDesc || 'Strategie aus dem Artikel extrahieren') + '\n[+ ' + artTxt.length.toLocaleString() + '-Zeichen Artikel-Inhalt]';
+    }
+  }
+  // Chat-History für die KI bauen — alle bisherigen User+Assistant Nachrichten + die neue
+  const messages = _aiChatHistory.map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.text
+  }));
+  // Neue User-Message hinzufügen
+  messages.push({ role: 'user', content: userMessage });
+  // Verlauf-Limit: bei extrem langen Chats die ältesten Pärchen abschneiden um Token-Budget zu schonen
+  // Wir behalten max. die letzten 12 Nachrichten (= ~6 User-Turns)
+  const trimmedMessages = messages.length > 12 ? messages.slice(-12) : messages;
+  // Erst ANZEIGEN dass User-Nachricht gesendet wird, DANN history erweitern
+  aiAppendChatMsg('user', chatPreview);
+  input.value = '';
+  btn.disabled = true;
+  btn.innerHTML = '⏳ generiert...';
+  const out = document.getElementById('aiOutputArea');
+  const providerName = (AI_PROVIDERS[cfg.provider] && AI_PROVIDERS[cfg.provider].name) || cfg.provider;
+  // Output rechts NICHT überschreiben wenn schon eine Strategie da ist und neue Nachricht eine Frage sein könnte
+  // → wir leeren erst wenn JSON kommt
+  const outBackup = out.innerHTML;
+  out.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px 0;font-size:13px">⏳ ' + providerName + ' denkt nach...</div>';
+  try {
+    let reply;
+    if (_aiFetchedContent && _aiFetchedContent.useGeminiVideo && cfg.provider === 'gemini') {
+      // Special-Case Gemini-Video: nur die letzte Nachricht + Video, kein History (Video-Modus ist eh one-shot)
+      reply = await aiCallGeminiWithVideo(AI_SYSTEM_PROMPT, (userDesc || 'Extrahiere die Trading-Strategie aus diesem Video und gib sie als JSON-Spec zurück.'), model, cfg.keys.gemini, _aiFetchedContent.url);
+    } else {
+      reply = await aiCallLLM(AI_SYSTEM_PROMPT, trimmedMessages, model);
+    }
+    // Vollständige Antwort in History speichern (auch lange Antworten — die KI braucht den vollen Context)
+    _aiChatHistory.push({ role: 'assistant', text: reply });
+    // Im Chat anzeigen — bei langen Antworten gekürzt mit Hinweis
+    const displayReply = reply.length > 400 ? reply.slice(0, 400) + '\n\n[... gekürzt — Vollversion rechts oder unten ausklappen ...]' : reply;
+    // History-Eintrag ist schon drin — aiAppendChatMsg darf NICHT nochmal hinzufügen
+    _aiChatHistory.pop(); // entferne das was wir gerade hinzugefügt haben, aiAppendChatMsg pusht's wieder
+    aiAppendChatMsg('assistant', displayReply);
+    // Die echte (volle) Antwort überschreiben (falls gekürzt) — aiAppendChatMsg hat displayReply gespeichert
+    _aiChatHistory[_aiChatHistory.length - 1].text = reply;
+    // JSON detection: wenn die Antwort einen ```json Block enthält oder ein {} mit "name" / "params" Schlüsseln
+    const parsed = aiExtractJSON(reply);
+    const hasStrategySpec = parsed && parsed.name && parsed.params && parsed.initCode;
+    if (hasStrategySpec) {
+      // Strategie-Modus: render rechts
+      aiRenderOutput(parsed, reply);
+    } else {
+      // Prosa-Modus: keine Strategie, nur Text — Output-Bereich behält alten Inhalt oder zeigt Hinweis
+      if (outBackup && outBackup.includes('Generierte Strategie') === false && !window._aiPendingSpec) {
+        out.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px 16px;font-size:13px;line-height:1.6">💬 <strong>Chat-Modus</strong><br>Die KI hat eine Frage beantwortet, keine Strategie generiert.<br><br>Schreib z.B. "<em>Bau mir eine ...</em>" oder "<em>Mach das jetzt</em>" wenn du eine Strategie willst.</div>';
+      } else {
+        out.innerHTML = outBackup;  // alten Strategie-Output nicht zerstören
+      }
+    }
+  } catch (e) {
+    _aiChatHistory.push({ role: 'assistant', text: '❌ Fehler: ' + (e.message || String(e)) });
+    _aiChatHistory.pop();
+    aiAppendChatMsg('assistant', '❌ Fehler: ' + (e.message || String(e)));
+    _aiChatHistory[_aiChatHistory.length - 1].text = '❌ Fehler: ' + (e.message || String(e));
+    out.innerHTML = '<div style="color:#ef4444;padding:14px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:6px;font-size:13px">❌ <strong>Fehler:</strong> ' + (e.message || String(e)) + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Generieren';
+  }
+}
+
+function aiExtractJSON(text) {
+  // Versuch 1: ```json Block
+  const m1 = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = m1 ? m1[1].trim() : text.trim();
+  try { return JSON.parse(candidate); } catch (e) {}
+  // Versuch 2: erstes { bis letztes }
+  const i1 = candidate.indexOf('{'); const i2 = candidate.lastIndexOf('}');
+  if (i1 >= 0 && i2 > i1) {
+    try { return JSON.parse(candidate.slice(i1, i2 + 1)); } catch(e) {}
+  }
+  return null;
+}
+
+// ── Sandbox-Validierung: kompiliert die Strategie und führt sie auf 100 Test-Kerzen aus ──
+function aiValidateStrategy(spec) {
+  if (!spec || !spec.name || !spec.params || !spec.initCode || !spec.enterCode || !spec.exitCode) {
+    return { ok: false, error: 'Schema unvollständig (name/params/init/enter/exit)' };
+  }
+  try {
+    const strat = aiBuildStrategyObject(spec);
+    // Test-Kerzen: 200 random walk
+    const testCandles = [];
+    let p = 100;
+    for (let i = 0; i < 200; i++) {
+      const o = p; const c = p + (Math.random() - 0.5) * 2;
+      const h = Math.max(o, c) + Math.random();
+      const l = Math.min(o, c) - Math.random();
+      testCandles.push({ open: o, high: h, low: l, close: c, volume: 1000 + Math.random() * 500, ts: Date.now() + i * 3600000 });
+      p = c;
+    }
+    const params = {};
+    for (const k of Object.keys(spec.params)) params[k] = spec.params[k];
+    strat.init(testCandles, params);
+    let entries = 0;
+    for (let i = 5; i < testCandles.length; i++) {
+      const r = strat.shouldEnter(testCandles, i, params);
+      if (r) {
+        entries++;
+        // Ausstieg testen
+        if (typeof r.dir !== 'string' || (r.dir !== 'long' && r.dir !== 'short')) return { ok: false, error: 'shouldEnter return.dir muss "long" oder "short" sein' };
+        if (typeof r.sl !== 'number' || isNaN(r.sl)) return { ok: false, error: 'shouldEnter return.sl muss eine gültige Zahl sein' };
+        const exitR = strat.shouldExit(testCandles, i + 1, { dir: r.dir, sl: r.sl, entry: testCandles[i].close }, params);
+        if (typeof exitR !== 'boolean') return { ok: false, error: 'shouldExit muss true|false zurückgeben, bekam: ' + typeof exitR };
+        if (entries >= 3) break; // genug getestet
+      }
+    }
+    return { ok: true, strat, entries, testCandlesCount: testCandles.length };
+  } catch (e) {
+    return { ok: false, error: 'Sandbox-Fehler: ' + (e.message || String(e)) };
+  }
+}
+
+function aiBuildStrategyObject(spec) {
+  // Sichere Funktions-Konstruktion: nur 'candles', 'i', 'params', 'position', 'Indicators', 'Math' verfügbar
+  const initFn = new Function('candles', 'params', 'Indicators', 'Math',
+    `"use strict"; ${spec.initCode}`);
+  const enterFn = new Function('candles', 'i', 'params', 'Indicators', 'Math',
+    `"use strict"; ${spec.enterCode}`);
+  const exitFn = new Function('candles', 'i', 'position', 'params', 'Indicators', 'Math',
+    `"use strict"; ${spec.exitCode}`);
+  const stratObj = {
+    name: spec.name,
+    defaultTF: spec.defaultTF || '1h',
+    params: JSON.parse(JSON.stringify(spec.params)), // deep copy
+    _aiSpec: spec,
+    init(candles, params) { return initFn.call(this, candles, params, Indicators, Math); },
+    shouldEnter(candles, i, params) { return enterFn.call(this, candles, i, params, Indicators, Math); },
+    shouldExit(candles, i, position, params) { return exitFn.call(this, candles, i, position, params, Indicators, Math); },
+  };
+  return stratObj;
+}
+
+// ── Output-Render: Spec anzeigen + Add-Button ──
+function aiRenderOutput(spec, rawReply) {
+  const out = document.getElementById('aiOutputArea');
+  const validation = aiValidateStrategy(spec);
+  let valBadge;
+  if (validation.ok) {
+    valBadge = '<span style="background:rgba(34,197,94,0.20);color:#22c55e;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700">✓ Sandbox-Check OK (' + validation.entries + ' Test-Entries)</span>';
+  } else {
+    valBadge = '<span style="background:rgba(239,68,68,0.20);color:#ef4444;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700">✗ Validierung fehlgeschlagen</span>';
+  }
+  const paramsHtml = Object.entries(spec.params || {}).map(([k, v]) =>
+    `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:12px">
+       <span style="color:var(--text-secondary)">${v.label || k}</span>
+       <span style="color:var(--text-primary);font-family:monospace">${v.value} <span style="color:var(--text-muted);font-size:10px">[${v.min}–${v.max}, step ${v.step || 1}]</span></span>
+     </div>`).join('');
+  const errHtml = validation.ok ? '' :
+    `<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:6px;padding:10px 12px;font-size:12px;color:#ef4444;margin-bottom:12px"><strong>❌ Fehler:</strong> ${validation.error}</div>`;
+  const cfg = aiLoadConfig();
+  const escName = (spec.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+  out.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${escName}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${spec.description || ''}</div>
+        ${valBadge}
+        <span style="background:var(--bg-tertiary);color:var(--text-muted);padding:3px 9px;border-radius:10px;font-size:11px;margin-left:6px">${spec.defaultTF || '1h'}</span>
+      </div>
+    </div>
+    ${errHtml}
+    <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Parameter</div>
+      ${paramsHtml || '<em style="color:var(--text-muted)">keine</em>'}
+    </div>
+    <details style="margin-bottom:12px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--blue);padding:6px 0">📜 Generierter Code (zum Inspizieren)</summary>
+      <pre style="background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;overflow-x:auto;margin-top:6px;color:#c9d1d9;line-height:1.5">${(rawReply || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c])}</pre>
+    </details>
+    ${validation.ok ? `
+      <div style="display:flex;gap:10px">
+        <button type="button" onclick="aiAddToStrategies()" style="flex:1;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">✓ Zu meinen Strategien hinzufügen</button>
+        <button type="button" onclick="aiRefineStrategy()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px 14px;border-radius:6px;cursor:pointer;font-size:13px" title="Lass Claude eine Verfeinerung vorschlagen">🔧 Refine</button>
+      </div>
+    ` : ''}
+    <div style="font-size:11px;color:var(--text-muted);margin-top:10px">⚠️ Generierte Strategien sind ein Startpunkt. Backtest immer kritisch lesen — KI baut auch Quatsch wenn die Beschreibung Quatsch ist.</div>
+  `;
+  // State für Add-Button
+  window._aiPendingSpec = spec;
+}
+
+// ════════════════════════════════════════════
+//  REFINEMENT — bestehende Strategie verfeinern
+// ════════════════════════════════════════════
+let _aiRefineTarget = null; // { spec, backtestResults? }
+
+function aiOpenRefine(spec, backtestResults) {
+  if (!spec) { _showErrorToast('Keine Strategie zum Verfeinern'); return; }
+  _aiRefineTarget = { spec, backtestResults: backtestResults || null };
+  const body = document.getElementById('aiRefineBody');
+  if (!body) return;
+  // Aktuelle Backtest-Ergebnisse holen falls passend zur Strategie
+  let stats = backtestResults;
+  if (!stats && typeof lastResult !== 'undefined' && lastResult && lastResult.totalMetrics) {
+    // lastResult prüfen: passt der zur ausgewählten Strategie?
+    const sel = document.getElementById('strategySelect');
+    const stratIdx = sel ? parseInt(sel.value) : -1;
+    const curStrat = (stratIdx >= 0 && STRATEGIES[stratIdx]) ? STRATEGIES[stratIdx] : null;
+    if (curStrat && curStrat.name === spec.name) stats = lastResult;
+  }
+  let statsHtml = '';
+  if (stats && stats.totalMetrics) {
+    const m = stats.totalMetrics;
+    statsHtml = `
+      <div style="background:rgba(88,166,255,0.08);border-left:3px solid var(--blue);padding:10px 14px;border-radius:5px;margin-bottom:14px;font-size:12px">
+        <div style="font-weight:700;color:var(--blue);margin-bottom:6px">📊 Aktuelles Backtest-Ergebnis</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px;line-height:1.5">
+          <span style="color:var(--text-muted)">Trades:</span><span style="color:var(--text-primary);font-weight:600">${(stats.trades || []).length}</span>
+          <span style="color:var(--text-muted)">Profit-Faktor:</span><span style="color:var(--text-primary);font-weight:600">${(m.profitFactor || 0).toFixed(2)}</span>
+          <span style="color:var(--text-muted)">Win-Rate:</span><span style="color:var(--text-primary);font-weight:600">${(m.winRate || 0).toFixed(1)}%</span>
+          <span style="color:var(--text-muted)">Sharpe:</span><span style="color:var(--text-primary);font-weight:600">${(m.sharpe || 0).toFixed(2)}</span>
+          <span style="color:var(--text-muted)">Max Drawdown:</span><span style="color:var(--text-primary);font-weight:600">${(stats.maxDD || 0).toFixed(2)}%</span>
+          <span style="color:var(--text-muted)">End-Balance:</span><span style="color:var(--text-primary);font-weight:600">$${(stats.endBalance || 0).toFixed(2)}</span>
+        </div>
+      </div>`;
+  }
+  const escName = (spec.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+  body.innerHTML = `
+    <div style="background:rgba(168,85,247,0.08);border-left:3px solid #a855f7;padding:10px 14px;border-radius:5px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#a855f7;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Aktuelle Strategie</div>
+      <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">${escName}</div>
+      <div style="font-size:12px;color:var(--text-muted)">${spec.description || ''}</div>
+    </div>
+    ${statsHtml}
+    <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px;font-size:13px">Was soll geändert werden?</label>
+    <textarea id="aiRefineInput" rows="6" placeholder="Beispiele:&#10;&#10;• 'Win-Rate ist zu niedrig — mach den SL enger und füg einen Volume-Filter hinzu'&#10;• 'Zu viele Fehlsignale — RSI-Filter strenger (40/60 statt 30/70)'&#10;• 'Trades zu kurz — verlängere die Hold-Zeit, TP weiter weg'&#10;• 'Max DD zu hoch — Position-Size kleiner, Min-RR auf 2.0'&#10;• 'Keine Shorts — entfern die Short-Logik komplett'" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box"></textarea>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">💡 Sei konkret — die KI macht genau was du sagst. Wenn du sagst „strenger" gilt das für was du beschreibst, nicht alles auf einmal.</div>
+  `;
+  document.getElementById('aiRefineModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('aiRefineInput')?.focus(), 50);
+}
+
+function aiCloseRefine() {
+  document.getElementById('aiRefineModal').style.display = 'none';
+  _aiRefineTarget = null;
+}
+
+const AI_REFINE_PROMPT = `Du bist ein Experte für quantitatives Trading. Du verfeinerst eine bestehende Trading-Strategie.
+
+INPUT besteht aus DREI Teilen:
+1. AKTUELLE STRATEGIE (JSON-Spec)
+2. (optional) BACKTEST-ERGEBNISSE
+3. ÄNDERUNGSWUNSCH des Users
+
+OUTPUT-FORMAT (STRIKT):
+Antworte mit dem KOMPLETT VERFEINERTEN JSON in einem \`\`\`json Codeblock. Übernimm alle nicht geänderten Teile 1:1. Keine Erklärungen außerhalb des JSON.
+
+WICHTIG:
+- Halte exakt das gleiche JSON-Schema ein (name, description, defaultTF, params, initCode, enterCode, exitCode)
+- Du DARFST den Namen leicht anpassen (z.B. "+ engerer SL" anhängen) damit die alte Version nicht überschrieben wird
+- Aktualisiere description damit sie die Änderung beschreibt
+- Mach nur was der User wünscht — nicht "verbessere alles" auf einmal
+- Nutze nur Indikatoren aus der bekannten Liste (Indicators.X)
+- Behalte funktionierende Teile bei`;
+
+async function aiApplyRefine() {
+  if (!_aiRefineTarget || !_aiRefineTarget.spec) { _showErrorToast('Keine Strategie zum Verfeinern'); return; }
+  const inputEl = document.getElementById('aiRefineInput');
+  const userReq = (inputEl.value || '').trim();
+  if (!userReq) { _showErrorToast('Bitte beschreibe was geändert werden soll'); return; }
+  if (!aiHasKey()) {
+    _showErrorToast('Kein API-Key — bitte Einstellungen prüfen');
+    aiCloseRefine();
+    aiOpenSettings();
+    return;
+  }
+  const btn = document.getElementById('aiRefineApplyBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ verfeinert...';
+  const spec = _aiRefineTarget.spec;
+  const stats = _aiRefineTarget.backtestResults;
+  // User-Message zusammenbauen
+  let userMessage = '## AKTUELLE STRATEGIE\n```json\n' + JSON.stringify(spec, null, 2) + '\n```\n\n';
+  if (stats && stats.totalMetrics) {
+    const m = stats.totalMetrics;
+    userMessage += '## BACKTEST-ERGEBNISSE\n';
+    userMessage += '- Trades: ' + (stats.trades || []).length + '\n';
+    userMessage += '- Profit-Faktor: ' + (m.profitFactor || 0).toFixed(2) + '\n';
+    userMessage += '- Win-Rate: ' + (m.winRate || 0).toFixed(1) + '%\n';
+    userMessage += '- Sharpe: ' + (m.sharpe || 0).toFixed(2) + '\n';
+    userMessage += '- Max Drawdown: ' + (stats.maxDD || 0).toFixed(2) + '%\n';
+    userMessage += '- End-Balance: $' + (stats.endBalance || 0).toFixed(2) + '\n\n';
+  }
+  userMessage += '## ÄNDERUNGSWUNSCH\n' + userReq;
+  try {
+    const cfg = aiLoadConfig();
+    const model = cfg.model || (AI_PROVIDERS[cfg.provider] && AI_PROVIDERS[cfg.provider].defaultModel);
+    const reply = await aiCallLLM(AI_REFINE_PROMPT, userMessage, model);
+    const parsed = aiExtractJSON(reply);
+    if (!parsed) throw new Error('Keine gültige JSON-Antwort.\n\n' + reply.slice(0, 400));
+    // Wechsle in den KI-Builder-Tab und render Ergebnis
+    aiCloseRefine();
+    document.querySelector('.tab-btn[data-tab="aibuilder"]')?.click();
+    setTimeout(() => {
+      aiAppendChatMsg('user', '🔧 Verfeinere "' + spec.name + '": ' + userReq);
+      aiAppendChatMsg('assistant', reply.length > 400 ? reply.slice(0, 400) + '\n\n[... gekürzt — siehe rechts ...]' : reply);
+      aiRenderOutput(parsed, reply);
+    }, 100);
+  } catch (e) {
+    _showErrorToast('Refinement-Fehler: ' + (e.message || String(e)), 6000);
+    console.error('Refinement error:', e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Verfeinern';
+  }
+}
+
+// Legacy-Stub für Refine-Button im Output (öffnet jetzt das Modal)
+function aiRefineStrategy() {
+  if (window._aiPendingSpec) aiOpenRefine(window._aiPendingSpec);
+  else _showErrorToast('Keine Strategie zum Verfeinern');
+}
+
+// Refine via Custom-Liste (per Index)
+function aiRefineCustom(idx) {
+  const list = aiLoadCustomStrategies();
+  if (idx < 0 || idx >= list.length) return;
+  aiOpenRefine(list[idx]);
+}
+
+// Refine die aktuell im Strategie-Dropdown gewählte AI-Strategie (vom Result-Tab)
+function aiUpdateRefineBanner() {
+  const banner = document.getElementById('aiRefineBanner');
+  if (!banner) return;
+  const sel = document.getElementById('strategySelect');
+  if (!sel) { banner.style.display = 'none'; return; }
+  const idx = parseInt(sel.value);
+  const strat = STRATEGIES[idx];
+  if (strat && strat._isAiCustom && strat._aiSpec) {
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// Hook: bei Strategie-Wechsel + bei jedem Backtest-Ende
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('strategySelect');
+  if (sel) sel.addEventListener('change', () => { try { aiUpdateRefineBanner(); } catch(e) { console.warn('Refine-Banner-Fehler:', e); } });
+  setTimeout(() => { try { aiUpdateRefineBanner(); } catch(e) {} }, 500);
+});
+
+function aiRefineCurrentSelected() {
+  const sel = document.getElementById('strategySelect');
+  if (!sel) { _showErrorToast('Keine Strategie ausgewählt'); return; }
+  const idx = parseInt(sel.value);
+  const strat = STRATEGIES[idx];
+  if (!strat) { _showErrorToast('Strategie nicht gefunden'); return; }
+  if (!strat._isAiCustom || !strat._aiSpec) {
+    _showErrorToast('Refine geht nur für KI-generierte Strategien');
+    return;
+  }
+  aiOpenRefine(strat._aiSpec, lastResult);
+}
+
+// ════════════════════════════════════════════
+//  AKADEMIE KI-TUTOR — Fragen zu Strategien stellen
+// ════════════════════════════════════════════
+let _aiAkademieState = { stratName: null, history: [] };
+
+const AI_AKADEMIE_GENERAL_PROMPT = `Du bist ein freundlicher Trading-Coach in der FinalBoss-Akademie. Du beantwortest ALLGEMEINE Trading-Fragen — Indikatoren, Konzepte, Begriffe, Strategien-Kategorien, Risk-Management.
+
+DEIN STIL:
+- Antworten auf Deutsch (außer User schreibt Englisch)
+- Klar, präzise, anfänger-freundlich
+- Bei Anfänger-Fragen einfache Erklärungen mit Beispielen
+- Bei Profi-Fragen technische Details
+- KEINE konkreten Anlage-Empfehlungen ("kauf jetzt BTC") — du bist Coach, nicht Trading-Bot
+- Nutze gerne Stichpunkte oder kurze Listen für komplexere Themen
+- Wenn du etwas wirklich nicht weißt: ehrlich sagen statt raten
+
+ANTWORT-LÄNGE: kompakt halten (4-10 Sätze meistens). Bei komplexen Themen darfst du länger werden, aber nutze klare Struktur.
+
+WICHTIG: Du bist im "allgemeiner Coach"-Modus, NICHT in einem konkreten Strategie-Kontext. Wenn der User eine spezielle Strategie anspricht (z.B. "FinalBoss Zonen"), sag dass er die Strategie in der Akademie auswählen und dort den "Frag die KI"-Button drücken soll — dann hast du dort den vollen Kontext.`;
+
+const AI_AKADEMIE_PROMPT = `Du bist ein freundlicher Trading-Coach in der FinalBoss-Akademie. Du hilfst Anfängern und Fortgeschrittenen Trading-Strategien zu verstehen.
+
+DEIN STIL:
+- Antworten auf Deutsch (außer User schreibt Englisch)
+- Klar, präzise, ohne Geschwurbel
+- Bei Anfänger-Fragen einfache Erklärungen, bei Profi-Fragen technisch detailliert
+- Wenn du etwas nicht aus den Strategie-Daten ableiten kannst: ehrlich sagen statt raten
+- KEINE Anlageberatung, KEINE konkreten Empfehlungen ("kauf jetzt BTC") — du bist Tutor, nicht Trading-Bot
+- Verweise wenn sinnvoll auf typische Trade-Beispiele oder Märkte
+- Wenn der User auf eine andere Strategie referenziert, sag dass du nur Infos zur aktuellen Strategie hast
+
+DU BEKOMMST IM SYSTEM-CONTEXT die KOMPLETTEN DETAILS der gewählten Strategie (Name, Beschreibung, Entry-/Exit-Regeln, Indikatoren, Marktbedingungen). Nutze NUR diese als Quelle. Falls eine Frage darüber hinausgeht: ehrliche allgemeine Trading-Antwort.
+
+ANTWORT-LÄNGE: kompakt halten (3-8 Sätze meistens). Bei komplexen Erklärungen darfst du länger werden, aber nutze Stichpunkte oder klare Struktur.`;
+
+// Öffnet KI-Tutor für ALLGEMEINE Trading-Fragen (kein bestimmter Strategie-Kontext)
+function aiOpenAkademieGeneral() {
+  _aiAkademieState = { stratName: '__GENERAL__', history: [] };
+  // Provider-Anzeige
+  const cfg = aiLoadConfig();
+  const provName = (AI_PROVIDERS[cfg.provider] && AI_PROVIDERS[cfg.provider].name) || cfg.provider;
+  const pEl = document.getElementById('aiAkademieProvider');
+  if (pEl) pEl.textContent = provName;
+  // Header
+  document.getElementById('aiAkademieStratName').textContent = '🎓 Allgemeiner Trading-Coach';
+  // Chat leer mit Welcome-Text
+  document.getElementById('aiAkademieChat').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px 14px;font-size:13px;line-height:1.6">👋 Hallo! Ich bin dein <strong>Trading-Coach</strong>. Frag mich was über Indikatoren, Konzepte oder Begriffe — z.B.:<br><em>"Was ist ein EMA?"</em>, <em>"Was bedeutet Drawdown?"</em>, <em>"Long vs Short — Unterschied?"</em>, <em>"Was ist ein Stop-Loss?"</em></div>';
+  // Vorschlags-Chips für allgemeine Fragen
+  const sugBox = document.getElementById('aiAkademieSuggestions');
+  const generalSuggestions = [
+    'Was ist ein EMA und wie unterscheidet er sich vom SMA?',
+    'Was bedeutet Drawdown?',
+    'Was ist ein Stop-Loss und wie setze ich ihn richtig?',
+    'Was ist der Unterschied zwischen Range und Trend?',
+    'Wie funktioniert RSI?',
+    'Was sind Bollinger-Bänder?',
+    'Was ist Risk-Reward-Ratio?'
+  ];
+  // 4 zufällige Vorschläge
+  const shuffled = generalSuggestions.sort(() => Math.random() - 0.5).slice(0, 4);
+  sugBox.style.display = 'flex';
+  sugBox.innerHTML = shuffled.map(s =>
+    `<button type="button" onclick="aiAkademieAskSuggestion(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.30);color:#c4b5fd;padding:5px 10px;border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">${s}</button>`
+  ).join('');
+  // Modal öffnen
+  document.getElementById('aiAkademieModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('aiAkademieInput')?.focus(), 100);
+}
+
+function aiOpenAkademie(stratName) {
+  if (!stratName) return;
+  _aiAkademieState = { stratName, history: [] };
+  // Provider-Anzeige
+  const cfg = aiLoadConfig();
+  const provName = (AI_PROVIDERS[cfg.provider] && AI_PROVIDERS[cfg.provider].name) || cfg.provider;
+  const pEl = document.getElementById('aiAkademieProvider');
+  if (pEl) pEl.textContent = provName;
+  // Strategie-Name
+  document.getElementById('aiAkademieStratName').textContent = '📊 ' + stratName;
+  // Chat leer
+  document.getElementById('aiAkademieChat').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px 14px;font-size:13px;line-height:1.6">👋 Hallo! Ich kenne alle Details zu <strong>' + stratName.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]) + '</strong>. Frag mich z.B.:<br><em>"Wann nicht traden?"</em>, <em>"Was bedeutet [Indikator]?"</em>, <em>"Warum diese SL-Wahl?"</em></div>';
+  // Vorschlags-Chips bauen
+  const sugBox = document.getElementById('aiAkademieSuggestions');
+  const suggestions = aiAkademieSuggestionsFor(stratName);
+  sugBox.innerHTML = suggestions.map(s =>
+    `<button type="button" onclick="aiAkademieAskSuggestion(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.30);color:#c4b5fd;padding:5px 10px;border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">${s}</button>`
+  ).join('');
+  // Modal öffnen
+  document.getElementById('aiAkademieModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('aiAkademieInput')?.focus(), 100);
+}
+
+function aiCloseAkademie() {
+  document.getElementById('aiAkademieModal').style.display = 'none';
+}
+
+// Vorschlags-Chips abhängig von Strategie/Schema
+function aiAkademieSuggestionsFor(stratName) {
+  const schema = (typeof ACADEMY_SCHEMAS !== 'undefined' && ACADEMY_SCHEMAS[stratName]) || 'advanced';
+  const generic = [
+    'Wann sollte ich diese Strategie NICHT nutzen?',
+    'Was ist der größte Anfänger-Fehler hier?',
+    'Welche Marktphasen funktionieren am besten?',
+    'Wie kombiniere ich das mit anderen Indikatoren?'
+  ];
+  const schemaSpecific = {
+    'mean-reversion': ['Was passiert wenn ein Trend startet?', 'Wie unterscheide ich Range vs Trend?'],
+    'trend-following': ['Wie erkenne ich Fakeouts?', 'SL zu eng oder zu weit — was nun?'],
+    'oscillator-reversal': ['Was bedeutet Oversold/Overbought genau?', 'Divergenz erkennen — wie?'],
+    'breakout': ['Wie erkenne ich echte Breakouts?', 'Was tun bei Fake-Breakouts?'],
+    'smc': ['Was ist der Unterschied zwischen BOS und CHoCH?', 'Was sind Order-Blocks?'],
+    'pattern': ['Wie zuverlässig ist dieses Pattern?', 'Was bestätigt das Pattern?'],
+    'crypto-specific': ['Funktioniert das auch auf Aktien?', 'Welche Coins sind ideal?']
+  };
+  const extras = schemaSpecific[schema] || [];
+  return [...extras, ...generic].slice(0, 4);
+}
+
+function aiAkademieAskSuggestion(question) {
+  const input = document.getElementById('aiAkademieInput');
+  if (input) { input.value = question; aiAkademieSend(); }
+}
+
+function aiAkademieAppendChat(role, text) {
+  const box = document.getElementById('aiAkademieChat');
+  if (!box) return;
+  // Wenn nur die "Frag mich was"-Welcome drin ist, leeren
+  if (box.children.length === 1 && box.firstChild.textContent && box.firstChild.textContent.includes('Hallo!')) {
+    box.innerHTML = '';
+  }
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-bottom:10px;padding:8px 12px;border-radius:6px;' +
+    (role === 'user'
+      ? 'background:rgba(88,166,255,0.10);border-left:3px solid var(--blue)'
+      : 'background:rgba(168,85,247,0.10);border-left:3px solid #a855f7');
+  const lbl = document.createElement('div');
+  lbl.style.cssText = 'font-size:10px;font-weight:700;color:' + (role === 'user' ? 'var(--blue)' : '#a855f7') + ';margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px';
+  lbl.textContent = role === 'user' ? 'Du' : 'KI-Tutor';
+  const body = document.createElement('div');
+  body.style.cssText = 'font-size:13px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6';
+  body.textContent = text;
+  wrap.appendChild(lbl); wrap.appendChild(body);
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+}
+
+// Strategie-Kontext für KI bauen — alle relevanten Daten in einen System-Prompt-Block
+function aiAkademieBuildContext(stratName) {
+  const lines = ['## STRATEGIE: ' + stratName];
+  const detSrc = (typeof STRATEGY_INFO !== 'undefined' && STRATEGY_INFO[stratName]) ? STRATEGY_INFO[stratName] : null;
+  const simSrc = (typeof STRATEGY_INFO_SIMPLE !== 'undefined' && STRATEGY_INFO_SIMPLE[stratName]) ? STRATEGY_INFO_SIMPLE[stratName] : null;
+  if (detSrc) {
+    lines.push('\n### Beschreibung');
+    lines.push(detSrc.desc || '—');
+    lines.push('\n### Entry-Bedingungen');
+    lines.push(detSrc.entry || '—');
+    lines.push('\n### Exit-Bedingungen');
+    lines.push(detSrc.exit || '—');
+    lines.push('\n### Marktbedingungen');
+    lines.push(detSrc.market || '—');
+    lines.push('\n### Indikatoren');
+    lines.push(detSrc.indicators || '—');
+  }
+  if (simSrc) {
+    if (simSrc.steps && simSrc.steps.length) {
+      lines.push('\n### Trade-Anleitung (Schritte)');
+      simSrc.steps.forEach((step, i) => lines.push((i+1) + '. ' + step));
+    }
+    if (simSrc.glossary && simSrc.glossary.length) {
+      lines.push('\n### Glossar');
+      simSrc.glossary.forEach(g => lines.push('- ' + g));
+    }
+  }
+  // Strategie-Parameter (aus STRATEGIES Array)
+  const strat = (typeof STRATEGIES !== 'undefined') ? STRATEGIES.find(s => s.name === stratName) : null;
+  if (strat && strat.params) {
+    lines.push('\n### Default-Parameter');
+    for (const [k, p] of Object.entries(strat.params)) {
+      const lbl = p.label || k;
+      const val = p.value !== undefined ? p.value : '?';
+      lines.push('- ' + lbl + ': ' + val + (p.min !== undefined ? ' (Range: ' + p.min + '–' + p.max + ')' : ''));
+    }
+    if (strat.defaultTF) lines.push('- Default-Timeframe: ' + strat.defaultTF);
+  }
+  return lines.join('\n');
+}
+
+async function aiAkademieSend() {
+  if (!aiHasKey()) {
+    _showInfoToast('🔑 Erst API-Key in Einstellungen eintragen', 4000);
+    aiCloseAkademie();
+    aiOpenSettings();
+    return;
+  }
+  const input = document.getElementById('aiAkademieInput');
+  const q = (input.value || '').trim();
+  if (!q) return;
+  const stratName = _aiAkademieState.stratName;
+  if (!stratName) return;
+  const sendBtn = document.getElementById('aiAkademieSendBtn');
+  sendBtn.disabled = true;
+  sendBtn.textContent = '⏳';
+  // User-Nachricht anzeigen + speichern
+  aiAkademieAppendChat('user', q);
+  _aiAkademieState.history.push({ role: 'user', content: q });
+  input.value = '';
+  // Suggestions ausblenden nach erster Nachricht
+  document.getElementById('aiAkademieSuggestions').style.display = 'none';
+  try {
+    const cfg = aiLoadConfig();
+    const model = cfg.model || (AI_PROVIDERS[cfg.provider] && AI_PROVIDERS[cfg.provider].defaultModel);
+    // System-Prompt: bei General-Modus ohne Strategie-Kontext, sonst mit
+    let systemPrompt;
+    if (stratName === '__GENERAL__') {
+      systemPrompt = AI_AKADEMIE_GENERAL_PROMPT;
+    } else {
+      systemPrompt = AI_AKADEMIE_PROMPT + '\n\n' + aiAkademieBuildContext(stratName);
+    }
+    // Letzte 10 Nachrichten als Verlauf (Token-Schonung)
+    const history = _aiAkademieState.history.slice(-10);
+    const reply = await aiCallLLM(systemPrompt, history, model);
+    aiAkademieAppendChat('assistant', reply);
+    _aiAkademieState.history.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    aiAkademieAppendChat('assistant', '❌ Fehler: ' + (e.message || String(e)));
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Senden';
+  }
+}
+
+// Aktuell gewählte KI-Strategie löschen (vom Result-Banner aus)
+function aiDeleteCurrentSelected() {
+  const sel = document.getElementById('strategySelect');
+  if (!sel) { _showErrorToast('Keine Strategie ausgewählt'); return; }
+  const idx = parseInt(sel.value);
+  const strat = STRATEGIES[idx];
+  if (!strat) return;
+  if (!strat._isAiCustom) {
+    _showErrorToast('Standard-Strategien können nicht gelöscht werden');
+    return;
+  }
+  if (!confirm('KI-Strategie "' + strat.name + '" wirklich löschen? Diese Aktion ist nicht rückgängig zu machen.')) return;
+  // Aus localStorage entfernen
+  const list = aiLoadCustomStrategies();
+  const lIdx = list.findIndex(s => s.name === strat.name);
+  if (lIdx >= 0) {
+    list.splice(lIdx, 1);
+    aiSaveCustomStrategies(list);
+  }
+  // Aus STRATEGIES entfernen
+  const sIdx = STRATEGIES.findIndex(s => s.name === strat.name && s._isAiCustom);
+  if (sIdx >= 0) STRATEGIES.splice(sIdx, 1);
+  // UI aktualisieren
+  try { aiRebuildStrategyDropdown(); } catch(e) {}
+  try { aiRefreshCustomList(); } catch(e) {}
+  // Auf erste verfügbare Strategie wechseln
+  if (sel.options.length > 0) {
+    sel.value = sel.options[0].value;
+    sel.dispatchEvent(new Event('change'));
+  }
+  // Banner ausblenden + Erfolg-Toast
+  try { aiUpdateRefineBanner(); } catch(e) {}
+  _showSuccessToast('🗑️ KI-Strategie "' + strat.name + '" gelöscht', 3000);
+}
+
+// ── Strategie zu STRATEGIES hinzufügen + persistieren ──
+function aiLoadCustomStrategies() {
+  try {
+    const raw = localStorage.getItem(AI_LS_CUSTOM);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch(e) { return []; }
+}
+function aiSaveCustomStrategies(list) {
+  try { localStorage.setItem(AI_LS_CUSTOM, JSON.stringify(list)); } catch(e) {}
+}
+function aiAddToStrategies() {
+  const spec = window._aiPendingSpec;
+  if (!spec) { _showErrorToast('Keine Strategie zum Hinzufügen'); return; }
+  // Eindeutiger Name
+  let baseName = spec.name; let n = 1; let finalName = baseName;
+  while (STRATEGIES.some(s => s.name === finalName)) {
+    n++;
+    finalName = baseName + ' #' + n;
+  }
+  spec.name = finalName;
+  spec._isAiCustom = true;
+  spec._createdAt = new Date().toISOString();
+  // Persistieren
+  const list = aiLoadCustomStrategies();
+  list.push(spec);
+  aiSaveCustomStrategies(list);
+  // In STRATEGIES injizieren
+  aiInjectIntoStrategies(spec);
+  // UI-Updates
+  aiRefreshCustomList();
+  _showSuccessToast('✓ "' + finalName + '" hinzugefügt — siehe Strategie-Auswahl', 4000);
+  // Strategie-Dropdown neu bauen mit KI-Gruppe oben
+  try { aiRebuildStrategyDropdown(); } catch(e) { console.warn('Dropdown-Rebuild Fehler:', e); }
+}
+
+function aiInjectIntoStrategies(spec) {
+  const stratObj = aiBuildStrategyObject(spec);
+  // Vermerk das es eine AI-Strategie ist
+  stratObj._isAiCustom = true;
+  stratObj._aiSpec = spec;
+  // Wenn Strategie mit Name schon existiert: ersetzen
+  const idx = STRATEGIES.findIndex(s => s.name === spec.name);
+  if (idx >= 0) STRATEGIES[idx] = stratObj;
+  else STRATEGIES.push(stratObj);
+}
+
+// ── Strategie-Dropdown neu bauen mit OPTGROUPS: KI oben + Standard unten ──
+function aiRebuildStrategyDropdown() {
+  const sel = document.getElementById('strategySelect');
+  if (!sel) return;
+  const currentValue = sel.value;
+  sel.innerHTML = '';
+  // KI-Strategien sammeln (mit Original-Index!)
+  const aiOnes = [];
+  const standardOnes = [];
+  STRATEGIES.forEach((s, idx) => {
+    if (s._isAiCustom) aiOnes.push({ s, idx });
+    else standardOnes.push({ s, idx });
+  });
+  // KI-Gruppe oben (nur wenn vorhanden)
+  if (aiOnes.length > 0) {
+    const aiGroup = document.createElement('optgroup');
+    aiGroup.label = '🤖 KI-generiert';
+    for (const { s, idx } of aiOnes) {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = '🤖 ' + s.name;
+      aiGroup.appendChild(opt);
+    }
+    sel.appendChild(aiGroup);
+  }
+  // Standard-Gruppe darunter
+  const stdGroup = document.createElement('optgroup');
+  stdGroup.label = aiOnes.length > 0 ? '📊 Standard-Strategien' : '';
+  for (const { s, idx } of standardOnes) {
+    const opt = document.createElement('option');
+    opt.value = idx;
+    opt.textContent = s.name;
+    if (aiOnes.length > 0) stdGroup.appendChild(opt);
+    else sel.appendChild(opt);  // ohne Gruppe wenn keine AI-Strategien
+  }
+  if (aiOnes.length > 0 && standardOnes.length > 0) sel.appendChild(stdGroup);
+  // Vorher gewählten Wert wiederherstellen wenn möglich
+  if (currentValue) sel.value = currentValue;
+  // Custom-Dropdown sync
+  try {
+    if (typeof csRebuild === 'function') csRebuild('strategySelect');
+    if (typeof csUpdateLabel === 'function') csUpdateLabel('strategySelect');
+  } catch(e) {}
+}
+
+function aiRefreshCustomList() {
+  const list = aiLoadCustomStrategies();
+  const wrap = document.getElementById('aiCustomList');
+  const body = document.getElementById('aiCustomListBody');
+  if (!wrap || !body) return;
+  if (list.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  body.innerHTML = list.map((s, i) => {
+    const escN = (s.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-tertiary);padding:8px 12px;border-radius:6px;font-size:12px;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escN}</div>
+        <div style="color:var(--text-muted);font-size:11px">${s.description || ''} · ${s.defaultTF || '1h'} · ${(s._createdAt || '').slice(0, 10)}</div>
+      </div>
+      <button type="button" onclick="aiSelectStrategy('${escN.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Im Strategie-Dropdown auswählen" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.30);color:#22c55e;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px">▶ Nutzen</button>
+      <button type="button" onclick="aiRefineCustom(${i})" title="Mit der KI verfeinern" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.30);color:#a855f7;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px">🔧 Refine</button>
+      <button type="button" onclick="aiDeleteCustom(${i})" title="Löschen" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.30);color:#ef4444;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function aiSelectStrategy(name) {
+  const idx = STRATEGIES.findIndex(s => s.name === name);
+  if (idx < 0) { _showErrorToast('Strategie nicht gefunden: ' + name); return; }
+  const sel = document.getElementById('strategySelect');
+  // Defensive: change-Handler können in Fremdcode crashen
+  try {
+    if (sel) {
+      sel.value = idx;
+      sel.dispatchEvent(new Event('change'));
+      // Custom-Dropdown-Label updaten damit User die Strategie auch sieht
+      try { if (typeof csUpdateLabel === 'function') csUpdateLabel('strategySelect'); } catch(e) {}
+    }
+  } catch(e) {
+    console.warn('Strategie-Wechsel: change-Handler-Fehler (ignoriert):', e);
+  }
+  try { closeFullscreenTab(); } catch(e) {}
+  try { document.querySelector('.tab-btn[data-tab="results"]')?.click(); } catch(e) {}
+  _showSuccessToast('▶ "' + name + '" gewählt — jetzt "Backtest starten" klicken', 4000);
+}
+
+function aiDeleteCustom(idx) {
+  const list = aiLoadCustomStrategies();
+  if (idx < 0 || idx >= list.length) return;
+  if (!confirm('Strategie "' + list[idx].name + '" wirklich löschen?')) return;
+  const removed = list[idx];
+  list.splice(idx, 1);
+  aiSaveCustomStrategies(list);
+  // Aus STRATEGIES entfernen
+  const sIdx = STRATEGIES.findIndex(s => s.name === removed.name && s._isAiCustom);
+  if (sIdx >= 0) STRATEGIES.splice(sIdx, 1);
+  aiRefreshCustomList();
+  // Strategie-Dropdown neu bauen
+  try { aiRebuildStrategyDropdown(); } catch(e) {}
+}
+
+// ── Quick-Switch Provider ohne Modal (Inline-Dropdown) ──
+function aiQuickSwitchProvider() {
+  const sel = document.getElementById('aiQuickProviderSelect');
+  if (!sel) return;
+  const provider = sel.value;
+  const cfg = aiLoadConfig();
+  cfg.provider = provider;
+  // Modell auf provider-default setzen falls aktuelles inkompatibel
+  const info = AI_PROVIDERS[provider];
+  if (info) {
+    const validIds = info.models.map(m => m.id);
+    if (!validIds.includes(cfg.model)) cfg.model = info.defaultModel;
+  }
+  aiSaveConfig(cfg);
+  aiPopulateModelDropdown();
+  aiUpdateBanner();
+  aiSyncQuickProviderSelect();
+  // Wenn der neue Provider keinen Key hat → Settings öffnen
+  if (provider !== 'ollama' && !(cfg.keys && cfg.keys[provider])) {
+    _showInfoToast('🔑 Kein API-Key für ' + (info ? info.name : provider) + ' — öffne Einstellungen', 4000);
+    setTimeout(aiOpenSettings, 600);
+  } else {
+    _showSuccessToast('✓ Provider gewechselt auf ' + (info ? info.name : provider), 2500);
+  }
+}
+
+// ── Sync Quick-Switcher mit aktuellem Config-State ──
+function aiSyncQuickProviderSelect() {
+  const sel = document.getElementById('aiQuickProviderSelect');
+  if (!sel) return;
+  const cfg = aiLoadConfig();
+  if (sel.value !== cfg.provider) sel.value = cfg.provider;
+}
+
+// ── Initialisierung beim App-Start ──
+function aiInitOnLoad() {
+  aiSyncQuickProviderSelect();
+  // Settings-Banner aktualisieren
+  aiUpdateBanner();
+  // Persistierte Strategien laden + injizieren
+  const list = aiLoadCustomStrategies();
+  for (const spec of list) {
+    try { aiInjectIntoStrategies(spec); }
+    catch(e) { console.warn('AI-Strategie konnte nicht geladen werden:', spec.name, e); }
+  }
+  aiRefreshCustomList();
+  // Strategie-Dropdown nach Laden der Custom-Strategien neu bauen
+  try { aiRebuildStrategyDropdown(); } catch(e) {}
+  // Modell-Dropdown an aktuellen Provider anpassen + selektieren
+  aiPopulateModelDropdown();
+  const sel = document.getElementById('aiModelSelect');
+  // Bei Model-Change: in Config speichern
+  if (sel) sel.addEventListener('change', () => {
+    const c = aiLoadConfig();
+    c.model = sel.value;
+    aiSaveConfig(c);
+  });
+}
+// Auf DOMContentLoaded warten falls noch nicht passiert
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', aiInitOnLoad);
+} else {
+  setTimeout(aiInitOnLoad, 100);
 }
 
 // PWA Service Worker
