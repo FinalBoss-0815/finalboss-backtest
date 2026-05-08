@@ -2285,11 +2285,59 @@ input[type=number] { -moz-appearance:textfield }
   <div class="tab-content" id="tab-review">
     <div style="display:flex;flex-direction:column;height:100%;gap:14px;padding:4px;overflow-y:auto">
 
-      <!-- Header -->
-      <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(168,85,247,0.08));border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:14px 18px">
-        <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">📺 TikTok Strategy Reviewer</div>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">Lade ein TikTok/YouTube-Video hoch — die KI extrahiert die Strategie, backtestet sie und generiert ein <strong>fertiges Reaktions-Video</strong> mit Voice-Over und Stats-Overlay. Perfekt für Anti-Scammer-Content auf deinen Social-Media-Kanälen.</div>
+      <!-- USER-MODE: Submission-Formular (Default für alle User außer Admin) -->
+      <div id="reviewUserMode">
+        <!-- Hero-Header -->
+        <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(168,85,247,0.08));border:1px solid rgba(239,68,68,0.30);border-radius:12px;padding:30px 24px;text-align:center;margin-bottom:18px">
+          <div style="font-size:48px;margin-bottom:10px">📺</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text-primary);margin-bottom:8px">Schick FinalBoss eine Strategie!</div>
+          <div style="font-size:14px;color:var(--text-secondary);line-height:1.7;max-width:600px;margin:0 auto">Hast du einen TikTok-Trader gesehen der "todsichere" Strategien verkauft? Schick uns den Link — FinalBoss testet die Strategie auf echten Daten und postet das Ergebnis als Reaction-Video auf TikTok. <strong style="color:#fbbf24">100% kostenlos</strong>, dauert paar Tage bis zur Antwort.</div>
+        </div>
+
+        <!-- Submission-Formular -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:640px;margin:0 auto">
+          <label style="display:block;font-weight:700;color:var(--text-primary);margin-bottom:6px;font-size:14px">🔗 TikTok-Link (Pflicht)</label>
+          <input type="url" id="reviewSubmitUrl" placeholder="https://www.tiktok.com/@username/video/1234567890" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:12px 14px;border-radius:6px;font-size:13px;font-family:monospace;box-sizing:border-box;margin-bottom:14px">
+
+          <label style="display:block;font-weight:700;color:var(--text-primary);margin-bottom:6px;font-size:14px">💬 Kommentar (optional)</label>
+          <textarea id="reviewSubmitNote" rows="3" placeholder="z.B. 'Der Typ behauptet 95% Win-Rate mit RSI...' — alles was FinalBoss helfen würde, einzuschätzen worum's geht." style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:12px 14px;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;margin-bottom:14px"></textarea>
+
+          <button type="button" onclick="reviewSubmitToTelegram()" style="width:100%;background:linear-gradient(135deg,#0088cc,#005f87);border:none;color:#fff;padding:14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 12px rgba(0,136,204,0.30)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+            An FinalBoss schicken (Telegram)
+          </button>
+
+          <div style="margin-top:14px;padding:10px 12px;background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;border-radius:4px;font-size:11px;color:var(--text-muted);line-height:1.6">
+            <strong style="color:#22c55e">🔒 Privat &amp; sicher:</strong> Du brauchst nur Telegram. Klick öffnet einen Chat mit <code>@FinalBossReviewBot</code> mit pre-fertiger Nachricht. Du klickst nur noch "Senden" und bist fertig. Wir sehen nichts ausser dem was du dem Bot schickst.
+          </div>
+        </div>
+
+        <!-- Info-Box: was passiert nachher -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;max-width:640px;margin:18px auto 0">
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:10px">📋 Was passiert mit deiner Submission?</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text-secondary);line-height:1.5">
+            <div><strong style="color:#a855f7">1.</strong> FinalBoss bekommt deinen Link in seinem Telegram</div>
+            <div><strong style="color:#a855f7">2.</strong> KI extrahiert die Strategie aus dem Video (Audio → Transkript → Analyse)</div>
+            <div><strong style="color:#a855f7">3.</strong> Backtest läuft auf 1+ Jahr echten BTC/ETH-Daten</div>
+            <div><strong style="color:#a855f7">4.</strong> FinalBoss postet die Ergebnisse als Reaction-Video auf TikTok</div>
+            <div><strong style="color:#a855f7">5.</strong> Alle sehen ob die Strategie wirklich funktioniert oder Schrott ist</div>
+          </div>
+        </div>
       </div>
+
+      <!-- ADMIN-MODE: Volle Pipeline (nur sichtbar wenn ?admin=1) -->
+      <div id="reviewAdminMode" style="display:none">
+        <!-- Admin-Indicator -->
+        <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span>🔧 ADMIN-MODE — volle Reviewer-Pipeline aktiv</span>
+          <button type="button" onclick="reviewToggleAdmin(false)" style="background:rgba(0,0,0,0.20);border:none;color:#1a1a1a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">User-View ansehen</button>
+        </div>
+
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(168,85,247,0.08));border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:14px 18px">
+          <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">📺 TikTok Strategy Reviewer (Admin)</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">Lade ein TikTok/YouTube-Video hoch — die KI extrahiert die Strategie, backtestet sie und generiert ein <strong>fertiges Reaktions-Video</strong> mit Voice-Over und Stats-Overlay.</div>
+        </div>
 
       <!-- Schritt 1: Drag & Drop -->
       <div id="reviewStep1" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px">
@@ -2347,6 +2395,7 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <div id="reviewVideoOutput"></div>
       </div>
+      </div><!-- /reviewAdminMode -->
 
     </div>
   </div>
@@ -31969,10 +32018,79 @@ function reviewSetupDropZone() {
   });
 }
 
+// ── Admin-Detection ──
+const FB_TELEGRAM_BOT = 'FinalBossReviewBot';  // ohne @ — t.me/FinalBossReviewBot
+
+function reviewIsAdmin() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === '1') {
+      localStorage.setItem('fb_admin', '1');
+      return true;
+    }
+    if (params.get('admin') === '0') {
+      localStorage.removeItem('fb_admin');
+      return false;
+    }
+    return localStorage.getItem('fb_admin') === '1';
+  } catch(e) { return false; }
+}
+
+function reviewToggleAdmin(enable) {
+  if (enable) localStorage.setItem('fb_admin', '1');
+  else localStorage.removeItem('fb_admin');
+  reviewApplyMode();
+}
+
+function reviewApplyMode() {
+  const isAdmin = reviewIsAdmin();
+  const userBox = document.getElementById('reviewUserMode');
+  const adminBox = document.getElementById('reviewAdminMode');
+  if (userBox) userBox.style.display = isAdmin ? 'none' : 'block';
+  if (adminBox) adminBox.style.display = isAdmin ? 'block' : 'none';
+}
+
+// ── User-Submission via Telegram-Bot ──
+function reviewSubmitToTelegram() {
+  const url = (document.getElementById('reviewSubmitUrl').value || '').trim();
+  const note = (document.getElementById('reviewSubmitNote').value || '').trim();
+  if (!url) {
+    _showErrorToast('Bitte einen TikTok-Link einfügen');
+    return;
+  }
+  if (!/^https?:\/\//.test(url)) {
+    _showErrorToast('URL muss mit http:// oder https:// beginnen');
+    return;
+  }
+  // Pre-fertige Telegram-Nachricht bauen
+  let msg = '\u{1F4FA} TikTok-Strategie zum Reviewen:\n\n';
+  msg += '\u{1F517} Link: ' + url + '\n\n';
+  if (note) msg += '\u{1F4AC} Kommentar:\n' + note + '\n\n';
+  msg += '\u{2014} gesendet via FinalBoss-App';
+  // Telegram-Deep-Link oeffnen
+  const tgUrl = 'https://t.me/' + FB_TELEGRAM_BOT + '?text=' + encodeURIComponent(msg);
+  window.open(tgUrl, '_blank');
+  _showSuccessToast('✓ Telegram oeffnet sich — klick "Senden" im Bot-Chat um die Submission abzuschicken', 6000);
+  // Inputs leeren
+  setTimeout(() => {
+    document.getElementById('reviewSubmitUrl').value = '';
+    document.getElementById('reviewSubmitNote').value = '';
+  }, 1000);
+}
+
 // ── Init beim Tab-Open ──
 function _reviewInitTab() {
-  reviewSetupDropZone();
+  reviewApplyMode();
+  // Drop-Zone nur einrichten wenn Admin-Mode (sonst gibt's die Elemente nicht)
+  if (reviewIsAdmin()) reviewSetupDropZone();
 }
+
+// Beim ersten Page-Load Admin-Mode prüfen (für URL-Param ?admin=1)
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    try { reviewIsAdmin(); } catch(e) {}  // setzt localStorage falls ?admin=1
+  }, 100);
+});
 
 // Hook: Tab-Switch erkennen
 document.addEventListener('click', (e) => {
