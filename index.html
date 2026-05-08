@@ -1253,6 +1253,7 @@ input[type=number] { -moz-appearance:textfield }
     <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-right:4px">Eigene Strategien</span>
     <button class="tab-btn" data-tab="builder" style="padding:10px 18px;font-weight:600;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span data-i18n="tab.builder">🧩 Strategy Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();">i<span class="info-tip" data-i18n-html="tip.btn.builder"><strong>Strategy Builder</strong> — baue eigene Strategien <strong>visuell ohne Code</strong>. Wähle Bedingungen aus Bausteinen: z.B. <em>"RSI &lt; 30 UND EMA-Cross UND Volume-Spike"</em> als Entry, <em>"RSI &gt; 70 ODER ATR-Stop"</em> als Exit. SL/TP via ATR. Direkt im Backtest testbar — kein Programmieren nötig. Ideal für Anfänger oder schnelles Prototyping.</span></span></button>
     <button class="tab-btn" data-tab="aibuilder" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(168,85,247,0.30)"><span data-i18n="tab.aibuilder">🤖 KI-Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.aibuilder"><strong>KI-Strategie-Builder</strong> — beschreibe eine Strategie auf Deutsch oder Englisch, <strong>die KI generiert sofort den fertigen Code</strong>. Auch: <strong>YouTube-Link oder Artikel-URL einfügen</strong> — die KI extrahiert die Strategie daraus. Beispiel: <em>"EMA50/200 Cross + RSI&gt;50, SL bei 1.5× ATR, TP bei 3× ATR"</em>. Sandbox-validiert auf 200 Test-Kerzen, direkt im Backtest nutzbar, lokal gespeichert. <br><br><strong>4 Anbieter zur Auswahl:</strong> <strong>Groq</strong> (KOSTENLOS &amp; funktioniert in CH/EU — empfohlen, Llama 3.3 70B), <strong>Gemini</strong> (gratis 1500/Tag, in CH manchmal gesperrt), <strong>Claude</strong> (beste Qualität ab $5 Guthaben) oder <strong>Ollama lokal</strong> (kostenlos &amp; privat, läuft auf deinem PC). API-Key (außer Ollama) holst du dir selber direkt beim Anbieter — bleibt nur in deinem Browser.</span></span></button>
+    <button class="tab-btn" data-tab="review" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(239,68,68,0.30)"><span data-i18n="tab.review">📺 TikTok Review</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.review"><strong>TikTok Strategy Reviewer</strong> — lade ein TikTok-Video hoch, die KI extrahiert die behauptete Trading-Strategie via Audio-Transkription, backtestet sie auf echten BTC-Daten und generiert ein fertiges <strong>Reaktions-Video</strong> mit Voice-Over und Stats-Overlay. Perfekt für Anti-Scammer-Content: posten als Stitch/Duet auf TikTok. Komplett kostenlos (Groq Whisper + Browser-Render).</span></span></button>
   </div>
 </div>
 
@@ -2280,7 +2281,77 @@ input[type=number] { -moz-appearance:textfield }
     </div>
   </div>
 
-  <!-- Modal: KI-Einstellungen -->
+  <!-- Tab: TikTok Strategy Reviewer -->
+  <div class="tab-content" id="tab-review">
+    <div style="display:flex;flex-direction:column;height:100%;gap:14px;padding:4px;overflow-y:auto">
+
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(168,85,247,0.08));border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:14px 18px">
+        <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">📺 TikTok Strategy Reviewer</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">Lade ein TikTok/YouTube-Video hoch — die KI extrahiert die Strategie, backtestet sie und generiert ein <strong>fertiges Reaktions-Video</strong> mit Voice-Over und Stats-Overlay. Perfekt für Anti-Scammer-Content auf deinen Social-Media-Kanälen.</div>
+      </div>
+
+      <!-- Schritt 1: Drag & Drop -->
+      <div id="reviewStep1" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">1</span>
+          Video hochladen
+        </div>
+        <div id="reviewDropZone" style="border:2px dashed rgba(168,85,247,0.40);border-radius:10px;padding:40px 20px;text-align:center;cursor:pointer;transition:background 0.2s,border-color 0.2s;background:rgba(168,85,247,0.04)">
+          <div style="font-size:48px;margin-bottom:8px">📥</div>
+          <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:6px">Video hier reinziehen oder <span style="color:#a855f7;text-decoration:underline">klicken zum Auswählen</span></div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Unterstützt: MP4, MOV, WebM · Max. ~3 Minuten · Speichere TikToks vorher mit "Save to device" auf dein Gerät</div>
+          <input type="file" id="reviewFileInput" accept="video/*" style="display:none">
+        </div>
+        <div id="reviewFileInfo" style="display:none;margin-top:10px;padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;font-size:12px;color:var(--text-secondary)"></div>
+      </div>
+
+      <!-- Schritt 2: Pipeline-Progress -->
+      <div id="reviewStep2" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">2</span>
+          Verarbeitung
+        </div>
+        <div id="reviewProgress" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <!-- Schritt 3: Transkript-Vorschau -->
+      <div id="reviewStep3" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">3</span>
+          Transkript &amp; Strategie-Extraktion
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Was die KI im Video gehört hat:</div>
+        <div id="reviewTranscript" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text-secondary);line-height:1.6;max-height:160px;overflow-y:auto;white-space:pre-wrap"></div>
+        <div id="reviewStrategyBox" style="display:none;margin-top:14px"></div>
+        <div id="reviewActions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" onclick="reviewBacktestStrategy()" id="reviewBacktestBtn" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">📊 Strategie backtesten</button>
+          <button type="button" onclick="reviewReset()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px 16px;border-radius:6px;cursor:pointer;font-size:12px">↺ Anderes Video</button>
+        </div>
+      </div>
+
+      <!-- Schritt 4: Backtest-Resultat (TAG 2) -->
+      <div id="reviewStep4" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">4</span>
+          Backtest-Resultat
+        </div>
+        <div id="reviewBacktestResult"></div>
+      </div>
+
+      <!-- Schritt 5: Reaktions-Video (TAG 3) -->
+      <div id="reviewStep5" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">5</span>
+          Fertiges Reaktions-Video
+        </div>
+        <div id="reviewVideoOutput"></div>
+      </div>
+
+    </div>
+  </div>
+
+    <!-- Modal: KI-Einstellungen -->
   <div id="aiSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:20px">
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
@@ -17244,7 +17315,7 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
 // ═══════════════════════════════════════════════
 //  TAB SWITCHING (Fullscreen for non-results tabs)
 // ═══════════════════════════════════════════════
-const FULLSCREEN_TABS = ['chart', 'replay', 'journal', 'walkforward', 'heatmap', 'liquidation', 'matrix', 'builder', 'academy', 'timeanalysis', 'optimizer', 'portfolio', 'distribution', 'correlation', 'edgedecay', 'risk', 'paper', 'aibuilder'];
+const FULLSCREEN_TABS = ['chart', 'replay', 'journal', 'walkforward', 'heatmap', 'liquidation', 'matrix', 'builder', 'academy', 'timeanalysis', 'optimizer', 'portfolio', 'distribution', 'correlation', 'edgedecay', 'risk', 'paper', 'aibuilder', 'review'];
 const TAB_TITLES = {
   chart: 'Chart',
   replay: 'Bar Replay',
@@ -17262,6 +17333,7 @@ const TAB_TITLES = {
   matrix: 'Strategie Matrix',
   builder: 'Strategy Builder',
   aibuilder: '🤖 KI-Strategie-Builder',
+  review: '📺 TikTok Strategy Reviewer',
   timeanalysis: 'Zeitanalyse',
   academy: 'Akademie'
 };
@@ -31650,6 +31722,263 @@ function _showInfoToast(msg, durationMs = 4000) {
   setTimeout(() => { toast.style.transition = 'opacity 0.5s'; toast.style.opacity = '0'; }, durationMs);
   setTimeout(() => toast.remove(), durationMs + 500);
 }
+
+// ════════════════════════════════════════════════════════════════
+//  TIKTOK STRATEGY REVIEWER — Tag 1
+//  Video-Upload → Audio-Extraktion (ffmpeg.wasm) → Transkription (Groq Whisper) → Strategie-Extraktion
+// ════════════════════════════════════════════════════════════════
+
+let _reviewState = {
+  file: null,
+  videoUrl: null,
+  audioBlob: null,
+  transcript: null,
+  strategy: null,
+  ffmpeg: null,
+};
+
+// ── Progress-Steps Helper ──
+function reviewSetProgress(stepKey, status, detail) {
+  const box = document.getElementById('reviewProgress');
+  if (!box) return;
+  let row = document.getElementById('reviewProgRow_' + stepKey);
+  if (!row) {
+    row = document.createElement('div');
+    row.id = 'reviewProgRow_' + stepKey;
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:var(--bg-tertiary);font-size:12px';
+    box.appendChild(row);
+  }
+  const icons = { pending: '⏳', running: '🔄', done: '✅', error: '❌' };
+  const colors = { pending: 'var(--text-muted)', running: '#3b82f6', done: '#22c55e', error: '#ef4444' };
+  row.innerHTML = '<span style="font-size:14px">' + (icons[status] || '·') + '</span>' +
+    '<span style="flex:1;color:' + (colors[status] || 'var(--text-primary)') + ';font-weight:' + (status === 'running' ? '700' : '600') + '">' +
+    detail + '</span>';
+}
+
+function reviewReset() {
+  _reviewState = { file: null, videoUrl: null, audioBlob: null, transcript: null, strategy: null, ffmpeg: _reviewState.ffmpeg };
+  document.getElementById('reviewFileInfo').style.display = 'none';
+  document.getElementById('reviewStep2').style.display = 'none';
+  document.getElementById('reviewStep3').style.display = 'none';
+  document.getElementById('reviewStep4').style.display = 'none';
+  document.getElementById('reviewStep5').style.display = 'none';
+  document.getElementById('reviewProgress').innerHTML = '';
+  document.getElementById('reviewTranscript').textContent = '';
+  document.getElementById('reviewStrategyBox').style.display = 'none';
+  document.getElementById('reviewActions').style.display = 'none';
+  document.getElementById('reviewFileInput').value = '';
+}
+
+// ── ffmpeg.wasm dynamisch laden (von CDN) ──
+async function reviewLoadFfmpeg() {
+  if (_reviewState.ffmpeg) return _reviewState.ffmpeg;
+  reviewSetProgress('ffmpeg', 'running', 'ffmpeg.wasm wird geladen (~30 MB, einmalig)...');
+  // Dynamic import von unpkg CDN
+  // Wir nutzen die @ffmpeg/ffmpeg v0.12+ ESM-Variante
+  if (!window.FFmpegWASM) {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js';
+    await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+    const utilScript = document.createElement('script');
+    utilScript.src = 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js';
+    await new Promise((res, rej) => { utilScript.onload = res; utilScript.onerror = rej; document.head.appendChild(utilScript); });
+  }
+  const { FFmpeg } = window.FFmpegWASM;
+  const ffmpeg = new FFmpeg();
+  // Logging deaktivieren um Console nicht zu spammen — bei Fehlern aktivieren
+  // ffmpeg.on('log', ({ message }) => console.log('[ffmpeg]', message));
+  ffmpeg.on('progress', ({ progress }) => {
+    if (progress > 0 && progress <= 1) {
+      reviewSetProgress('ffmpeg-work', 'running', 'ffmpeg arbeitet... ' + Math.round(progress * 100) + '%');
+    }
+  });
+  // Core von CDN laden
+  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  await ffmpeg.load({
+    coreURL: baseURL + '/ffmpeg-core.js',
+    wasmURL: baseURL + '/ffmpeg-core.wasm',
+  });
+  _reviewState.ffmpeg = ffmpeg;
+  reviewSetProgress('ffmpeg', 'done', 'ffmpeg.wasm geladen');
+  return ffmpeg;
+}
+
+// ── Video → Audio (MP3) extrahieren ──
+async function reviewExtractAudio(file) {
+  reviewSetProgress('audio', 'running', '🎵 Audio wird aus Video extrahiert...');
+  const ffmpeg = await reviewLoadFfmpeg();
+  const { fetchFile } = window.FFmpegUtil;
+  await ffmpeg.writeFile('input.mp4', await fetchFile(file));
+  // Audio extrahieren als MP3 mit moderater Qualität (kleinere Datei = schnellerer Whisper-Upload)
+  await ffmpeg.exec(['-i', 'input.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '64k', '-ar', '16000', '-ac', '1', 'output.mp3']);
+  const data = await ffmpeg.readFile('output.mp3');
+  const blob = new Blob([data.buffer], { type: 'audio/mpeg' });
+  reviewSetProgress('audio', 'done', '🎵 Audio extrahiert (' + (blob.size / 1024).toFixed(0) + ' KB)');
+  reviewSetProgress('ffmpeg-work', 'done', 'ffmpeg-Phase 1 fertig');
+  return blob;
+}
+
+// ── Whisper Transkription via Groq ──
+async function reviewTranscribeWithGroq(audioBlob) {
+  const cfg = aiLoadConfig();
+  const apiKey = (cfg.keys && cfg.keys.groq) || '';
+  if (!apiKey) throw new Error('Kein Groq-API-Key gesetzt — Whisper-Transkription geht über Groq. Setze deinen Key in den KI-Builder-Einstellungen.');
+  reviewSetProgress('whisper', 'running', '📝 Audio wird transkribiert (Groq Whisper)...');
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.mp3');
+  formData.append('model', 'whisper-large-v3');
+  formData.append('response_format', 'json');
+  // Sprache automatisch erkennen (kein 'language' param) — Whisper kennt 99 Sprachen
+  const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'authorization': 'Bearer ' + apiKey },
+    body: formData
+  });
+  if (!resp.ok) {
+    let err = 'HTTP ' + resp.status;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    throw new Error('Whisper: ' + err);
+  }
+  const data = await resp.json();
+  const text = (data.text || '').trim();
+  if (!text) throw new Error('Whisper: leerer Transkript');
+  reviewSetProgress('whisper', 'done', '📝 Transkript erhalten (' + text.length + ' Zeichen)');
+  return text;
+}
+
+// ── Strategie aus Transkript extrahieren via Groq Llama ──
+async function reviewExtractStrategy(transcript) {
+  reviewSetProgress('strategy', 'running', '🧠 Strategie wird aus Transkript extrahiert...');
+  const userMsg = 'Hier ist das Transkript eines TikTok/YouTube-Trading-Videos:\n\n' + transcript + '\n\nExtrahiere die im Video beschriebene Trading-Strategie als JSON-Spec. Falls die Strategie unklar oder schwammig beschrieben ist, wähle sinnvolle Defaults und erwähne das im description-Feld. Falls KEINE konkrete Trading-Strategie im Video ist (z.B. nur Marktkommentar oder Hype): trotzdem extrahiere die im Kontext naheliegendste Strategie und vermerke es.';
+  const reply = await aiCallLLM(AI_SYSTEM_PROMPT, userMsg);
+  const parsed = aiExtractJSON(reply);
+  if (!parsed || !parsed.name) {
+    reviewSetProgress('strategy', 'error', '❌ Konnte keine Strategie aus dem Transkript extrahieren');
+    throw new Error('KI konnte keine Strategie aus dem Video erkennen. Möglicherweise wurde nichts Konkretes beschrieben.');
+  }
+  reviewSetProgress('strategy', 'done', '🧠 Strategie extrahiert: "' + parsed.name + '"');
+  return { spec: parsed, rawReply: reply };
+}
+
+// ── Hauptaktion: nach Datei-Upload ganzen Pipeline durchlaufen ──
+async function reviewProcessFile(file) {
+  // Datei-Info anzeigen
+  const info = document.getElementById('reviewFileInfo');
+  info.style.display = 'block';
+  info.innerHTML = '🎬 <strong>' + file.name + '</strong> · ' + (file.size / (1024*1024)).toFixed(1) + ' MB · ' + (file.type || 'unbekannt');
+  _reviewState.file = file;
+  // Step 2: Progress sichtbar
+  document.getElementById('reviewStep2').style.display = 'block';
+  document.getElementById('reviewProgress').innerHTML = '';
+  // Pipeline durchlaufen
+  try {
+    // Audio extrahieren
+    const audioBlob = await reviewExtractAudio(file);
+    _reviewState.audioBlob = audioBlob;
+    // Transkribieren
+    const transcript = await reviewTranscribeWithGroq(audioBlob);
+    _reviewState.transcript = transcript;
+    // Step 3: Transkript anzeigen
+    document.getElementById('reviewStep3').style.display = 'block';
+    document.getElementById('reviewTranscript').textContent = transcript;
+    // Strategie extrahieren
+    const { spec, rawReply } = await reviewExtractStrategy(transcript);
+    _reviewState.strategy = spec;
+    // Strategie-Vorschau anzeigen
+    const escName = (spec.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+    const paramsHtml = Object.entries(spec.params || {}).map(([k, v]) =>
+      '<span style="display:inline-block;background:var(--bg-tertiary);padding:3px 8px;border-radius:10px;margin:2px;font-size:11px;color:var(--text-secondary)">' +
+      (v.label || k) + ': <strong style="color:var(--text-primary)">' + v.value + '</strong></span>').join('');
+    document.getElementById('reviewStrategyBox').innerHTML =
+      '<div style="background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.30);border-radius:6px;padding:12px 14px">' +
+      '<div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">🧠 Erkannte Strategie: ' + escName + '</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5">' + (spec.description || '') + '</div>' +
+      '<div>' + paramsHtml + '</div>' +
+      '<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Default-Timeframe: <strong>' + (spec.defaultTF || '1h') + '</strong></div>' +
+      '</div>';
+    document.getElementById('reviewStrategyBox').style.display = 'block';
+    document.getElementById('reviewActions').style.display = 'flex';
+  } catch (e) {
+    reviewSetProgress('error', 'error', '❌ Fehler: ' + (e.message || String(e)));
+    console.error('Review pipeline error:', e);
+  }
+}
+
+// ── Backtest-Trigger (lädt Strategie in STRATEGIES + wechselt zum Backtest-Tab) ──
+function reviewBacktestStrategy() {
+  if (!_reviewState.strategy) { _showErrorToast('Keine Strategie zum Backtesten'); return; }
+  const spec = _reviewState.strategy;
+  // Eindeutiger Name mit "📺 " prefix damit klar ist es kommt aus dem Reviewer
+  let baseName = '📺 ' + spec.name;
+  let n = 1; let finalName = baseName;
+  while (STRATEGIES.some(s => s.name === finalName)) { n++; finalName = baseName + ' #' + n; }
+  spec.name = finalName;
+  spec._isAiCustom = true;
+  spec._fromReview = true;
+  spec._createdAt = new Date().toISOString();
+  // Persistieren
+  const list = aiLoadCustomStrategies();
+  list.push(spec);
+  aiSaveCustomStrategies(list);
+  // Injizieren
+  aiInjectIntoStrategies(spec);
+  aiRebuildStrategyDropdown();
+  aiRefreshCustomList();
+  // Strategie wählen
+  const selEl = document.getElementById('strategySelect');
+  const idx = STRATEGIES.findIndex(s => s.name === finalName);
+  if (selEl && idx >= 0) {
+    selEl.value = idx;
+    try { selEl.dispatchEvent(new Event('change')); } catch(e) {}
+    try { csUpdateLabel('strategySelect'); } catch(e) {}
+  }
+  // Tab wechseln
+  closeFullscreenTab();
+  document.querySelector('.tab-btn[data-tab="results"]')?.click();
+  _showSuccessToast('▶ "' + finalName + '" hinzugefügt — jetzt "Backtest starten" klicken', 4000);
+}
+
+// ── Drag & Drop UI Setup ──
+function reviewSetupDropZone() {
+  const zone = document.getElementById('reviewDropZone');
+  const input = document.getElementById('reviewFileInput');
+  if (!zone || !input || zone.dataset.setup === '1') return;
+  zone.dataset.setup = '1';
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) reviewProcessFile(f);
+  });
+  zone.addEventListener('dragover', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.style.background = 'rgba(168,85,247,0.15)';
+    zone.style.borderColor = 'rgba(168,85,247,0.80)';
+  });
+  zone.addEventListener('dragleave', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.style.background = 'rgba(168,85,247,0.04)';
+    zone.style.borderColor = 'rgba(168,85,247,0.40)';
+  });
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.style.background = 'rgba(168,85,247,0.04)';
+    zone.style.borderColor = 'rgba(168,85,247,0.40)';
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) reviewProcessFile(f);
+    else _showErrorToast('Bitte eine Video-Datei einwerfen (mp4, mov, webm)');
+  });
+}
+
+// ── Init beim Tab-Open ──
+function _reviewInitTab() {
+  reviewSetupDropZone();
+}
+
+// Hook: Tab-Switch erkennen
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (btn && btn.dataset.tab === 'review') setTimeout(_reviewInitTab, 50);
+});
 
 // Globale Fehler-Handler — fängt unbehandelte Exceptions ab
 window.addEventListener('error', (e) => {

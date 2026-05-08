@@ -1,8 +1,9 @@
-// FinalBoss Service Worker v1.0.0-beta
+// FinalBoss Service Worker v1.1.0-beta
 // Cache-first für statische Assets, Network für Binance-API.
 // Robuste Install-Phase — fehlende Assets blockieren nicht.
+// HINWEIS: CACHE_NAME bei jedem Release hochzählen damit User die neue Version kriegen!
 
-const CACHE_NAME = 'finalboss-v1.0.0-beta';
+const CACHE_NAME = 'finalboss-v1.1.0-beta-' + Date.now().toString().slice(0, 10);
 const ASSETS = ['./', './index.html', './backtest_app.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
