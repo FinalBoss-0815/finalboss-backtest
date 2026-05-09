@@ -31924,6 +31924,108 @@ async function reviewExtractAudio(file) {
   return blob;
 }
 
+// ── Video → Frames extrahieren (für Vision-AI) ──
+async function reviewExtractFrames(file) {
+  reviewSetProgress('frames', 'running', '🎬 Frames werden aus Video extrahiert (für Vision-AI)...');
+  const ffmpeg = await reviewLoadFfmpeg();
+  const { fetchFile } = window.FFmpeg;
+  // Falls input.mp4 nicht schon im FS ist (parallel zu Audio-Extraktion möglich)
+  try { ffmpeg.FS('readFile', 'input.mp4'); }
+  catch(e) {
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+  }
+  // Extrahiere 1 Frame alle 5 Sekunden, max 8 Frames, runterskaliert auf 480px Breite
+  await ffmpeg.run(
+    '-i', 'input.mp4',
+    '-vf', 'fps=1/5,scale=480:-1',
+    '-vframes', '8',
+    '-q:v', '5',
+    'frame_%03d.jpg'
+  );
+  // Alle Frame-Files aus dem virtuellen FS lesen
+  const files = ffmpeg.FS('readdir', '/');
+  const frames = [];
+  for (const f of files) {
+    if (f.startsWith('frame_') && f.endsWith('.jpg')) {
+      const data = ffmpeg.FS('readFile', f);
+      // ArrayBuffer → Base64
+      const base64 = await reviewBlobToBase64(new Blob([data.buffer], { type: 'image/jpeg' }));
+      frames.push(base64);
+      // Cleanup
+      ffmpeg.FS('unlink', f);
+    }
+  }
+  reviewSetProgress('frames', 'done', '🎬 ' + frames.length + ' Frames extrahiert');
+  return frames;
+}
+
+// Helper: Blob → Base64 (data: prefix entfernen)
+function reviewBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      // result ist "data:image/jpeg;base64,XXXXXX" — wir wollen nur den Base64-Teil
+      const idx = result.indexOf(',');
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ── Vision-basierte Strategie-Extraktion via Gemini (Audio + Frames) ──
+async function reviewExtractStrategyVision(transcript, frames) {
+  const cfg = aiLoadConfig();
+  const apiKey = (cfg.keys && cfg.keys.gemini) || '';
+  if (!apiKey) throw new Error('Vision-Modus braucht Gemini-Key — setze in KI-Builder Settings');
+  const model = cfg.model && cfg.model.startsWith('gemini-') ? cfg.model : 'gemini-2.5-flash';
+  reviewSetProgress('vision', 'running', '👁️ Gemini Vision analysiert Frames + Transkript...');
+  // Multimodal-Prompt
+  const userText = 'Hier ist ein TikTok/YouTube-Trading-Video. Du bekommst:\n' +
+    '1. Das AUDIO-TRANSKRIPT (was gesprochen wird)\n' +
+    '2. ' + frames.length + ' KEY-FRAMES aus dem Video (gleichmäßig verteilt) — du siehst was auf dem Chart läuft, welche Indikatoren angezeigt werden, welche Setups markiert sind\n\n' +
+    '## TRANSKRIPT\n' + (transcript || '(kein Audio gesprochen)') + '\n\n' +
+    'Extrahiere die Trading-Strategie als JSON-Spec. Nutze BEIDES — was gesprochen wird UND was auf den Chart-Bildern zu sehen ist:\n' +
+    '- Welche Indikatoren? (auf Chart-Frames erkennbar: EMA-Linien, RSI-Panel, Bollinger-Bänder, etc.)\n' +
+    '- Welcher Timeframe? (Chart-Header)\n' +
+    '- Welche Entry/Exit-Bedingungen? (markierte Pfeile, gesprochene Regeln)\n' +
+    '- Welcher Coin/Asset? (Symbol oben im Chart)\n' +
+    'Falls aus Audio + Bild keine konkrete Strategie ableitbar ist: gib trotzdem eine sinnvolle Default-Strategie zurück und vermerke im description-Feld dass du sie aus dem Kontext geraten hast.';
+  const parts = [{ text: userText }];
+  for (const frame of frames) {
+    parts.push({
+      inline_data: { mime_type: 'image/jpeg', data: frame }
+    });
+  }
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    systemInstruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
+    contents: [{ role: 'user', parts: parts }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
+  };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    let err = 'HTTP ' + resp.status;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    throw new Error('Gemini Vision: ' + err);
+  }
+  const data = await resp.json();
+  const cand = data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts && cand.content.parts.map(p => p.text || '').join('');
+  if (!text) throw new Error('Gemini Vision: leere Antwort');
+  const parsed = aiExtractJSON(text);
+  if (!parsed || !parsed.name) {
+    throw new Error('Vision-Modus: konnte keine Strategie extrahieren. Versuch nochmal oder schalte auf Text-only.');
+  }
+  reviewSetProgress('vision', 'done', '👁️ Vision-Analyse fertig: "' + parsed.name + '"');
+  return { spec: parsed, rawReply: text };
+}
+
 // ── Whisper Transkription via Groq ──
 async function reviewTranscribeWithGroq(audioBlob) {
   const cfg = aiLoadConfig();
@@ -31987,8 +32089,21 @@ async function reviewProcessFile(file) {
     // Step 3: Transkript anzeigen
     document.getElementById('reviewStep3').style.display = 'block';
     document.getElementById('reviewTranscript').textContent = transcript;
-    // Strategie extrahieren
-    const { spec, rawReply } = await reviewExtractStrategy(transcript);
+    // Strategie extrahieren — Vision-Modus wenn Gemini aktiv, sonst Text-only
+    const cfg = aiLoadConfig();
+    const useVision = cfg.provider === 'gemini' && cfg.keys && cfg.keys.gemini;
+    let spec, rawReply;
+    if (useVision) {
+      // Frames extrahieren + an Gemini Vision schicken
+      const frames = await reviewExtractFrames(file);
+      _reviewState.frames = frames;
+      const result = await reviewExtractStrategyVision(transcript, frames);
+      spec = result.spec; rawReply = result.rawReply;
+    } else {
+      // Klassisch nur Audio-Transkript an Text-LLM
+      const result = await reviewExtractStrategy(transcript);
+      spec = result.spec; rawReply = result.rawReply;
+    }
     _reviewState.strategy = spec;
     // Strategie-Vorschau anzeigen
     const escName = (spec.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
