@@ -31868,18 +31868,14 @@ function reviewReset() {
   document.getElementById('reviewFileInput').value = '';
 }
 
-// ── ffmpeg.wasm dynamisch laden (CORS-fix via toBlobURL) ──
+// ── ffmpeg.wasm v0.11 laden (single-threaded, GitHub-Pages-kompatibel) ──
 async function reviewLoadFfmpeg() {
   if (_reviewState.ffmpeg) return _reviewState.ffmpeg;
   reviewSetProgress('ffmpeg', 'running', 'ffmpeg.wasm wird geladen (~30 MB, einmalig)...');
-  // Wir nutzen jsdelivr statt unpkg — Worker-Files von dort haben bessere CORS-Headers
-  const FFMPEG_VERSION = '0.12.10';
-  const UTIL_VERSION = '0.12.1';
-  const CORE_VERSION = '0.12.6';
-  const ffmpegBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/umd`;
-  const utilBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/util@${UTIL_VERSION}/dist/umd`;
-  const coreBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`;
-  // Helper: Script laden
+  // v0.11 ist single-threaded — funktioniert ohne SharedArrayBuffer / COOP-COEP-Header
+  // Perfekt für GitHub Pages und ähnliche statische Hosts
+  const FFMPEG_VERSION = '0.11.6';
+  const CORE_VERSION = '0.11.0';
   const _loadScript = (url) => new Promise((res, rej) => {
     const s = document.createElement('script');
     s.src = url;
@@ -31887,65 +31883,44 @@ async function reviewLoadFfmpeg() {
     s.onerror = () => rej(new Error('Download fehlgeschlagen: ' + url));
     document.head.appendChild(s);
   });
-  // FFmpeg + Util UNABHÄNGIG voneinander laden (falls nur eines im Cache ist)
-  if (!window.FFmpegWASM) {
-    await _loadScript(ffmpegBaseURL + '/ffmpeg.js');
+  if (!window.FFmpeg || !window.FFmpeg.createFFmpeg) {
+    await _loadScript(`https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/ffmpeg.min.js`);
   }
-  if (!window.FFmpegUtil) {
-    await _loadScript(utilBaseURL + '/index.js');
+  if (!window.FFmpeg || !window.FFmpeg.createFFmpeg) {
+    throw new Error('FFmpeg.createFFmpeg nicht verfügbar — Hard-Reload (Strg+Shift+R)');
   }
-  // Verifizieren dass beide geladen sind
-  if (!window.FFmpegWASM || !window.FFmpegWASM.FFmpeg) {
-    throw new Error('FFmpegWASM nicht verfügbar nach Script-Load');
-  }
-  if (!window.FFmpegUtil || !window.FFmpegUtil.toBlobURL) {
-    throw new Error('FFmpegUtil.toBlobURL nicht verfügbar — bitte Hard-Reload (Strg+Shift+R) machen');
-  }
-  const { FFmpeg } = window.FFmpegWASM;
-  const { toBlobURL } = window.FFmpegUtil;
-  const ffmpeg = new FFmpeg();
-  ffmpeg.on('progress', ({ progress }) => {
-    if (progress > 0 && progress <= 1) {
-      reviewSetProgress('ffmpeg-work', 'running', 'ffmpeg arbeitet... ' + Math.round(progress * 100) + '%');
-    }
+  const { createFFmpeg } = window.FFmpeg;
+  const ffmpeg = createFFmpeg({
+    log: false,
+    corePath: `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/ffmpeg-core.js`,
+    progress: ({ ratio }) => {
+      if (ratio > 0 && ratio <= 1) {
+        reviewSetProgress('ffmpeg-work', 'running', 'ffmpeg arbeitet... ' + Math.round(ratio * 100) + '%');
+      }
+    },
   });
-  // Optional: Logs für Debugging (kommentiert lassen)
-  // ffmpeg.on('log', ({ message }) => console.log('[ffmpeg]', message));
-  // CORS-FIX: classWorkerURL + coreURL + wasmURL via toBlobURL fetchen
-  // Das fetcht die Files via fetch (CORS OK weil GET) und macht draus same-origin Blob-URLs
-  // → der Worker kann dann ohne CORS-Probleme erstellt werden
-  reviewSetProgress('ffmpeg-blob', 'running', 'ffmpeg-Worker wird als Blob vorbereitet...');
-  // Nur den Worker als Blob (CORS-Fix) — core + wasm als direkte URLs
-  // Der Worker fetcht core/wasm intern via importScripts/fetch (jsdelivr hat CORS-OK)
-  let classWorkerURL;
-  try {
-    classWorkerURL = await toBlobURL(ffmpegBaseURL + '/814.ffmpeg.js', 'text/javascript');
-  } catch (e) {
-    throw new Error('Worker-File konnte nicht geladen werden: ' + e.message);
-  }
-  reviewSetProgress('ffmpeg-blob', 'done', 'Worker bereit, lade Core + WASM...');
-  await ffmpeg.load({
-    classWorkerURL,
-    coreURL: coreBaseURL + '/ffmpeg-core.js',
-    wasmURL: coreBaseURL + '/ffmpeg-core.wasm',
-  });
+  reviewSetProgress('ffmpeg-blob', 'running', 'ffmpeg-Core wird geladen...');
+  await ffmpeg.load();
+  reviewSetProgress('ffmpeg-blob', 'done', 'ffmpeg-Core geladen');
   _reviewState.ffmpeg = ffmpeg;
   reviewSetProgress('ffmpeg', 'done', 'ffmpeg.wasm bereit');
   return ffmpeg;
 }
 
-// ── Video → Audio (MP3) extrahieren ──
+// ── Video → Audio (MP3) extrahieren — v0.11 API ──
 async function reviewExtractAudio(file) {
   reviewSetProgress('audio', 'running', '🎵 Audio wird aus Video extrahiert...');
   const ffmpeg = await reviewLoadFfmpeg();
-  const { fetchFile } = window.FFmpegUtil;
-  await ffmpeg.writeFile('input.mp4', await fetchFile(file));
-  // Audio extrahieren als MP3 mit moderater Qualität (kleinere Datei = schnellerer Whisper-Upload)
-  await ffmpeg.exec(['-i', 'input.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '64k', '-ar', '16000', '-ac', '1', 'output.mp3']);
-  const data = await ffmpeg.readFile('output.mp3');
+  const { fetchFile } = window.FFmpeg;
+  // v0.11: ffmpeg.FS('writeFile', ...) statt ffmpeg.writeFile()
+  ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+  // v0.11: ffmpeg.run(...args) statt ffmpeg.exec([...args])
+  await ffmpeg.run('-i', 'input.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '64k', '-ar', '16000', '-ac', '1', 'output.mp3');
+  // v0.11: ffmpeg.FS('readFile', ...) statt ffmpeg.readFile()
+  const data = ffmpeg.FS('readFile', 'output.mp3');
   const blob = new Blob([data.buffer], { type: 'audio/mpeg' });
   reviewSetProgress('audio', 'done', '🎵 Audio extrahiert (' + (blob.size / 1024).toFixed(0) + ' KB)');
-  reviewSetProgress('ffmpeg-work', 'done', 'ffmpeg-Phase 1 fertig');
+  reviewSetProgress('ffmpeg-work', 'done', 'ffmpeg fertig');
   return blob;
 }
 
