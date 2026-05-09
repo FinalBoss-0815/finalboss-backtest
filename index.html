@@ -32251,6 +32251,7 @@ function reviewRenderSubmission(sub) {
     '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;white-space:pre-wrap;line-height:1.5">' + safeText + '</div>' +
     (url ? '<div style="font-size:11px;color:var(--blue);margin-bottom:8px;word-break:break-all"><a href="' + safeUrl + '" target="_blank" style="color:var(--blue)">🔗 ' + safeUrl + '</a></div>' : '') +
     '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    (url ? '<button type="button" onclick="reviewOpenSsstik(\'' + url.replace(/'/g, "\\\\'") + '\')" title="ssstik.io im neuen Tab öffnen + URL ins Clipboard kopieren — du musst nur noch Strg+V drücken und Download klicken" style="background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">📥 ssstik</button>' : '') +
     (status === 'pending' && url ? '<button type="button" onclick="reviewProcessSubmission(\'' + sub.id.replace(/'/g, "\\\\'") + '\')" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">▶ Verarbeiten</button>' : '') +
     (status === 'pending' ? '<button type="button" onclick="reviewMarkSubmission(\'' + sub.id.replace(/'/g, "\\\\'") + '\', \'spam\')" style="background:rgba(107,114,128,0.20);border:1px solid rgba(107,114,128,0.40);color:#9ca3af;padding:6px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🗑 Spam</button>' : '') +
     '<button type="button" onclick="reviewDeleteSubmission(\'' + sub.id.replace(/'/g, "\\\\'") + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.30);color:#ef4444;padding:6px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">Löschen</button>' +
@@ -32283,6 +32284,27 @@ async function reviewMarkSubmission(id, action) {
 async function reviewDeleteSubmission(id) {
   if (!confirm('Submission wirklich löschen?')) return;
   await reviewMarkSubmission(id, 'delete');
+}
+
+// ── ssstik.io öffnen + URL ins Clipboard für manuellen Download ──
+async function reviewOpenSsstik(tiktokUrl) {
+  // URL ins Clipboard kopieren damit User auf ssstik nur paste machen muss
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(tiktokUrl);
+    copied = true;
+  } catch (e) {
+    // Clipboard-API nicht verfügbar (z.B. ohne HTTPS) — User muss manuell kopieren
+    console.warn('Clipboard nicht verfügbar:', e);
+  }
+  // ssstik.io im neuen Tab öffnen
+  window.open('https://ssstik.io/de', '_blank');
+  // Toast je nach Clipboard-Status
+  if (copied) {
+    _showSuccessToast('✓ ssstik geöffnet + Link im Clipboard. Drück STRG+V auf ssstik und klick "Download" → MP4 in die Drop-Zone unten ziehen.', 8000);
+  } else {
+    _showInfoToast('📥 ssstik geöffnet. Kopier den TikTok-Link manuell und füg ihn auf ssstik ein. Danach MP4 in die Drop-Zone unten ziehen.', 8000);
+  }
 }
 
 // ── TikTok-Video automatisch holen + Pipeline starten ──
