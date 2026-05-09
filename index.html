@@ -31868,37 +31868,50 @@ function reviewReset() {
   document.getElementById('reviewFileInput').value = '';
 }
 
-// ── ffmpeg.wasm dynamisch laden (von CDN) ──
+// ── ffmpeg.wasm dynamisch laden (CORS-fix via toBlobURL) ──
 async function reviewLoadFfmpeg() {
   if (_reviewState.ffmpeg) return _reviewState.ffmpeg;
   reviewSetProgress('ffmpeg', 'running', 'ffmpeg.wasm wird geladen (~30 MB, einmalig)...');
-  // Dynamic import von unpkg CDN
-  // Wir nutzen die @ffmpeg/ffmpeg v0.12+ ESM-Variante
+  // Wir nutzen jsdelivr statt unpkg — Worker-Files von dort haben bessere CORS-Headers
+  const FFMPEG_VERSION = '0.12.10';
+  const UTIL_VERSION = '0.12.2';
+  const CORE_VERSION = '0.12.6';
+  const ffmpegBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/umd`;
+  const utilBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/util@${UTIL_VERSION}/dist/umd`;
+  const coreBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`;
   if (!window.FFmpegWASM) {
+    // ffmpeg-Loader laden
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js';
-    await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+    script.src = ffmpegBaseURL + '/ffmpeg.js';
+    await new Promise((res, rej) => { script.onload = res; script.onerror = () => rej(new Error('ffmpeg.js Download fehlgeschlagen')); document.head.appendChild(script); });
+    // util-Helper laden
     const utilScript = document.createElement('script');
-    utilScript.src = 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js';
-    await new Promise((res, rej) => { utilScript.onload = res; utilScript.onerror = rej; document.head.appendChild(utilScript); });
+    utilScript.src = utilBaseURL + '/index.js';
+    await new Promise((res, rej) => { utilScript.onload = res; utilScript.onerror = () => rej(new Error('util Download fehlgeschlagen')); document.head.appendChild(utilScript); });
   }
   const { FFmpeg } = window.FFmpegWASM;
+  const { toBlobURL } = window.FFmpegUtil;
   const ffmpeg = new FFmpeg();
-  // Logging deaktivieren um Console nicht zu spammen — bei Fehlern aktivieren
-  // ffmpeg.on('log', ({ message }) => console.log('[ffmpeg]', message));
   ffmpeg.on('progress', ({ progress }) => {
     if (progress > 0 && progress <= 1) {
       reviewSetProgress('ffmpeg-work', 'running', 'ffmpeg arbeitet... ' + Math.round(progress * 100) + '%');
     }
   });
-  // Core von CDN laden
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-  await ffmpeg.load({
-    coreURL: baseURL + '/ffmpeg-core.js',
-    wasmURL: baseURL + '/ffmpeg-core.wasm',
-  });
+  // Optional: Logs für Debugging (kommentiert lassen)
+  // ffmpeg.on('log', ({ message }) => console.log('[ffmpeg]', message));
+  // CORS-FIX: classWorkerURL + coreURL + wasmURL via toBlobURL fetchen
+  // Das fetcht die Files via fetch (CORS OK weil GET) und macht draus same-origin Blob-URLs
+  // → der Worker kann dann ohne CORS-Probleme erstellt werden
+  reviewSetProgress('ffmpeg-blob', 'running', 'ffmpeg-Files werden in den Browser-Speicher geladen...');
+  const [classWorkerURL, coreURL, wasmURL] = await Promise.all([
+    toBlobURL(ffmpegBaseURL + '/814.ffmpeg.js', 'text/javascript'),
+    toBlobURL(coreBaseURL + '/ffmpeg-core.js', 'text/javascript'),
+    toBlobURL(coreBaseURL + '/ffmpeg-core.wasm', 'application/wasm'),
+  ]);
+  reviewSetProgress('ffmpeg-blob', 'done', 'ffmpeg-Files geladen');
+  await ffmpeg.load({ classWorkerURL, coreURL, wasmURL });
   _reviewState.ffmpeg = ffmpeg;
-  reviewSetProgress('ffmpeg', 'done', 'ffmpeg.wasm geladen');
+  reviewSetProgress('ffmpeg', 'done', 'ffmpeg.wasm bereit');
   return ffmpeg;
 }
 
