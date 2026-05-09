@@ -31975,6 +31975,34 @@ function reviewBlobToBase64(blob) {
 }
 
 // ── Vision-basierte Strategie-Extraktion via Gemini (Audio + Frames) ──
+const AI_VISION_SYSTEM_PROMPT = `Du bist ein Experte für quantitatives Trading. Du analysierst Trading-Videos (TikTok/YouTube) anhand von Audio-Transkript + Video-Frames und extrahierst die behauptete Strategie.
+
+OUTPUT-FORMAT (STRIKT EINHALTEN — KEINE AUSNAHMEN):
+Antworte AUSSCHLIESSLICH mit einem JSON-Block in einem \`\`\`json Codeblock. KEIN Vor-/Nachtext, KEINE Prosa-Erklärungen, KEINE Disclaimer wie "Ich kann keine Strategie erkennen".
+
+Du MUSST IMMER eine Strategie liefern — auch wenn nichts klar zu erkennen ist. Wähl dann eine sinnvolle Default-Strategie und vermerke im description-Feld z.B. "Aus dem Video keine konkreten Regeln ableitbar — Default-Trendfolgestrategie als Platzhalter".
+
+JSON-Schema:
+{
+  "name": "Strategie-Name (max 40 Zeichen)",
+  "description": "Was du gehört + gesehen hast, knapp",
+  "defaultTF": "1h" | "5m" | "15m" | "4h" | "1d",
+  "params": { "paramName": { "label": "Anzeigename", "value": <num>, "min": <num>, "max": <num>, "step": <num> } },
+  "initCode": "JS-Code für init(candles, params)",
+  "enterCode": "JS-Code für shouldEnter(candles, i, params)",
+  "exitCode": "JS-Code für shouldExit(candles, i, position, params)"
+}
+
+VERFÜGBARE INDICATORS (im Code: Indicators.X(...)):
+- ema(closes, period), sma(closes, period), rsi(closes, period), atr(highs, lows, closes, period)
+- bollinger(closes, period, mult), macd(closes), stochastic(highs, lows, closes), adx(highs, lows, closes)
+- supertrend, parabolicSar, ichimoku, vwap, donchian, keltner
+- All return Arrays mit gleicher Länge wie input. NaN für Warmup.
+
+ENTRY-RETURN: { dir: "long"|"short", sl: <Stop-Loss-Preis> }
+EXIT-RETURN: true | false
+Beachte NaN-Werte am Anfang. Keine \`function\`-Keywords im Code, keine externen Calls.`;
+
 async function reviewExtractStrategyVision(transcript, frames) {
   const cfg = aiLoadConfig();
   const apiKey = (cfg.keys && cfg.keys.gemini) || '';
@@ -31982,16 +32010,12 @@ async function reviewExtractStrategyVision(transcript, frames) {
   const model = cfg.model && cfg.model.startsWith('gemini-') ? cfg.model : 'gemini-2.5-flash';
   reviewSetProgress('vision', 'running', '👁️ Gemini Vision analysiert Frames + Transkript...');
   // Multimodal-Prompt
-  const userText = 'Hier ist ein TikTok/YouTube-Trading-Video. Du bekommst:\n' +
-    '1. Das AUDIO-TRANSKRIPT (was gesprochen wird)\n' +
-    '2. ' + frames.length + ' KEY-FRAMES aus dem Video (gleichmäßig verteilt) — du siehst was auf dem Chart läuft, welche Indikatoren angezeigt werden, welche Setups markiert sind\n\n' +
-    '## TRANSKRIPT\n' + (transcript || '(kein Audio gesprochen)') + '\n\n' +
-    'Extrahiere die Trading-Strategie als JSON-Spec. Nutze BEIDES — was gesprochen wird UND was auf den Chart-Bildern zu sehen ist:\n' +
-    '- Welche Indikatoren? (auf Chart-Frames erkennbar: EMA-Linien, RSI-Panel, Bollinger-Bänder, etc.)\n' +
-    '- Welcher Timeframe? (Chart-Header)\n' +
-    '- Welche Entry/Exit-Bedingungen? (markierte Pfeile, gesprochene Regeln)\n' +
-    '- Welcher Coin/Asset? (Symbol oben im Chart)\n' +
-    'Falls aus Audio + Bild keine konkrete Strategie ableitbar ist: gib trotzdem eine sinnvolle Default-Strategie zurück und vermerke im description-Feld dass du sie aus dem Kontext geraten hast.';
+  const userText = 'TRADING-VIDEO-ANALYSE\n\n' +
+    'Du bekommst ' + frames.length + ' Key-Frames + das Audio-Transkript eines TikTok/YouTube-Trading-Videos.\n\n' +
+    '## AUDIO-TRANSKRIPT\n' + (transcript || '(stumm oder nur Background-Musik)') + '\n\n' +
+    '## DEINE AUFGABE\n' +
+    'Schau die Frames genau an. Was siehst du? Welche Indikatoren sind auf den Charts (EMA-Linien, RSI-Panel, Bollinger-Bänder, Volumen-Bars)? Welcher Timeframe (Chart-Header)? Welche Coin/Asset (Symbol oben)? Welche Setup-Markierungen (Pfeile, Boxen, Levels)?\n\n' +
+    'Kombiniere Audio + Bild und gib eine Trading-Strategie als JSON aus. Du MUSST IMMER eine Strategie liefern — selbst wenn nichts Konkretes erkennbar ist (dann mit description-Vermerk).';
   const parts = [{ text: userText }];
   for (const frame of frames) {
     parts.push({
@@ -32000,7 +32024,7 @@ async function reviewExtractStrategyVision(transcript, frames) {
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const body = {
-    systemInstruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
+    systemInstruction: { parts: [{ text: AI_VISION_SYSTEM_PROMPT }] },
     contents: [{ role: 'user', parts: parts }],
     generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
   };
@@ -32017,10 +32041,13 @@ async function reviewExtractStrategyVision(transcript, frames) {
   const data = await resp.json();
   const cand = data.candidates && data.candidates[0];
   const text = cand && cand.content && cand.content.parts && cand.content.parts.map(p => p.text || '').join('');
+  console.log('[Vision] Gemini Antwort:', text);
   if (!text) throw new Error('Gemini Vision: leere Antwort');
   const parsed = aiExtractJSON(text);
   if (!parsed || !parsed.name) {
-    throw new Error('Vision-Modus: konnte keine Strategie extrahieren. Versuch nochmal oder schalte auf Text-only.');
+    // Fallback: zeige die rohe Antwort statt blind zu crashen
+    const preview = text.slice(0, 400);
+    throw new Error('Vision-Modus: Gemini hat geantwortet aber kein JSON ausgegeben.\n\nGemini sagte:\n"' + preview + '"\n\nTipp: Versuch ein anderes Video, oder schalt auf Groq (Provider-Switch unten).');
   }
   reviewSetProgress('vision', 'done', '👁️ Vision-Analyse fertig: "' + parsed.name + '"');
   return { spec: parsed, rawReply: text };
