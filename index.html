@@ -2274,7 +2274,10 @@ input[type=number] { -moz-appearance:textfield }
 
       <!-- Custom Strategien Liste -->
       <div id="aiCustomList" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:none">
-        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:10px">🗂️ Deine KI-Strategien</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary)">🗂️ Deine KI-Strategien</div>
+          <button type="button" onclick="aiClearAllCustom()" title="Alle KI-Strategien löschen (z.B. wenn welche kaputt sind)" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.30);color:#ef4444;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🧹 Alle löschen</button>
+        </div>
         <div id="aiCustomListBody" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
 
@@ -32036,9 +32039,15 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Block in einem \`\`\`json Codeblock. KEI
 
 Du MUSST IMMER eine Strategie liefern — auch wenn nichts klar zu erkennen ist. Wähl dann eine sinnvolle Default-Strategie und vermerke im description-Feld z.B. "Aus dem Video keine konkreten Regeln ableitbar — Default-Trendfolgestrategie als Platzhalter".
 
-WICHTIG ZUR LÄNGE:
-- description: MAX 200 Zeichen, nicht mehr! Nur die Kern-Idee. Details kommen in initCode/enterCode.
-- Halte das gesamte JSON kompakt damit es in 8000 Tokens passt.
+WICHTIG ZUR LÄNGE — TOKEN-BUDGET BEACHTEN:
+- description: MAX 200 Zeichen
+- initCode + enterCode + exitCode ZUSAMMEN: max 2000 Zeichen
+- KEINE LANGEN KOMMENTARE im Code (// ... entfernen)
+- Variable-Namen kurz halten (c, e, sl statt fvg_middle_candle_close)
+- Komplexe Logik EINFACH und KOMPAKT — wenn Setup zu komplex für 2000 Zeichen wäre, vereinfache
+- Verzichte auf detaillierte Dokumentation und Multi-Line-Kommentare im Code
+
+KOMPLETTES JSON MUSS unter 8000 Tokens passen — wenn du merkst dass die Description zu lang wird, KÜRZE sie. Wenn der Code zu lang wird, vereinfache die Logik.
 
 JSON-Schema:
 {
@@ -34188,6 +34197,24 @@ function aiRefreshCustomList() {
   }).join('');
 }
 
+// Alle AI-Strategien aus localStorage + STRATEGIES entfernen (Cleanup)
+function aiClearAllCustom() {
+  const list = aiLoadCustomStrategies();
+  if (list.length === 0) { _showInfoToast('Keine AI-Strategien zum Löschen', 2000); return; }
+  if (!confirm('Wirklich alle ' + list.length + ' KI-Strategien löschen? Diese Aktion ist nicht rückgängig zu machen.')) return;
+  // localStorage leeren
+  aiSaveCustomStrategies([]);
+  // Alle AI-Strategien aus STRATEGIES entfernen
+  for (let i = STRATEGIES.length - 1; i >= 0; i--) {
+    if (STRATEGIES[i] && STRATEGIES[i]._isAiCustom) {
+      STRATEGIES.splice(i, 1);
+    }
+  }
+  try { aiRebuildStrategyDropdown(); } catch(e) {}
+  aiRefreshCustomList();
+  _showSuccessToast('🧹 ' + list.length + ' KI-Strategien gelöscht', 3000);
+}
+
 function aiSelectStrategy(name) {
   const idx = STRATEGIES.findIndex(s => s.name === name);
   if (idx < 0) { _showErrorToast('Strategie nicht gefunden: ' + name); return; }
@@ -34262,11 +34289,23 @@ function aiInitOnLoad() {
   aiSyncQuickProviderSelect();
   // Settings-Banner aktualisieren
   aiUpdateBanner();
-  // Persistierte Strategien laden + injizieren
+  // Persistierte Strategien laden + injizieren — kaputte werden automatisch entfernt
   const list = aiLoadCustomStrategies();
+  const validStrategies = [];
+  let removedCount = 0;
   for (const spec of list) {
-    try { aiInjectIntoStrategies(spec); }
-    catch(e) { console.warn('AI-Strategie konnte nicht geladen werden:', spec.name, e); }
+    try {
+      aiInjectIntoStrategies(spec);
+      validStrategies.push(spec);
+    } catch(e) {
+      console.warn('AI-Strategie konnte nicht geladen werden (wird gelöscht):', spec.name, e.message);
+      removedCount++;
+    }
+  }
+  // Falls kaputte Strategien gefunden: localStorage bereinigen
+  if (removedCount > 0) {
+    aiSaveCustomStrategies(validStrategies);
+    console.log('🧹 ' + removedCount + ' kaputte AI-Strategien automatisch entfernt');
   }
   aiRefreshCustomList();
   // Strategie-Dropdown nach Laden der Custom-Strategien neu bauen
