@@ -32210,6 +32210,20 @@ async function reviewProcessFile(file) {
 function reviewBacktestStrategy() {
   if (!_reviewState.strategy) { _showErrorToast('Keine Strategie zum Backtesten'); return; }
   const spec = _reviewState.strategy;
+  // VALIDIERUNG vor Add — fängt Syntax-Fehler im KI-generierten Code ab
+  let validation;
+  try {
+    validation = aiValidateStrategy(spec);
+  } catch (e) {
+    _showErrorToast('Validierung crashed: ' + (e.message || String(e)) + '\n\nDie KI hat ungültigen JS-Code generiert. Versuch ein anderes Video oder klick "Refine" um zu verbessern.', 8000);
+    console.error('Strategy validation crash:', e, 'Spec:', spec);
+    return;
+  }
+  if (!validation.ok) {
+    _showErrorToast('❌ Strategie-Code ungültig: ' + validation.error + '\n\nGemini hat fehlerhaften Code generiert. Schau in F12-Console für Details.', 10000);
+    console.error('Strategy validation failed:', validation.error, 'Spec:', spec);
+    return;
+  }
   // Eindeutiger Name mit "📺 " prefix damit klar ist es kommt aus dem Reviewer
   let baseName = '📺 ' + spec.name;
   let n = 1; let finalName = baseName;
@@ -32219,24 +32233,34 @@ function reviewBacktestStrategy() {
   spec._fromReview = true;
   spec._createdAt = new Date().toISOString();
   // Persistieren
-  const list = aiLoadCustomStrategies();
-  list.push(spec);
-  aiSaveCustomStrategies(list);
-  // Injizieren
-  aiInjectIntoStrategies(spec);
-  aiRebuildStrategyDropdown();
-  aiRefreshCustomList();
-  // Strategie wählen
-  const selEl = document.getElementById('strategySelect');
-  const idx = STRATEGIES.findIndex(s => s.name === finalName);
-  if (selEl && idx >= 0) {
-    selEl.value = idx;
-    try { selEl.dispatchEvent(new Event('change')); } catch(e) {}
-    try { csUpdateLabel('strategySelect'); } catch(e) {}
+  try {
+    const list = aiLoadCustomStrategies();
+    list.push(spec);
+    aiSaveCustomStrategies(list);
+  } catch(e) { console.warn('Persist failed:', e); }
+  // Injizieren mit try/catch
+  try {
+    aiInjectIntoStrategies(spec);
+    aiRebuildStrategyDropdown();
+    aiRefreshCustomList();
+  } catch(e) {
+    _showErrorToast('Strategie konnte nicht hinzugefügt werden: ' + (e.message || String(e)), 6000);
+    console.error('Inject failed:', e);
+    return;
   }
+  // Strategie wählen
+  try {
+    const selEl = document.getElementById('strategySelect');
+    const idx = STRATEGIES.findIndex(s => s.name === finalName);
+    if (selEl && idx >= 0) {
+      selEl.value = idx;
+      try { selEl.dispatchEvent(new Event('change')); } catch(e) {}
+      try { csUpdateLabel('strategySelect'); } catch(e) {}
+    }
+  } catch(e) { console.warn('Select-update failed:', e); }
   // Tab wechseln
-  closeFullscreenTab();
-  document.querySelector('.tab-btn[data-tab="results"]')?.click();
+  try { closeFullscreenTab(); } catch(e) {}
+  try { document.querySelector('.tab-btn[data-tab="results"]')?.click(); } catch(e) {}
   _showSuccessToast('▶ "' + finalName + '" hinzugefügt — jetzt "Backtest starten" klicken', 4000);
 }
 
@@ -33529,13 +33553,26 @@ function aiValidateStrategy(spec) {
 }
 
 function aiBuildStrategyObject(spec) {
-  // Sichere Funktions-Konstruktion: nur 'candles', 'i', 'params', 'position', 'Indicators', 'Math' verfügbar
-  const initFn = new Function('candles', 'params', 'Indicators', 'Math',
-    `"use strict"; ${spec.initCode}`);
-  const enterFn = new Function('candles', 'i', 'params', 'Indicators', 'Math',
-    `"use strict"; ${spec.enterCode}`);
-  const exitFn = new Function('candles', 'i', 'position', 'params', 'Indicators', 'Math',
-    `"use strict"; ${spec.exitCode}`);
+  // Sichere Funktions-Konstruktion mit klaren Fehler-Meldungen pro Phase
+  let initFn, enterFn, exitFn;
+  try {
+    initFn = new Function('candles', 'params', 'Indicators', 'Math',
+      `"use strict"; ${spec.initCode || 'return;'}`);
+  } catch (e) {
+    throw new Error('initCode Syntax-Fehler: ' + e.message);
+  }
+  try {
+    enterFn = new Function('candles', 'i', 'params', 'Indicators', 'Math',
+      `"use strict"; ${spec.enterCode || 'return null;'}`);
+  } catch (e) {
+    throw new Error('enterCode Syntax-Fehler: ' + e.message);
+  }
+  try {
+    exitFn = new Function('candles', 'i', 'position', 'params', 'Indicators', 'Math',
+      `"use strict"; ${spec.exitCode || 'return false;'}`);
+  } catch (e) {
+    throw new Error('exitCode Syntax-Fehler: ' + e.message);
+  }
   const stratObj = {
     name: spec.name,
     defaultTF: spec.defaultTF || '1h',
