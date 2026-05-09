@@ -2330,13 +2330,31 @@ input[type=number] { -moz-appearance:textfield }
         <!-- Admin-Indicator -->
         <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <span>🔧 ADMIN-MODE — volle Reviewer-Pipeline aktiv</span>
-          <button type="button" onclick="reviewToggleAdmin(false)" style="background:rgba(0,0,0,0.20);border:none;color:#1a1a1a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">User-View ansehen</button>
+          <div style="display:flex;gap:8px">
+            <button type="button" onclick="reviewOpenWorkerSettings()" style="background:rgba(0,0,0,0.20);border:none;color:#1a1a1a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">⚙️ Worker</button>
+            <button type="button" onclick="reviewToggleAdmin(false)" style="background:rgba(0,0,0,0.20);border:none;color:#1a1a1a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">User-View ansehen</button>
+          </div>
+        </div>
+
+        <!-- 📥 Submission-Inbox (Cloudflare-Worker) -->
+        <div id="reviewInbox" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px">
+              📥 Eingehende Submissions <span id="reviewInboxCount" style="background:#a855f7;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800">0</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button type="button" onclick="reviewRefreshInbox()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">🔄 Aktualisieren</button>
+              <button type="button" onclick="reviewToggleAutoRefresh()" id="reviewAutoRefreshBtn" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">▶️ Auto-Refresh</button>
+            </div>
+          </div>
+          <div id="reviewInboxList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+          <div id="reviewInboxEmpty" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px">Keine Submissions geladen. Worker-Settings konfigurieren und auf "Aktualisieren" klicken.</div>
         </div>
 
         <!-- Header -->
         <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(168,85,247,0.08));border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:14px 18px">
           <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">📺 TikTok Strategy Reviewer (Admin)</div>
-          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">Lade ein TikTok/YouTube-Video hoch — die KI extrahiert die Strategie, backtestet sie und generiert ein <strong>fertiges Reaktions-Video</strong> mit Voice-Over und Stats-Overlay.</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">Lade ein TikTok/YouTube-Video hoch ODER klick auf eine Submission oben — die KI extrahiert die Strategie, backtestet sie und generiert ein <strong>fertiges Reaktions-Video</strong>.</div>
         </div>
 
       <!-- Schritt 1: Drag & Drop -->
@@ -2466,6 +2484,38 @@ input[type=number] { -moz-appearance:textfield }
         <button type="button" id="aiAkademieSendBtn" onclick="aiAkademieSend()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:0 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;white-space:nowrap;align-self:stretch">Senden</button>
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Provider: <span id="aiAkademieProvider">—</span> · <a href="#" onclick="event.preventDefault();aiCloseAkademie();aiOpenSettings();" style="color:var(--blue)">Provider wechseln</a></div>
+    </div>
+  </div>
+
+  <!-- Modal: Cloudflare Worker Settings -->
+  <div id="reviewWorkerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:18px;font-weight:700;color:var(--text-primary)">⚙️ Cloudflare Worker Settings</div>
+        <button type="button" onclick="reviewCloseWorkerSettings()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">
+        <div style="background:rgba(168,85,247,0.08);border-left:3px solid #a855f7;padding:10px 14px;border-radius:5px;margin-bottom:14px;font-size:12px">
+          <strong style="color:#a855f7">Setup-Anleitung:</strong> Siehe Datei <code>cloudflare-worker.js</code> in deinem App-Ordner — komplette Schritt-für-Schritt-Anleitung am Ende der Datei. Aufwand: ~10 Min einmalig.
+        </div>
+
+        <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px">Worker-URL</label>
+        <input type="url" id="reviewWorkerUrlInput" placeholder="https://finalboss-bot.dein-name.workers.dev" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;font-family:monospace;box-sizing:border-box;margin-bottom:14px">
+
+        <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px">Admin-Key</label>
+        <input type="password" id="reviewWorkerKeyInput" placeholder="dein geheimer Admin-Key" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;font-family:monospace;box-sizing:border-box;margin-bottom:14px">
+
+        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--text-muted);line-height:1.6;margin-bottom:14px">
+          <strong style="color:var(--text-secondary)">💡 Test:</strong> Klick auf "Verbindung testen" — App ruft Worker-Health-Check auf. Wenn ✓ kommt: alles passt. Wenn ✗ kommt: URL/Key prüfen oder Worker neu deployen.
+        </div>
+
+        <button type="button" onclick="reviewTestWorker()" style="width:100%;background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;color:#fff;padding:10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;margin-bottom:10px">🔌 Verbindung testen</button>
+        <div id="reviewWorkerTestResult" style="margin-bottom:10px;font-size:12px"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button type="button" onclick="reviewCloseWorkerSettings()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Abbrechen</button>
+        <button type="button" onclick="reviewSaveWorkerSettings()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">Speichern</button>
+      </div>
     </div>
   </div>
 
@@ -32078,11 +32128,221 @@ function reviewSubmitToTelegram() {
   }, 1000);
 }
 
+// ════════════════════════════════════════════════════════
+//  CLOUDFLARE-WORKER INTEGRATION (Submission-Inbox)
+// ════════════════════════════════════════════════════════
+
+const FB_WORKER_LS_URL = 'fb_worker_url';
+const FB_WORKER_LS_KEY = 'fb_worker_key';
+
+let _reviewAutoRefreshTimer = null;
+let _reviewLastInboxList = [];
+
+function reviewGetWorkerCfg() {
+  return {
+    url: localStorage.getItem(FB_WORKER_LS_URL) || '',
+    key: localStorage.getItem(FB_WORKER_LS_KEY) || '',
+  };
+}
+
+function reviewOpenWorkerSettings() {
+  const cfg = reviewGetWorkerCfg();
+  document.getElementById('reviewWorkerUrlInput').value = cfg.url;
+  document.getElementById('reviewWorkerKeyInput').value = cfg.key;
+  document.getElementById('reviewWorkerTestResult').innerHTML = '';
+  document.getElementById('reviewWorkerModal').style.display = 'flex';
+}
+function reviewCloseWorkerSettings() {
+  document.getElementById('reviewWorkerModal').style.display = 'none';
+}
+function reviewSaveWorkerSettings() {
+  const url = (document.getElementById('reviewWorkerUrlInput').value || '').trim().replace(/\/$/, '');
+  const key = (document.getElementById('reviewWorkerKeyInput').value || '').trim();
+  localStorage.setItem(FB_WORKER_LS_URL, url);
+  localStorage.setItem(FB_WORKER_LS_KEY, key);
+  reviewCloseWorkerSettings();
+  _showSuccessToast('✓ Worker-Settings gespeichert', 2500);
+  // Direkt mal versuchen die Inbox zu laden
+  reviewRefreshInbox();
+}
+
+async function reviewTestWorker() {
+  const url = (document.getElementById('reviewWorkerUrlInput').value || '').trim().replace(/\/$/, '');
+  const result = document.getElementById('reviewWorkerTestResult');
+  if (!url) {
+    result.innerHTML = '<span style="color:#ef4444">✗ Bitte zuerst Worker-URL eingeben</span>';
+    return;
+  }
+  result.innerHTML = '<span style="color:var(--text-muted)">⏳ Teste Verbindung...</span>';
+  try {
+    const resp = await fetch(url + '/health');
+    if (!resp.ok) {
+      result.innerHTML = '<span style="color:#ef4444">✗ HTTP ' + resp.status + ' — Worker nicht erreichbar</span>';
+      return;
+    }
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      result.innerHTML = '<span style="color:#22c55e">✓ Worker antwortet — Verbindung OK!</span>';
+    } else {
+      result.innerHTML = '<span style="color:#fbbf24">⚠ Antwort unerwartet: ' + JSON.stringify(data) + '</span>';
+    }
+  } catch (e) {
+    result.innerHTML = '<span style="color:#ef4444">✗ Fehler: ' + (e.message || String(e)) + '</span>';
+  }
+}
+
+// ── Inbox aktualisieren ──
+async function reviewRefreshInbox() {
+  const cfg = reviewGetWorkerCfg();
+  const list = document.getElementById('reviewInboxList');
+  const empty = document.getElementById('reviewInboxEmpty');
+  const countBadge = document.getElementById('reviewInboxCount');
+  if (!cfg.url || !cfg.key) {
+    if (empty) { empty.style.display = 'block'; empty.textContent = 'Keine Worker-Verbindung. Klick oben rechts auf "⚙️ Worker" und konfiguriere den Worker.'; }
+    if (list) list.innerHTML = '';
+    return;
+  }
+  try {
+    const resp = await fetch(cfg.url + '/submissions', {
+      headers: { 'X-Admin-Key': cfg.key },
+    });
+    if (!resp.ok) {
+      if (resp.status === 401) {
+        empty.style.display = 'block';
+        empty.innerHTML = '<span style="color:#ef4444">✗ Admin-Key falsch — checke deine Worker-Settings</span>';
+        return;
+      }
+      throw new Error('HTTP ' + resp.status);
+    }
+    const data = await resp.json();
+    const items = data.submissions || [];
+    _reviewLastInboxList = items;
+    if (countBadge) countBadge.textContent = items.length;
+    if (items.length === 0) {
+      if (list) list.innerHTML = '';
+      if (empty) { empty.style.display = 'block'; empty.textContent = 'Noch keine Submissions. User schicken via Telegram-Bot. Sobald sie das tun, erscheint die Submission hier.'; }
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    list.innerHTML = items.map(it => reviewRenderSubmission(it)).join('');
+  } catch (e) {
+    if (empty) { empty.style.display = 'block'; empty.innerHTML = '<span style="color:#ef4444">✗ Fehler: ' + (e.message || String(e)) + '</span>'; }
+  }
+}
+
+function reviewRenderSubmission(sub) {
+  const ts = new Date(sub.timestamp);
+  const ago = reviewTimeAgo(sub.timestamp);
+  const status = sub.status || 'pending';
+  const statusBadge = {
+    pending: '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">NEU</span>',
+    processed: '<span style="background:#22c55e;color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">VERARBEITET</span>',
+    spam: '<span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">SPAM</span>',
+  }[status] || '';
+  const userLabel = sub.user_username ? '@' + sub.user_username : (sub.user_first_name || 'Anonym');
+  const safeText = (sub.text || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]);
+  const url = sub.tiktok_url || '';
+  const safeUrl = url.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]);
+  return '<div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px 12px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px">' +
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+    statusBadge + ' <strong style="color:var(--text-primary);font-size:12px">' + userLabel + '</strong>' +
+    '<span style="color:var(--text-muted);font-size:11px">' + ago + '</span></div></div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;white-space:pre-wrap;line-height:1.5">' + safeText + '</div>' +
+    (url ? '<div style="font-size:11px;color:var(--blue);margin-bottom:8px;word-break:break-all"><a href="' + safeUrl + '" target="_blank" style="color:var(--blue)">🔗 ' + safeUrl + '</a></div>' : '') +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    (status === 'pending' && url ? '<button type="button" onclick="reviewProcessSubmission(\'' + sub.id.replace(/'/g, "\\\\'") + '\')" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">▶ Verarbeiten</button>' : '') +
+    (status === 'pending' ? '<button type="button" onclick="reviewMarkSubmission(\'' + sub.id.replace(/'/g, "\\\\'") + '\', \'spam\')" style="background:rgba(107,114,128,0.20);border:1px solid rgba(107,114,128,0.40);color:#9ca3af;padding:6px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🗑 Spam</button>' : '') +
+    '<button type="button" onclick="reviewDeleteSubmission(\'' + sub.id.replace(/'/g, "\\\\'") + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.30);color:#ef4444;padding:6px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">Löschen</button>' +
+    '</div></div>';
+}
+
+function reviewTimeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return 'gerade eben';
+  if (diff < 3600) return Math.floor(diff/60) + ' Min';
+  if (diff < 86400) return Math.floor(diff/3600) + ' Std';
+  return Math.floor(diff/86400) + ' Tg';
+}
+
+async function reviewMarkSubmission(id, action) {
+  const cfg = reviewGetWorkerCfg();
+  if (!cfg.url || !cfg.key) return;
+  try {
+    await fetch(cfg.url + '/submission', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': cfg.key },
+      body: JSON.stringify({ id, action }),
+    });
+    reviewRefreshInbox();
+  } catch (e) {
+    _showErrorToast('Konnte Submission nicht updaten: ' + (e.message || String(e)));
+  }
+}
+
+async function reviewDeleteSubmission(id) {
+  if (!confirm('Submission wirklich löschen?')) return;
+  await reviewMarkSubmission(id, 'delete');
+}
+
+// ── TikTok-Video automatisch holen + Pipeline starten ──
+async function reviewProcessSubmission(id) {
+  const cfg = reviewGetWorkerCfg();
+  const sub = _reviewLastInboxList.find(s => s.id === id);
+  if (!sub || !sub.tiktok_url) { _showErrorToast('Submission ohne URL'); return; }
+  // Status-Update: "Lade Video..."
+  const list = document.getElementById('reviewInboxList');
+  if (list) list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Hole TikTok-Video automatisch via Worker...</div>';
+  try {
+    // Worker-Endpoint nutzen um Video-URL zu kriegen (CORS-Workaround)
+    const resp = await fetch(cfg.url + '/tiktok-download?url=' + encodeURIComponent(sub.tiktok_url));
+    const data = await resp.json();
+    if (!resp.ok || !data.video_url) {
+      throw new Error(data.error || 'Video konnte nicht geladen werden');
+    }
+    // Video als Blob holen
+    if (list) list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Lade Video-Datei runter (' + (data.duration || '?') + 's, von @' + (data.author || 'unbekannt') + ')...</div>';
+    const videoResp = await fetch(data.video_url);
+    if (!videoResp.ok) throw new Error('Video-Download fehlgeschlagen: HTTP ' + videoResp.status);
+    const videoBlob = await videoResp.blob();
+    // Als File-Objekt für die Pipeline
+    const fileName = (data.author || 'tiktok') + '_' + Date.now() + '.mp4';
+    const videoFile = new File([videoBlob], fileName, { type: 'video/mp4' });
+    // Submission als verarbeitet markieren
+    await reviewMarkSubmission(id, 'processed');
+    // Pipeline starten — bestehende Funktion
+    _showSuccessToast('✓ Video geladen — Pipeline startet', 3000);
+    reviewProcessFile(videoFile);
+  } catch (e) {
+    _showErrorToast('Auto-Download fehlgeschlagen: ' + (e.message || String(e)) + '\n\nTipp: Lade das Video manuell via ssstik.io runter und zieh es in die Drop-Zone.', 8000);
+    reviewRefreshInbox(); // Liste wiederherstellen
+  }
+}
+
+// ── Auto-Refresh Toggle ──
+function reviewToggleAutoRefresh() {
+  const btn = document.getElementById('reviewAutoRefreshBtn');
+  if (_reviewAutoRefreshTimer) {
+    clearInterval(_reviewAutoRefreshTimer);
+    _reviewAutoRefreshTimer = null;
+    if (btn) { btn.textContent = '▶️ Auto-Refresh'; btn.style.background = 'var(--bg-tertiary)'; btn.style.color = 'var(--text-primary)'; }
+  } else {
+    _reviewAutoRefreshTimer = setInterval(reviewRefreshInbox, 30000); // alle 30 Sek
+    if (btn) { btn.textContent = '⏸ Auto-Refresh AN'; btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)'; btn.style.color = '#fff'; }
+    reviewRefreshInbox();
+  }
+}
+
 // ── Init beim Tab-Open ──
 function _reviewInitTab() {
   reviewApplyMode();
   // Drop-Zone nur einrichten wenn Admin-Mode (sonst gibt's die Elemente nicht)
-  if (reviewIsAdmin()) reviewSetupDropZone();
+  if (reviewIsAdmin()) {
+    reviewSetupDropZone();
+    // Inbox bei Tab-Open einmal aktualisieren wenn Worker konfiguriert
+    const cfg = reviewGetWorkerCfg();
+    if (cfg.url && cfg.key) reviewRefreshInbox();
+  }
 }
 
 // Beim ersten Page-Load Admin-Mode prüfen (für URL-Param ?admin=1)
