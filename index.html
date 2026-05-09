@@ -31914,14 +31914,21 @@ async function reviewLoadFfmpeg() {
   // CORS-FIX: classWorkerURL + coreURL + wasmURL via toBlobURL fetchen
   // Das fetcht die Files via fetch (CORS OK weil GET) und macht draus same-origin Blob-URLs
   // → der Worker kann dann ohne CORS-Probleme erstellt werden
-  reviewSetProgress('ffmpeg-blob', 'running', 'ffmpeg-Files werden in den Browser-Speicher geladen...');
-  const [classWorkerURL, coreURL, wasmURL] = await Promise.all([
-    toBlobURL(ffmpegBaseURL + '/814.ffmpeg.js', 'text/javascript'),
-    toBlobURL(coreBaseURL + '/ffmpeg-core.js', 'text/javascript'),
-    toBlobURL(coreBaseURL + '/ffmpeg-core.wasm', 'application/wasm'),
-  ]);
-  reviewSetProgress('ffmpeg-blob', 'done', 'ffmpeg-Files geladen');
-  await ffmpeg.load({ classWorkerURL, coreURL, wasmURL });
+  reviewSetProgress('ffmpeg-blob', 'running', 'ffmpeg-Worker wird als Blob vorbereitet...');
+  // Nur den Worker als Blob (CORS-Fix) — core + wasm als direkte URLs
+  // Der Worker fetcht core/wasm intern via importScripts/fetch (jsdelivr hat CORS-OK)
+  let classWorkerURL;
+  try {
+    classWorkerURL = await toBlobURL(ffmpegBaseURL + '/814.ffmpeg.js', 'text/javascript');
+  } catch (e) {
+    throw new Error('Worker-File konnte nicht geladen werden: ' + e.message);
+  }
+  reviewSetProgress('ffmpeg-blob', 'done', 'Worker bereit, lade Core + WASM...');
+  await ffmpeg.load({
+    classWorkerURL,
+    coreURL: coreBaseURL + '/ffmpeg-core.js',
+    wasmURL: coreBaseURL + '/ffmpeg-core.wasm',
+  });
   _reviewState.ffmpeg = ffmpeg;
   reviewSetProgress('ffmpeg', 'done', 'ffmpeg.wasm bereit');
   return ffmpeg;
