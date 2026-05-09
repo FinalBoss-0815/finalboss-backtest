@@ -31874,20 +31874,32 @@ async function reviewLoadFfmpeg() {
   reviewSetProgress('ffmpeg', 'running', 'ffmpeg.wasm wird geladen (~30 MB, einmalig)...');
   // Wir nutzen jsdelivr statt unpkg — Worker-Files von dort haben bessere CORS-Headers
   const FFMPEG_VERSION = '0.12.10';
-  const UTIL_VERSION = '0.12.2';
+  const UTIL_VERSION = '0.12.1';
   const CORE_VERSION = '0.12.6';
   const ffmpegBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/umd`;
   const utilBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/util@${UTIL_VERSION}/dist/umd`;
   const coreBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`;
+  // Helper: Script laden
+  const _loadScript = (url) => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = res;
+    s.onerror = () => rej(new Error('Download fehlgeschlagen: ' + url));
+    document.head.appendChild(s);
+  });
+  // FFmpeg + Util UNABHÄNGIG voneinander laden (falls nur eines im Cache ist)
   if (!window.FFmpegWASM) {
-    // ffmpeg-Loader laden
-    const script = document.createElement('script');
-    script.src = ffmpegBaseURL + '/ffmpeg.js';
-    await new Promise((res, rej) => { script.onload = res; script.onerror = () => rej(new Error('ffmpeg.js Download fehlgeschlagen')); document.head.appendChild(script); });
-    // util-Helper laden
-    const utilScript = document.createElement('script');
-    utilScript.src = utilBaseURL + '/index.js';
-    await new Promise((res, rej) => { utilScript.onload = res; utilScript.onerror = () => rej(new Error('util Download fehlgeschlagen')); document.head.appendChild(utilScript); });
+    await _loadScript(ffmpegBaseURL + '/ffmpeg.js');
+  }
+  if (!window.FFmpegUtil) {
+    await _loadScript(utilBaseURL + '/index.js');
+  }
+  // Verifizieren dass beide geladen sind
+  if (!window.FFmpegWASM || !window.FFmpegWASM.FFmpeg) {
+    throw new Error('FFmpegWASM nicht verfügbar nach Script-Load');
+  }
+  if (!window.FFmpegUtil || !window.FFmpegUtil.toBlobURL) {
+    throw new Error('FFmpegUtil.toBlobURL nicht verfügbar — bitte Hard-Reload (Strg+Shift+R) machen');
   }
   const { FFmpeg } = window.FFmpegWASM;
   const { toBlobURL } = window.FFmpegUtil;
