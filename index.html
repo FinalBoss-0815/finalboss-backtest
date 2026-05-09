@@ -34024,11 +34024,25 @@ if (document.readyState === 'loading') {
   setTimeout(aiInitOnLoad, 100);
 }
 
-// PWA Service Worker
+// PWA Service Worker mit COI-Reload-Logik (für SharedArrayBuffer / ffmpeg.wasm)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then(() => {
+  navigator.serviceWorker.register('sw.js').then(reg => {
     console.log('Service Worker registered');
+    // Falls SAB noch nicht verfügbar (COI nicht aktiv) und SW grade frisch installiert:
+    // einmal neuladen damit SW die Headers injiziert
+    if (!window.crossOriginIsolated && reg.active && !navigator.serviceWorker.controller) {
+      console.log('Reloading for Cross-Origin-Isolation...');
+      window.location.reload();
+    }
   }).catch(err => console.log('SW registration failed:', err));
+  // Falls SW kontrolliert aber COI noch nicht aktiv: einmal neu laden
+  if (navigator.serviceWorker.controller && !window.crossOriginIsolated) {
+    if (!sessionStorage.getItem('coi-reload-done')) {
+      sessionStorage.setItem('coi-reload-done', '1');
+      console.log('SW active but COI not isolated yet, reloading...');
+      window.location.reload();
+    }
+  }
 }
 </script>
 </body>
