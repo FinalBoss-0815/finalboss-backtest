@@ -31974,6 +31974,60 @@ function reviewBlobToBase64(blob) {
   });
 }
 
+// ── Gemini Direct: ganzes Video → Gemini API (Audio + Bild nativ, ohne ffmpeg/Whisper) ──
+async function reviewExtractStrategyGeminiDirect(file) {
+  reviewSetProgress('gemini-direct', 'running', '🎬 Video wird an Gemini geschickt (Audio + Bild nativ)...');
+  const cfg = aiLoadConfig();
+  const apiKey = (cfg.keys && cfg.keys.gemini) || '';
+  if (!apiKey) throw new Error('Gemini-Direct-Mode braucht Gemini-Key');
+  const model = cfg.model && cfg.model.startsWith('gemini-') ? cfg.model : 'gemini-2.5-flash';
+  // Video als Base64
+  reviewSetProgress('gemini-base64', 'running', '📦 Video wird vorbereitet (Base64)...');
+  const base64 = await reviewBlobToBase64(file);
+  reviewSetProgress('gemini-base64', 'done', '📦 Video bereit (' + (file.size / (1024*1024)).toFixed(1) + ' MB)');
+  // Multimodal-Prompt: Video + Anweisung
+  const userText = 'Analysiere dieses TikTok/YouTube-Trading-Video. Du siehst und hörst alles — was wird gesprochen, welche Charts/Indikatoren werden gezeigt, welcher Coin/Timeframe, welche Setup-Markierungen?\n\n' +
+    'Extrahiere die Trading-Strategie als JSON-Spec. Du MUSST IMMER eine Strategie liefern — auch wenn nichts Konkretes erkennbar ist (dann mit Vermerk im description-Feld).';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    systemInstruction: { parts: [{ text: AI_VISION_SYSTEM_PROMPT }] },
+    contents: [{
+      role: 'user',
+      parts: [
+        { inline_data: { mime_type: file.type || 'video/mp4', data: base64 } },
+        { text: userText }
+      ]
+    }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
+  };
+  reviewSetProgress('gemini-direct', 'running', '🧠 Gemini analysiert Video (kann 20-60 Sek dauern)...');
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    let err = 'HTTP ' + resp.status;
+    try { const j = await resp.json(); err = j.error && j.error.message ? j.error.message : JSON.stringify(j); } catch(e) {}
+    if (/payload.*size|too.*large|20.*MB/i.test(err)) {
+      throw new Error('Gemini-Direct: Video zu groß (>20 MB) — TikTok-Videos sind normalerweise kleiner. Bei größeren Videos müssten wir die ffmpeg-Pipeline nutzen.');
+    }
+    throw new Error('Gemini-Direct: ' + err);
+  }
+  const data = await resp.json();
+  const cand = data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts && cand.content.parts.map(p => p.text || '').join('');
+  console.log('[GeminiDirect] Antwort:', text);
+  if (!text) throw new Error('Gemini-Direct: leere Antwort');
+  const parsed = aiExtractJSON(text);
+  if (!parsed || !parsed.name) {
+    const preview = text.slice(0, 400);
+    throw new Error('Gemini-Direct: kein JSON in Antwort.\n\nGemini sagte:\n"' + preview + '"');
+  }
+  reviewSetProgress('gemini-direct', 'done', '🧠 Gemini-Analyse fertig: "' + parsed.name + '"');
+  return { spec: parsed, rawReply: text, transcript: '' };
+}
+
 // ── Vision-basierte Strategie-Extraktion via Gemini (Audio + Frames) ──
 const AI_VISION_SYSTEM_PROMPT = `Du bist ein Experte für quantitatives Trading. Du analysierst Trading-Videos (TikTok/YouTube) anhand von Audio-Transkript + Video-Frames und extrahierst die behauptete Strategie.
 
@@ -32105,32 +32159,28 @@ async function reviewProcessFile(file) {
   // Step 2: Progress sichtbar
   document.getElementById('reviewStep2').style.display = 'block';
   document.getElementById('reviewProgress').innerHTML = '';
-  // Pipeline durchlaufen
+  // Pipeline durchlaufen — bei Gemini direkt Video → Gemini, sonst ffmpeg+Whisper-Pipeline
   try {
-    // Audio extrahieren
-    const audioBlob = await reviewExtractAudio(file);
-    _reviewState.audioBlob = audioBlob;
-    // Transkribieren
-    const transcript = await reviewTranscribeWithGroq(audioBlob);
+    const cfg = aiLoadConfig();
+    const useGeminiDirect = cfg.provider === 'gemini' && cfg.keys && cfg.keys.gemini;
+    let spec, rawReply, transcript = '';
+    if (useGeminiDirect) {
+      // GEMINI-DIRECT-MODE: Video als ganzes an Gemini schicken (Audio + Bild nativ)
+      // Kein ffmpeg, kein Whisper, kein SAB nötig.
+      const result = await reviewExtractStrategyGeminiDirect(file);
+      spec = result.spec; rawReply = result.rawReply; transcript = result.transcript || '(Gemini hat Video direkt analysiert — kein separates Transkript)';
+    } else {
+      // KLASSISCHER MODUS: ffmpeg-Audio-Extraktion + Whisper + Text-LLM
+      const audioBlob = await reviewExtractAudio(file);
+      _reviewState.audioBlob = audioBlob;
+      transcript = await reviewTranscribeWithGroq(audioBlob);
+      const result = await reviewExtractStrategy(transcript);
+      spec = result.spec; rawReply = result.rawReply;
+    }
     _reviewState.transcript = transcript;
     // Step 3: Transkript anzeigen
     document.getElementById('reviewStep3').style.display = 'block';
     document.getElementById('reviewTranscript').textContent = transcript;
-    // Strategie extrahieren — Vision-Modus wenn Gemini aktiv, sonst Text-only
-    const cfg = aiLoadConfig();
-    const useVision = cfg.provider === 'gemini' && cfg.keys && cfg.keys.gemini;
-    let spec, rawReply;
-    if (useVision) {
-      // Frames extrahieren + an Gemini Vision schicken
-      const frames = await reviewExtractFrames(file);
-      _reviewState.frames = frames;
-      const result = await reviewExtractStrategyVision(transcript, frames);
-      spec = result.spec; rawReply = result.rawReply;
-    } else {
-      // Klassisch nur Audio-Transkript an Text-LLM
-      const result = await reviewExtractStrategy(transcript);
-      spec = result.spec; rawReply = result.rawReply;
-    }
     _reviewState.strategy = spec;
     // Strategie-Vorschau anzeigen
     const escName = (spec.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
