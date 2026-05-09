@@ -31998,7 +31998,7 @@ async function reviewExtractStrategyGeminiDirect(file) {
         { text: userText }
       ]
     }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
+    generationConfig: { temperature: 0.4, maxOutputTokens: 8192 }
   };
   reviewSetProgress('gemini-direct', 'running', '🧠 Gemini analysiert Video (kann 20-60 Sek dauern)...');
   const resp = await fetch(url, {
@@ -32035,6 +32035,10 @@ OUTPUT-FORMAT (STRIKT EINHALTEN — KEINE AUSNAHMEN):
 Antworte AUSSCHLIESSLICH mit einem JSON-Block in einem \`\`\`json Codeblock. KEIN Vor-/Nachtext, KEINE Prosa-Erklärungen, KEINE Disclaimer wie "Ich kann keine Strategie erkennen".
 
 Du MUSST IMMER eine Strategie liefern — auch wenn nichts klar zu erkennen ist. Wähl dann eine sinnvolle Default-Strategie und vermerke im description-Feld z.B. "Aus dem Video keine konkreten Regeln ableitbar — Default-Trendfolgestrategie als Platzhalter".
+
+WICHTIG ZUR LÄNGE:
+- description: MAX 200 Zeichen, nicht mehr! Nur die Kern-Idee. Details kommen in initCode/enterCode.
+- Halte das gesamte JSON kompakt damit es in 8000 Tokens passt.
 
 JSON-Schema:
 {
@@ -33450,6 +33454,37 @@ function aiExtractJSON(text) {
   const i1 = candidate.indexOf('{'); const i2 = candidate.lastIndexOf('}');
   if (i1 >= 0 && i2 > i1) {
     try { return JSON.parse(candidate.slice(i1, i2 + 1)); } catch(e) {}
+  }
+  // Versuch 3: Truncated JSON — versuche Klammern automatisch zu schließen
+  // Nützlich bei Token-Limit-Abschneidungen
+  if (i1 >= 0) {
+    let attempt = candidate.slice(i1);
+    // Trim trailing junk wenn nicht mit } endet
+    const lastBrace = attempt.lastIndexOf('}');
+    const lastQuote = attempt.lastIndexOf('"');
+    // Wenn Antwort mitten im String/Property abgebrochen: schneide an letztem Komma
+    if (lastBrace < lastQuote) {
+      const lastComma = attempt.lastIndexOf(',');
+      if (lastComma > 0) attempt = attempt.slice(0, lastComma);
+    }
+    // Zähle offene vs geschlossene Klammern und {} und füg fehlende zu
+    let openBraces = 0, openBrackets = 0, inString = false, escape = false;
+    for (let k = 0; k < attempt.length; k++) {
+      const ch = attempt[k];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') openBraces++;
+      else if (ch === '}') openBraces--;
+      else if (ch === '[') openBrackets++;
+      else if (ch === ']') openBrackets--;
+    }
+    // Wenn offen: schließe
+    if (inString) attempt += '"';
+    while (openBrackets > 0) { attempt += ']'; openBrackets--; }
+    while (openBraces > 0) { attempt += '}'; openBraces--; }
+    try { return JSON.parse(attempt); } catch(e) {}
   }
   return null;
 }
