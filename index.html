@@ -32327,7 +32327,7 @@ async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
         { text: userText }
       ]
     }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 32768 }
+    generationConfig: { temperature: 0.15, maxOutputTokens: 32768 }
   };
   reviewSetProgress('gemini-direct', 'running', '🧠 Gemini analysiert Video (kann 20-60 Sek dauern)...');
   const resp = await fetch(url, {
@@ -35033,21 +35033,43 @@ function _audioRevealCut(audioCtx, dest) {
 }
 
 function _audioApprovedChime(audioCtx, dest) {
-  // C5 - E5 - G5 ascending (525 - 660 - 785 Hz)
-  const notes = [523.25, 659.25, 783.99];
-  notes.forEach((freq, i) => {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    const t0 = audioCtx.currentTime + i * 0.13;
-    gain.gain.setValueAtTime(0.0, t0);
-    gain.gain.linearRampToValueAtTime(0.35, t0 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.6);
-    osc.connect(gain).connect(dest);
-    osc.start(t0);
-    osc.stop(t0 + 0.7);
-  });
+  // CLASSIC CORRECT-ANSWER BELL — "Ding-Ding!" 2 helle Glocken-Töne
+  // Wie aus Quizshows wenn die Antwort richtig ist
+  const t0 = audioCtx.currentTime;
+
+  // Master mit leichtem Bandpass für Glocken-Charakter
+  const master = audioCtx.createGain();
+  master.gain.value = 1.0;
+  master.connect(dest);
+
+  // Helper: spiele eine Glocke (mehrere Harmonics + Decay)
+  function playBell(startTime, fundamental) {
+    // Glocken bestehen aus mehreren Frequenzen (Inharmonics)
+    // Fundamental + 2.0× + 2.4× + 3.0× + 4.5×
+    const harmonics = [
+      { mult: 1.0, gain: 0.45, decay: 1.5 },
+      { mult: 2.0, gain: 0.25, decay: 1.2 },
+      { mult: 2.4, gain: 0.18, decay: 0.9 },
+      { mult: 3.0, gain: 0.12, decay: 0.7 },
+      { mult: 4.5, gain: 0.08, decay: 0.5 }
+    ];
+    harmonics.forEach(h => {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = fundamental * h.mult;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0, startTime);
+      g.gain.linearRampToValueAtTime(h.gain, startTime + 0.005);  // sharp attack
+      g.gain.exponentialRampToValueAtTime(0.001, startTime + h.decay);
+      osc.connect(g).connect(master);
+      osc.start(startTime);
+      osc.stop(startTime + h.decay + 0.05);
+    });
+  }
+
+  // Zwei Glocken: erst hoch (G5 = 783.99), dann höher (C6 = 1046.50)
+  playBell(t0, 783.99);
+  playBell(t0 + 0.32, 1046.50);
 }
 
 function _audioRejectedBuzz(audioCtx, dest) {
