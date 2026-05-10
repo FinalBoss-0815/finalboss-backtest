@@ -864,7 +864,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 08:56 UTC</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 11:36 UTC</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -31773,7 +31773,7 @@ document.addEventListener('visibilitychange', () => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-10 08:56 UTC';
+const APP_BUILD = '2026-05-10 11:36 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -35287,6 +35287,7 @@ function renderSoundPackSlots() {
               📁 ${has ? 'Wechseln' : 'Hochladen'}
               <input type="file" accept="audio/*" style="display:none" onchange="uploadSound('${slot.key}', this)">
             </label>
+            ${has ? `<button type="button" onclick="reTrimSound('${slot.key}')" title="Sound erneut trimmen" style="background:#1f2937;border:1px solid #374151;color:#fff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px">✂️</button>` : ''}
             ${has ? `<button type="button" onclick="resetSound('${slot.key}')" title="Zurück auf Default" style="background:#7f1d1d;border:none;color:#fff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px">×</button>` : ''}
           </div>
         </div>
@@ -35298,25 +35299,214 @@ function renderSoundPackSlots() {
 async function uploadSound(slotKey, inputEl) {
   const file = inputEl.files && inputEl.files[0];
   if (!file) return;
-  // Size check — base64 inflates by ~33%, localStorage limit ~5MB
-  if (file.size > 600 * 1024) {
+  if (file.size > 800 * 1024) {
     if (!confirm('Datei ist ' + (file.size/1024).toFixed(0) + ' KB. localStorage-Limit ist insgesamt ~5MB. Trotzdem hochladen?')) {
       inputEl.value = '';
       return;
     }
   }
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     const dataUrl = e.target.result;
-    const pack = loadSoundPack();
-    pack[slotKey] = dataUrl;
-    saveSoundPack(pack);
-    renderSoundPackSlots();
-    _showSuccessToast('✓ Sound hochgeladen: ' + file.name, 2500);
+    // Sofort Trim-Modal öffnen damit der User Mixkit-Voice oder Intro/Outro wegtrimmen kann
+    openSoundTrimModal(slotKey, dataUrl, file.name);
   };
   reader.onerror = () => _showErrorToast('Fehler beim Lesen der Datei');
   reader.readAsDataURL(file);
   inputEl.value = '';
+}
+
+// ── TRIM-MODAL: erlaubt Start/Ende des Sounds zu setzen damit Voice-Intros weg sind ──
+let _trimAudioCtx = null;
+let _trimBuffer = null;
+let _trimSource = null;
+
+async function openSoundTrimModal(slotKey, dataUrl, fileName) {
+  // Decode audio first to get duration + buffer
+  if (!_trimAudioCtx) _trimAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const r = await fetch(dataUrl);
+    const arrBuf = await r.arrayBuffer();
+    _trimBuffer = await _trimAudioCtx.decodeAudioData(arrBuf.slice(0));
+  } catch (e) {
+    _showErrorToast('Audio-Datei konnte nicht dekodiert werden: ' + e.message);
+    return;
+  }
+  const duration = _trimBuffer.duration;
+
+  // Build modal HTML
+  const overlay = document.createElement('div');
+  overlay.id = 'soundTrimOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:#0a0a0a;border:2px solid #f59e0b;border-radius:12px;padding:20px;max-width:520px;width:100%;color:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h3 style="margin:0;color:#fbbf24;font-size:16px">✂️ Sound trimmen</h3>
+        <button onclick="closeSoundTrimModal(true)" style="background:none;border:none;color:#9ca3af;font-size:24px;cursor:pointer">×</button>
+      </div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:12px">
+        <strong style="color:#fff">${fileName}</strong> · Länge: <strong>${duration.toFixed(2)}s</strong><br>
+        Wenn die Datei am Anfang oder Ende eine gesprochene Stimme hat (z.B. "Mixkit"), zieh die Slider so dass nur der eigentliche Sound dazwischen liegt.
+      </div>
+      <canvas id="trimWaveform" width="480" height="80" style="width:100%;height:80px;background:#111;border-radius:6px;border:1px solid #222;display:block;margin-bottom:14px"></canvas>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+        <div>
+          <label style="font-size:11px;color:#9ca3af;display:flex;justify-content:space-between"><span>Start</span><span id="trimStartLabel">0.00s</span></label>
+          <input type="range" id="trimStart" min="0" max="${(duration*1000).toFixed(0)}" value="0" step="10" style="width:100%;accent-color:#f59e0b">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#9ca3af;display:flex;justify-content:space-between"><span>Ende</span><span id="trimEndLabel">${duration.toFixed(2)}s</span></label>
+          <input type="range" id="trimEnd" min="0" max="${(duration*1000).toFixed(0)}" value="${(duration*1000).toFixed(0)}" step="10" style="width:100%;accent-color:#f59e0b">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between">
+        <button id="trimPreviewBtn" onclick="previewTrimmed()" style="background:#1f2937;border:1px solid #4b5563;color:#fff;padding:8px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;flex:1">▶ Trim-Preview</button>
+        <button id="trimStopBtn" onclick="stopTrimPreview()" style="background:#7f1d1d;border:none;color:#fff;padding:8px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px">⏹</button>
+        <button onclick="closeSoundTrimModal(true)" style="background:#374151;border:none;color:#fff;padding:8px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px">Abbrechen</button>
+        <button onclick="saveTrimmedSound('${slotKey}', '${dataUrl.replace(/[^A-Za-z0-9+/=:,;.-]/g, '')[0] ? '__USE_DATAURL__' : '__USE_DATAURL__'}')" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 16px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;flex:1">✓ Speichern</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Stash dataUrl on the overlay so saveTrimmedSound can grab it
+  overlay._pendingDataUrl = dataUrl;
+  overlay._pendingDuration = duration;
+  overlay._pendingSlotKey = slotKey;
+
+  // Draw waveform
+  drawWaveform(_trimBuffer);
+
+  // Wire up sliders
+  const startEl = document.getElementById('trimStart');
+  const endEl = document.getElementById('trimEnd');
+  const startLbl = document.getElementById('trimStartLabel');
+  const endLbl = document.getElementById('trimEndLabel');
+  const updateLabels = () => {
+    const s = parseInt(startEl.value) / 1000;
+    const e = parseInt(endEl.value) / 1000;
+    startLbl.textContent = s.toFixed(2) + 's';
+    endLbl.textContent = e.toFixed(2) + 's';
+    drawWaveform(_trimBuffer, s, e);
+    if (parseInt(startEl.value) >= parseInt(endEl.value)) {
+      startEl.value = Math.max(0, parseInt(endEl.value) - 100);
+      startLbl.textContent = (parseInt(startEl.value)/1000).toFixed(2) + 's';
+    }
+  };
+  startEl.oninput = updateLabels;
+  endEl.oninput = updateLabels;
+}
+
+function drawWaveform(buffer, trimStart, trimEnd) {
+  const canvas = document.getElementById('trimWaveform');
+  if (!canvas || !buffer) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  // Draw waveform from channel 0
+  const data = buffer.getChannelData(0);
+  const samplesPerPx = Math.floor(data.length / W);
+  ctx.strokeStyle = '#3b3b3b';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x++) {
+    let max = 0;
+    const start = x * samplesPerPx;
+    for (let i = 0; i < samplesPerPx && start + i < data.length; i++) {
+      const v = Math.abs(data[start + i]);
+      if (v > max) max = v;
+    }
+    const h = max * H * 0.9;
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, H/2 - h/2);
+    ctx.lineTo(x + 0.5, H/2 + h/2);
+    ctx.stroke();
+  }
+  // Highlight trimmed region in orange if specified
+  if (typeof trimStart === 'number' && typeof trimEnd === 'number' && buffer.duration > 0) {
+    const sx = (trimStart / buffer.duration) * W;
+    const ex = (trimEnd / buffer.duration) * W;
+    ctx.fillStyle = 'rgba(245,158,11,0.18)';
+    ctx.fillRect(sx, 0, ex - sx, H);
+    // Re-draw highlighted region with orange waveform
+    ctx.strokeStyle = '#fbbf24';
+    for (let x = Math.floor(sx); x < ex && x < W; x++) {
+      let max = 0;
+      const startIdx = x * samplesPerPx;
+      for (let i = 0; i < samplesPerPx && startIdx + i < data.length; i++) {
+        const v = Math.abs(data[startIdx + i]);
+        if (v > max) max = v;
+      }
+      const h = max * H * 0.9;
+      ctx.beginPath();
+      ctx.moveTo(x + 0.5, H/2 - h/2);
+      ctx.lineTo(x + 0.5, H/2 + h/2);
+      ctx.stroke();
+    }
+  }
+}
+
+function previewTrimmed() {
+  if (!_trimBuffer || !_trimAudioCtx) return;
+  stopTrimPreview();
+  const startEl = document.getElementById('trimStart');
+  const endEl = document.getElementById('trimEnd');
+  if (!startEl || !endEl) return;
+  const startSec = parseInt(startEl.value) / 1000;
+  const endSec = parseInt(endEl.value) / 1000;
+  const dur = Math.max(0.01, endSec - startSec);
+  _trimSource = _trimAudioCtx.createBufferSource();
+  _trimSource.buffer = _trimBuffer;
+  _trimSource.connect(_trimAudioCtx.destination);
+  _trimSource.start(0, startSec, dur);
+}
+
+function stopTrimPreview() {
+  try { if (_trimSource) _trimSource.stop(); } catch(e) {}
+  _trimSource = null;
+}
+
+function closeSoundTrimModal(cancelled) {
+  stopTrimPreview();
+  const ov = document.getElementById('soundTrimOverlay');
+  if (ov) ov.remove();
+  _trimBuffer = null;
+}
+
+function saveTrimmedSound(slotKey) {
+  const ov = document.getElementById('soundTrimOverlay');
+  if (!ov || !ov._pendingDataUrl) return;
+  const startEl = document.getElementById('trimStart');
+  const endEl = document.getElementById('trimEnd');
+  const startSec = parseInt(startEl.value) / 1000;
+  const endSec = parseInt(endEl.value) / 1000;
+  const pack = loadSoundPack();
+  pack[slotKey] = ov._pendingDataUrl;
+  // Trim-Punkte in separater Map speichern
+  const trims = JSON.parse(localStorage.getItem('fb_sound_trims_v1') || '{}');
+  if (startSec > 0.05 || endSec < ov._pendingDuration - 0.05) {
+    trims[slotKey] = { start: startSec, end: endSec, duration: ov._pendingDuration };
+  } else {
+    delete trims[slotKey];  // kein trim nötig
+  }
+  localStorage.setItem('fb_sound_trims_v1', JSON.stringify(trims));
+  saveSoundPack(pack);
+  renderSoundPackSlots();
+  closeSoundTrimModal(false);
+  _showSuccessToast('✓ Sound gespeichert (Trim: ' + startSec.toFixed(2) + 's bis ' + endSec.toFixed(2) + 's)', 3000);
+}
+
+
+function reTrimSound(slotKey) {
+  const pack = loadSoundPack();
+  if (!pack[slotKey]) return;
+  const slot = SOUND_SLOTS.find(s => s.key === slotKey);
+  openSoundTrimModal(slotKey, pack[slotKey], slot ? slot.label : slotKey);
+}
+function getSoundTrim(slotKey) {
+  try {
+    const trims = JSON.parse(localStorage.getItem('fb_sound_trims_v1') || '{}');
+    return trims[slotKey] || null;
+  } catch(e) { return null; }
 }
 
 function resetSound(slotKey) {
@@ -35337,15 +35527,18 @@ async function previewSound(slotKey) {
   const pack = loadSoundPack();
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (pack[slotKey]) {
-    // Custom Sound — load + play
+    // Custom Sound — load + play (mit Trim-Punkten falls vorhanden)
     try {
       const r = await fetch(pack[slotKey]);
       const buf = await r.arrayBuffer();
       const audioBuf = await audioCtx.decodeAudioData(buf);
+      const trim = getSoundTrim(slotKey);
+      const offset = trim ? trim.start : 0;
+      const duration = trim ? Math.max(0.01, trim.end - trim.start) : audioBuf.duration;
       const src = audioCtx.createBufferSource();
       src.buffer = audioBuf;
       src.connect(audioCtx.destination);
-      src.start();
+      src.start(0, offset, duration);
     } catch (e) {
       _showErrorToast('Sound konnte nicht abgespielt werden: ' + e.message);
     }
@@ -35372,12 +35565,16 @@ async function _playSoundOrCustom(slotKey, audioCtx, dests, durationSec) {
       const r = await fetch(pack[slotKey]);
       const buf = await r.arrayBuffer();
       const audioBuf = await audioCtx.decodeAudioData(buf);
+      // Trim-Punkte berücksichtigen wenn vorhanden
+      const trim = getSoundTrim(slotKey);
+      const offset = trim ? trim.start : 0;
+      const duration = trim ? Math.max(0.01, trim.end - trim.start) : audioBuf.duration;
       // Play to ALL destinations (speaker + recording)
       for (const dest of dests) {
         const src = audioCtx.createBufferSource();
         src.buffer = audioBuf;
         src.connect(dest);
-        src.start();
+        src.start(0, offset, duration);
       }
       return;
     } catch (e) {
@@ -35440,6 +35637,103 @@ function _drawAppFooter(ctx, W, H, opacity) {
   ctx.font = 'bold ' + Math.round(H*0.024) + 'px system-ui, sans-serif';
   ctx.fillStyle = REVEAL_BRAND.secondary;
   ctx.fillText(REVEAL_BRAND.appUrl, W/2, H*0.97);
+  ctx.restore();
+}
+
+// Whoosh sound for the Lets Test It transition
+function _audioWhoosh(audioCtx, dest) {
+  const t0 = audioCtx.currentTime;
+  // Highpass-Sweep noise = klassischer Whoosh
+  const noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.6, audioCtx.sampleRate);
+  const noiseData = noiseBuf.getChannelData(0);
+  for (let i = 0; i < noiseData.length; i++) {
+    noiseData[i] = (Math.random() * 2 - 1);
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(400, t0);
+  filter.frequency.exponentialRampToValueAtTime(4000, t0 + 0.5);
+  filter.Q.value = 3;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.0, t0);
+  gain.gain.linearRampToValueAtTime(0.4, t0 + 0.1);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
+  src.connect(filter).connect(gain).connect(dest);
+  src.start(t0);
+  src.stop(t0 + 0.6);
+  // Sub-Bass-Hit fuer Wucht beim Start
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(120, t0);
+  sub.frequency.exponentialRampToValueAtTime(45, t0 + 0.25);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.0, t0);
+  subGain.gain.linearRampToValueAtTime(0.7, t0 + 0.01);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.4);
+  sub.connect(subGain).connect(dest);
+  sub.start(t0);
+  sub.stop(t0 + 0.4);
+}
+
+// LETS TEST IT — Intro-Phase 0 (1.5s) als Transition vom Original-Video zum FinalBoss
+function _renderLetsTestIt(ctx, W, H, t /* 0..1 */) {
+  _drawBg(ctx, W, H);
+  _drawBrandStamp(ctx, W, H);
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // "LET'S TEST IT" — slides in from below + zoom pulse
+  let textY, scale, opacity;
+  if (t < 0.25) {
+    // Phase A: Slide-in from below + fade in
+    const p = t / 0.25;
+    textY = H * (0.7 - p * 0.2);  // 0.70 -> 0.50
+    scale = 0.5 + p * 0.6;          // 0.5 -> 1.1
+    opacity = p;
+  } else if (t < 0.40) {
+    // Phase B: Settle (overshoot down to 1.0)
+    const p = (t - 0.25) / 0.15;
+    textY = H * 0.50;
+    scale = 1.1 - p * 0.1;          // 1.1 -> 1.0
+    opacity = 1;
+  } else if (t < 0.85) {
+    // Phase C: Hold + subtle pulse
+    textY = H * 0.50;
+    const pulse = Math.sin((t - 0.40) * Math.PI * 4) * 0.02;
+    scale = 1.0 + pulse;
+    opacity = 1;
+  } else {
+    // Phase D: Quick scale-up + fade-out for transition into next phase
+    const p = (t - 0.85) / 0.15;
+    textY = H * 0.50;
+    scale = 1.0 + p * 0.4;
+    opacity = 1 - p;
+  }
+
+  ctx.globalAlpha = opacity;
+
+  // Big text
+  const fontSize = Math.round(H * 0.075 * scale);
+  ctx.font = 'bold ' + fontSize + 'px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.primary;
+  // Outer glow
+  ctx.shadowColor = REVEAL_BRAND.secondary;
+  ctx.shadowBlur = 30 * scale;
+  ctx.fillText("LET'S TEST IT", W/2, textY);
+  ctx.shadowBlur = 0;
+
+  // Smaller subtitle that appears right after
+  if (t > 0.30) {
+    const subOp = Math.min(1, (t - 0.30) * 4) * opacity;
+    ctx.globalAlpha = subOp;
+    ctx.font = '600 ' + Math.round(H * 0.025) + 'px system-ui, sans-serif';
+    ctx.fillStyle = REVEAL_BRAND.textMuted;
+    ctx.fillText('— FINALBOSS STRATEGY REVIEW —', W/2, H * 0.59);
+  }
+
   ctx.restore();
 }
 
@@ -35513,8 +35807,18 @@ function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // Icon (big check / X / warning) — appears + scales in
-  const iconScale = Math.min(1.2, t * 4);
+  // Icon (big check / X / warning) — SNAPS in fast (in 0.2s of phase3) with overshoot
+  // Synced mit dem Boom-Hit der zur gleichen Zeit gespielt wird
+  // Phase 3 = 6s total, t goes 0 to 1 over those 6s
+  // 0.05 = 0.3s -> we want full scale here
+  let iconScale;
+  if (t < 0.04) {
+    iconScale = (t / 0.04) * 1.35;  // schnelles Scaling von 0 auf 1.35 (overshoot) in 0.24s
+  } else if (t < 0.07) {
+    iconScale = 1.35 - ((t - 0.04) / 0.03) * 0.35;  // settle from 1.35 zurück auf 1.0
+  } else {
+    iconScale = 1.0;  // hold steady
+  }
   const iconY = H * 0.27;
   const iconSize = H * 0.10 * iconScale;
   ctx.save();
@@ -35565,16 +35869,16 @@ function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
     ctx.fillText('!', 0, H*0.005);
   }
   ctx.restore();
-  // Verdict-Text — slide in from below
-  const slideOp = Math.min(1, (t - 0.1) * 5);
+  // Verdict-Text — fast fade in, kommt direkt nach dem Icon-Snap
+  const slideOp = Math.min(1, Math.max(0, (t - 0.05) * 12));
   if (slideOp > 0) {
     ctx.globalAlpha = slideOp;
     ctx.font = 'bold ' + Math.round(H*0.040) + 'px system-ui, sans-serif';
     ctx.fillStyle = data.verdictColor;
     ctx.fillText(data.verdictText, W/2, H*0.42);
   }
-  // Stats-Block — fade in
-  const statsOp = Math.min(1, (t - 0.3) * 4);
+  // Stats-Block — kommt nach Verdict-Text rein
+  const statsOp = Math.min(1, Math.max(0, (t - 0.13) * 8));
   if (statsOp > 0) {
     ctx.globalAlpha = statsOp;
     const statsY = H * 0.50;
@@ -35597,8 +35901,8 @@ function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
       ctx.fillText(s.value, W*0.85, y);
     });
   }
-  // Recommendation — fade in last
-  const recOp = Math.min(1, (t - 0.55) * 4);
+  // Recommendation — fade in zuletzt aber nicht zu spaet
+  const recOp = Math.min(1, Math.max(0, (t - 0.30) * 4));
   if (recOp > 0 && data.recommendation) {
     ctx.globalAlpha = recOp;
     ctx.textAlign = 'center';
@@ -35688,12 +35992,15 @@ async function tiktokRevealPlay(record) {
   }
 
   // Animation
-  const PHASE1_END = 3.0;
-  const PHASE2_END = 6.0;
-  const PHASE3_END = 12.0;
+  const PHASE0_END = 1.5;   // "LET'S TEST IT" intro
+  const PHASE1_END = 4.5;   // Strategy info card (3s)
+  const PHASE2_END = 7.5;   // Countdown 3-2-1 (3s)
+  const PHASE3_END = 13.5;  // Verdict reveal (6s)
   const startTime = performance.now();
   let lastCountdownNumber = -1;
   let verdictSoundPlayed = false;
+  let whooshPlayed = false;
+  let phase0DonePlayed = false;
 
   await new Promise(resolve => {
     function frame() {
@@ -35704,10 +36011,18 @@ async function tiktokRevealPlay(record) {
       const elapsed = (performance.now() - startTime) / 1000;
       ctx.clearRect(0, 0, W, H);
 
-      if (elapsed < PHASE1_END) {
-        _renderIntro(ctx, W, H, elapsed / PHASE1_END, data);
+      if (elapsed < PHASE0_END) {
+        // Phase 0: LET'S TEST IT intro + Whoosh-Sound
+        if (!whooshPlayed) {
+          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
+          for (const d of dests) _audioWhoosh(audioCtx, d);
+          whooshPlayed = true;
+        }
+        _renderLetsTestIt(ctx, W, H, elapsed / PHASE0_END);
+      } else if (elapsed < PHASE1_END) {
+        _renderIntro(ctx, W, H, (elapsed - PHASE0_END) / (PHASE1_END - PHASE0_END), data);
       } else if (elapsed < PHASE2_END) {
-        const ct = elapsed - PHASE1_END;
+        const ct = elapsed - PHASE1_END;  // 0..3s im Countdown
         const n = 3 - Math.floor(ct);
         const tInDigit = ct - Math.floor(ct);
         // Beim Eintritt in Phase 2 (n===3 first time): rising tension build (3s)
