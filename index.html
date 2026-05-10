@@ -32286,12 +32286,15 @@ async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
   let userText = 'Analysiere dieses TikTok/YouTube-Trading-Video. Du siehst und hörst alles — was wird gesprochen, welche Charts/Indikatoren werden gezeigt, welcher Coin/Timeframe, welche Setup-Markierungen?\n\n' +
     'Extrahiere die Trading-Strategie als JSON-Spec. Du MUSST IMMER eine Strategie liefern — auch wenn nichts Konkretes erkennbar ist (dann mit Vermerk im description-Feld).';
   if (attempt > 0) {
-    userText += '\n\nWICHTIG (RETRY): Dein letzter Versuch hat fehlerhaften Code generiert. Achte diesmal extra auf:\n' +
-      '1. enterCode MUSS gefüllt sein und valide JS sein (keine \`c.time.getHours()\` — gibts nicht! Nutz \`new Date(c.ts).getUTCHours()\`)\n' +
-      '2. Halte den Code SEHR kurz (max 600 Zeichen)\n' +
-      '3. Keine Code-Wiederholungen, kein doppeltes \`const\` für gleiche Variable\n' +
-      '4. Newlines im JSON-String müssen mit \\n escaped sein, nicht raw\n' +
-      '5. Vereinfache die Strategie — nur 1-2 Hauptbedingungen, weniger ist mehr.';
+    userText += '\n\nWICHTIG (RETRY ' + attempt + '): Dein letzter Versuch ist beim Sandbox-Test gecrashed. Mache es DIESMAL richtig:\n' +
+      '1. KERZEN-FELDER: candles[i] hat NUR open/high/low/close/volume/ts. KEIN c.time, KEIN c.date, KEIN getHours()/getMinutes()!\n' +
+      '   Wenn du Stunde/Minute brauchst: const d = new Date(candles[i].ts); const h = d.getUTCHours(); const min = d.getUTCMinutes();\n' +
+      '2. BOUNDS-CHECKS am Anfang von enterCode (PFLICHT):\n' +
+      '   if (i < N || !candles[i] || !candles[i-X]) return null;  // wo N = grösster Lookback, X = jeder Index den du nutzt\n' +
+      '3. Halte den Code SEHR kurz (max 500 Zeichen)\n' +
+      '4. Vereinfache: nur 1-2 Hauptbedingungen, keine komplexen Schleifen mit dynamischen Indices\n' +
+      '5. Newlines im JSON-String müssen \\n sein, nicht roh\n' +
+      '6. Wenn die Original-Strategie eine Zeit-Komponente hat (z.B. 9:30am), behalte sie aber nutze GANZ KORREKT die Date-API.';
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const body = {
@@ -32341,10 +32344,24 @@ async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
     }
     throw new Error('Gemini-Direct: Auch nach 2 Retries hat Gemini keinen brauchbaren enterCode geliefert (finishReason=' + finishReason + '). Versuch ein anderes Video oder einen anderen Provider.');
   }
-  // Quick-Sanity-Check: enterCode darf nicht offensichtlich kaputt sein (c.time, c.date)
-  if (/c\.time\.|c\.date\.|getHours\s*\(/i.test(parsed.enterCode) && attempt < 2) {
-    console.warn('[GeminiDirect] enterCode nutzt nicht-existente Properties (c.time / getHours) — auto-retry');
+  // Quick-Sanity-Check: enterCode darf nicht offensichtlich kaputt sein
+  if (/c\.time\.|c\.date\.|(?<!UTC)getHours\s*\(|(?<!UTC)getMinutes\s*\(/i.test(parsed.enterCode) && attempt < 2) {
+    console.warn('[GeminiDirect] enterCode nutzt nicht-existente Properties — auto-retry');
     return await reviewExtractStrategyGeminiDirect(file, attempt + 1);
+  }
+  // ── DEEPER CHECK: aiValidateStrategy laufen lassen — fängt Runtime-Crashes ab ──
+  // Wenn shouldEnter zu oft crasht (z.B. wegen fehlender Bounds-Checks), retrye die Extraktion
+  if (typeof aiValidateStrategy === 'function' && attempt < 2) {
+    try {
+      const v = aiValidateStrategy(parsed);
+      if (!v.ok) {
+        console.warn('[GeminiDirect] Validation failed: ' + v.error + ' — auto-retry (' + (attempt+1) + '/2)');
+        return await reviewExtractStrategyGeminiDirect(file, attempt + 1);
+      }
+    } catch (e) {
+      console.warn('[GeminiDirect] Validation crashed:', e.message, '— auto-retry');
+      return await reviewExtractStrategyGeminiDirect(file, attempt + 1);
+    }
   }
   reviewSetProgress('gemini-direct', 'done', '🧠 Gemini-Analyse fertig: "' + parsed.name + '"' + (attempt > 0 ? ' (nach ' + attempt + ' Retry)' : ''));
   return { spec: parsed, rawReply: text, transcript: '' };
