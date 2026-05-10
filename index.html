@@ -864,7 +864,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 17:33 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 18:22 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -31773,7 +31773,7 @@ document.addEventListener('visibilitychange', () => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-10 17:33 UTC';
+const APP_BUILD = '2026-05-10 18:22 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36422,27 +36422,30 @@ let _analyticsAdminTimer = null;
 
 function _getOrCreateSessionId() {
   let id = sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+  let isNew = false;
   if (!id) {
     id = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     sessionStorage.setItem(ANALYTICS_SESSION_KEY, id);
+    isNew = true;
   }
-  return id;
+  return { id, isNew };
 }
 
-async function analyticsTrackVisit(isNewSession) {
+async function analyticsTrackVisit(forceNew) {
   const cfg = (typeof reviewGetWorkerCfg === 'function') ? reviewGetWorkerCfg() : null;
-  if (!cfg || !cfg.url) return;  // kein Worker konfiguriert -> nichts zu tracken
-  const sessionId = _getOrCreateSessionId();
+  if (!cfg || !cfg.url) return;
+  const session = _getOrCreateSessionId();
+  // is_new_session ist true NUR wenn wirklich neue Session (sessionStorage war leer)
+  // F5 / Reload -> sessionStorage persistiert -> nicht neu -> kein Total-Increment
+  const isNew = forceNew && session.isNew;
   try {
     await fetch(cfg.url + '/track-visit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, is_new_session: !!isNewSession }),
+      body: JSON.stringify({ session_id: session.id, is_new_session: isNew }),
       keepalive: true,
     });
-  } catch (e) {
-    // silent — analytics darf die App nie blocken
-  }
+  } catch (e) {}
 }
 
 async function analyticsRefreshDisplay() {
