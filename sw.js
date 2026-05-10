@@ -1,9 +1,10 @@
-// FinalBoss Service Worker v1.2.0-beta — COI-Headers für SharedArrayBuffer
-// Cache-first für statische Assets, Network für Binance-API.
-// NEU in v1.2: Cross-Origin-Isolation Headers für ffmpeg.wasm Support
-// HINWEIS: CACHE_NAME bei jedem Release hochzählen damit User die neue Version kriegen!
+// FinalBoss Service Worker v1.3.0-beta — NETWORK-FIRST fuer HTML
+// Update-Verhalten: 1x Reload reicht jetzt fuer Updates (vorher 2x).
+// Statisches Asset wie Bilder/Manifest = Cache-First (schnell)
+// HTML/JS-Update = Network-First mit Cache-Fallback (immer aktuell wenn online)
+// COI-Headers fuer SharedArrayBuffer / ffmpeg.wasm
 
-const CACHE_NAME = 'finalboss-v1.2.0-beta-' + Date.now().toString().slice(0, 10);
+const CACHE_NAME = 'finalboss-v1.3.0-' + Date.now().toString().slice(0, 10);
 const ASSETS = ['./', './index.html', './backtest_app.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -26,7 +27,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = e.request.url;
 
-  // Niemals API/WebSocket/Non-GET cachen — diese müssen immer live sein
+  // Niemals API/WebSocket/Non-GET cachen
   if (
     url.includes('binance.com') ||
     url.includes('binance.us') ||
@@ -34,16 +35,12 @@ self.addEventListener('fetch', (e) => {
     url.startsWith('wss:') ||
     e.request.method !== 'GET'
   ) {
-    return; // Browser handelt fetch normal (kein respondWith)
+    return;
   }
 
-  // Helper: Response mit Cross-Origin-Isolation Headers anreichern
-  // Wird für ALLE same-origin Requests + Cross-Origin-Resources gemacht damit ffmpeg.wasm
-  // SharedArrayBuffer nutzen kann (GitHub Pages sendet diese Headers nicht selbst).
   const addCOIHeaders = (response) => {
     if (!response || response.status === 0) return response;
     const newHeaders = new Headers(response.headers);
-    // COEP credentialless: erlaubt cross-origin Resourcen ohne CORP-Header
     newHeaders.set('Cross-Origin-Embedder-Policy', 'credentialless');
     newHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
     return new Response(response.body, {
@@ -53,21 +50,54 @@ self.addEventListener('fetch', (e) => {
     });
   };
 
-  // Cache-first für statische Assets
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return addCOIHeaders(cached);
-      return fetch(e.request).then(response => {
-        // Nur erfolgreiche, gleichherkunfts Responses cachen
+  const isHTMLorCode = (
+    e.request.mode === 'navigate' ||
+    e.request.destination === 'document' ||
+    e.request.destination === 'script' ||
+    e.request.destination === 'style' ||
+    /\.(html|js|css|json)(\?|$)/i.test(url)
+  );
+
+  if (isHTMLorCode) {
+    // NETWORK-FIRST: immer frisch versuchen, Cache nur als Fallback
+    e.respondWith(
+      fetch(e.request).then(response => {
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         }
         return addCOIHeaders(response);
-      }).catch(() =>
-        // Network-Fehler: versuche cached HTML als Fallback
-        caches.match('./').then(addCOIHeaders) || caches.match('./backtest_app.html').then(addCOIHeaders)
-      );
-    })
-  );
+      }).catch(() => {
+        return caches.match(e.request).then(cached => {
+          if (cached) return addCOIHeaders(cached);
+          return caches.match('./').then(addCOIHeaders) ||
+                 caches.match('./index.html').then(addCOIHeaders);
+        });
+      })
+    );
+  } else {
+    // CACHE-FIRST: schnell aus Cache, im Hintergrund updaten
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) {
+          fetch(e.request).then(response => {
+            if (response && response.status === 200 && response.type === 'basic') {
+              caches.open(CACHE_NAME).then(cache => cache.put(e.request, response.clone()));
+            }
+          }).catch(() => {});
+          return addCOIHeaders(cached);
+        }
+        return fetch(e.request).then(response => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          }
+          return addCOIHeaders(response);
+        }).catch(() =>
+          caches.match('./').then(addCOIHeaders) ||
+          caches.match('./index.html').then(addCOIHeaders)
+        );
+      })
+    );
+  }
 });
