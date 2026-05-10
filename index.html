@@ -11783,9 +11783,10 @@ function buildStrategyAssessment(result, stratName) {
 
   return `
     <div style="background:${verdictBg};border:1px solid ${verdictBorder};border-radius:8px;padding:12px 16px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
         <span style="font-size:18px">${verdictIcon}</span>
-        <strong style="color:${verdictColor};font-size:14px">FinalBoss-Verdict: ${verdict}</strong>
+        <strong style="color:${verdictColor};font-size:14px;flex:1;min-width:0">FinalBoss-Verdict: ${verdict}</strong>
+        <button type="button" onclick="openTikTokRevealModal()" title="Generiere ein 12sec TikTok-Reveal-Video von diesem Backtest" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:6px 12px;border-radius:5px;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;flex-shrink:0">🎬 TikTok-Reveal</button>
       </div>
       <div style="color:var(--text-secondary);font-size:11px;margin-bottom:8px">Automatische Analyse der Backtest-Metriken — keine Anlageempfehlung.</div>
       ${findingsHtml}
