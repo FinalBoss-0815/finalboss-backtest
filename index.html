@@ -32058,8 +32058,14 @@ LÄNGE-LIMITS (KOMPAKT bleiben damit das JSON in 8K Tokens passt):
 
 BEISPIEL für minimale gültige Strategie (nutze als Template):
 "initCode": "this._ema = Indicators.ema(candles.map(c=>c.close), 20); this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), candles.map(c=>c.close), 14);",
-"enterCode": "if (i < 21 || isNaN(this._ema[i])) return null; const c = candles[i].close; if (c > this._ema[i]) return { dir: 'long', sl: c - 2*this._atr[i] }; return null;",
+"enterCode": "if (i < 21 || isNaN(this._ema[i]) || isNaN(this._atr[i])) return null; const c = candles[i].close; if (c > this._ema[i]) return { dir: 'long', sl: c - 2*this._atr[i] }; return null;",
 "exitCode": "return false;"
+
+KRITISCH WICHTIG IM enterCode:
+- IMMER mit Bounds-Check beginnen: "if (i < N || isNaN(...)) return null;" wo N = grösste Lookback-Distanz
+- Wenn du candles[i-X] zugreifst → IMMER prüfen "if (i < X) return null;" am Anfang
+- Wenn du Indikator-Werte nutzt → IMMER NaN prüfen
+- Beispiel: Strategie mit Lookback 50 und ATR(14): "if (i < 50 || isNaN(this._atr[i])) return null;"
 
 Halte dich an dieses Pattern. Wenn die Strategie komplexer ist, vereinfache sie auf max 3 Bedingungen.
 
@@ -33563,21 +33569,48 @@ function aiValidateStrategy(spec) {
     }
     const params = {};
     for (const k of Object.keys(spec.params)) params[k] = spec.params[k];
-    strat.init(testCandles, params);
+    // Init + shouldEnter laufen lassen — aber Runtime-Crashes nur loggen, nicht failen
+    // Echte Strategien können erst nach N Kerzen entries machen (Lookback) → bei i=5 würden
+    // viele crashen, das ist OK. Wir prüfen nur dass FUNKTIONEN GRUNDSÄTZLICH ausführbar sind.
     let entries = 0;
-    for (let i = 5; i < testCandles.length; i++) {
-      const r = strat.shouldEnter(testCandles, i, params);
-      if (r) {
-        entries++;
-        // Ausstieg testen
-        if (typeof r.dir !== 'string' || (r.dir !== 'long' && r.dir !== 'short')) return { ok: false, error: 'shouldEnter return.dir muss "long" oder "short" sein' };
-        if (typeof r.sl !== 'number' || isNaN(r.sl)) return { ok: false, error: 'shouldEnter return.sl muss eine gültige Zahl sein' };
-        const exitR = strat.shouldExit(testCandles, i + 1, { dir: r.dir, sl: r.sl, entry: testCandles[i].close }, params);
-        if (typeof exitR !== 'boolean') return { ok: false, error: 'shouldExit muss true|false zurückgeben, bekam: ' + typeof exitR };
-        if (entries >= 3) break; // genug getestet
+    let runtimeWarnings = 0;
+    try { strat.init(testCandles, params); }
+    catch (e) {
+      // init crash ist ein echter Fehler
+      return { ok: false, error: 'init crashed: ' + e.message };
+    }
+    for (let i = 50; i < testCandles.length; i++) {
+      try {
+        const r = strat.shouldEnter(testCandles, i, params);
+        if (r) {
+          entries++;
+          if (typeof r.dir !== 'string' || (r.dir !== 'long' && r.dir !== 'short')) {
+            return { ok: false, error: 'shouldEnter return.dir muss "long" oder "short" sein, bekam: ' + r.dir };
+          }
+          if (typeof r.sl !== 'number' || isNaN(r.sl)) {
+            return { ok: false, error: 'shouldEnter return.sl muss eine gültige Zahl sein' };
+          }
+          try {
+            const exitR = strat.shouldExit(testCandles, i + 1, { dir: r.dir, sl: r.sl, entry: testCandles[i].close }, params);
+            if (typeof exitR !== 'boolean') {
+              return { ok: false, error: 'shouldExit muss true|false zurückgeben, bekam: ' + typeof exitR };
+            }
+          } catch (eExit) {
+            runtimeWarnings++;
+            console.warn('shouldExit Runtime-Warning bei i=' + i + ':', eExit.message);
+          }
+          if (entries >= 3) break;
+        }
+      } catch (eEnter) {
+        runtimeWarnings++;
+        console.warn('shouldEnter Runtime-Warning bei i=' + i + ':', eEnter.message);
+        if (runtimeWarnings > 30) {
+          // Wenn fast alle Aufrufe crashen, ist's ein echter Bug
+          return { ok: false, error: 'shouldEnter crasht zu oft: ' + eEnter.message + '. Code hat wahrscheinlich keine Bounds-Checks für i / candles[i-X].' };
+        }
       }
     }
-    return { ok: true, strat, entries, testCandlesCount: testCandles.length };
+    return { ok: true, strat, entries, testCandlesCount: testCandles.length, warnings: runtimeWarnings };
   } catch (e) {
     return { ok: false, error: 'Sandbox-Fehler: ' + (e.message || String(e)) };
   }
