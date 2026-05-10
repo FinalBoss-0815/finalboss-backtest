@@ -1352,7 +1352,27 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" onclick="aiRefineCurrentSelected()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🔧 Verfeinern</button>
+          <button type="button" onclick="openTikTokRevealModal()" title="Generiere ein 12-Sekunden TikTok-Reveal-Video mit den Backtest-Ergebnissen" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🎬 TikTok-Reveal</button>
           <button type="button" onclick="aiDeleteCurrentSelected()" title="Diese KI-Strategie löschen" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.40);color:#ef4444;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🗑️ Löschen</button>
+        </div>
+      </div>
+      <!-- TikTok-Reveal Modal -->
+      <div id="tiktokRevealModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;align-items:center;justify-content:center;flex-direction:column;padding:20px">
+        <div style="background:#0a0a0a;border:2px solid #f59e0b;border-radius:12px;padding:20px;max-width:600px;width:100%;max-height:90vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h2 style="margin:0;color:#fbbf24;font-size:18px">🎬 TikTok-Reveal Generator</h2>
+            <button type="button" onclick="closeTikTokRevealModal()" style="background:none;border:none;color:#9ca3af;font-size:24px;cursor:pointer;padding:0;width:32px;height:32px">×</button>
+          </div>
+          <canvas id="tiktokRevealCanvas" width="540" height="960" style="width:100%;max-width:300px;height:auto;background:#000;border-radius:8px;display:block;margin:0 auto;border:1px solid #333"></canvas>
+          <div id="tiktokRevealStatus" style="text-align:center;color:#9ca3af;font-size:12px;margin-top:12px;min-height:18px">Bereit zum Generieren</div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center">
+            <button type="button" id="tiktokRevealPreviewBtn" onclick="tiktokRevealPlay(false)" style="background:#1f2937;border:1px solid #4b5563;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">▶ Vorschau (ohne Recording)</button>
+            <button type="button" id="tiktokRevealRecordBtn" onclick="tiktokRevealPlay(true)" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🎥 Aufnehmen + Download</button>
+          </div>
+          <div style="margin-top:12px;padding:10px;background:#111;border-radius:6px;font-size:11px;color:#9ca3af;line-height:1.5">
+            <strong style="color:#fbbf24">💡 Tipp:</strong> Output ist <strong>.webm</strong> (1080×1920, 9:16). Direkt zu TikTok hochladbar — TikTok konvertiert automatisch.
+            Wenn du dein Original-Video davorschneiden willst: Reveal + Original-Video in CapCut zusammenfügen, fertig.
+          </div>
         </div>
       </div>
       <!-- Metrics -->
@@ -34726,6 +34746,556 @@ function aiSyncQuickProviderSelect() {
   if (!sel) return;
   const cfg = aiLoadConfig();
   if (sel.value !== cfg.provider) sel.value = cfg.provider;
+}
+
+// ════════════════════════════════════════════════════════
+// TIKTOK-REVEAL GENERATOR — Canvas-Animation + WebM-Export
+// Phase 1: Standalone-Reveal (12sec). User stitcht in CapCut.
+// ════════════════════════════════════════════════════════
+
+const REVEAL_BRAND = {
+  primary: '#f59e0b',     // FinalBoss orange
+  secondary: '#fbbf24',   // FinalBoss gelb
+  bg: '#000000',
+  bgGradient1: '#1a0f00',
+  bgGradient2: '#000000',
+  textPrimary: '#ffffff',
+  textMuted: '#9ca3af',
+  approved: '#22c55e',
+  rejected: '#ef4444',
+  warning: '#f97316',
+  appUrl: 'finalboss-app.github.io'
+};
+
+let _tiktokRevealAnimating = false;
+let _tiktokRevealAbort = false;
+
+function openTikTokRevealModal() {
+  if (typeof lastResult === 'undefined' || !lastResult) {
+    _showErrorToast('Erst einen Backtest laufen lassen — dann ist Reveal möglich.', 4000);
+    return;
+  }
+  // Feature-Detection: MediaRecorder + canvas.captureStream
+  const c = document.getElementById('tiktokRevealCanvas');
+  if (!c || !c.captureStream || typeof MediaRecorder === 'undefined') {
+    _showErrorToast('Browser unterstützt kein MediaRecorder/captureStream — versuche Chrome/Edge.', 5000);
+    return;
+  }
+  document.getElementById('tiktokRevealModal').style.display = 'flex';
+  document.getElementById('tiktokRevealStatus').textContent = 'Bereit zum Generieren';
+  // Initial-Render: zeig Endbild (Verdict) als Preview
+  try {
+    const data = _buildRevealData();
+    const ctx = c.getContext('2d');
+    _renderVerdict(ctx, c.width, c.height, 1.0, data);
+  } catch(e) {
+    console.warn('Reveal preview failed:', e);
+  }
+}
+
+function closeTikTokRevealModal() {
+  _tiktokRevealAbort = true;
+  document.getElementById('tiktokRevealModal').style.display = 'none';
+}
+
+function _buildRevealData() {
+  const result = lastResult;
+  const m = result.totalMetrics;
+  const trades = result.trades || [];
+  const stratIdx = parseInt(document.getElementById('strategySelect')?.value || -1);
+  const strategy = stratIdx >= 0 ? STRATEGIES[stratIdx] : null;
+  const symbol = document.getElementById('symbolSelect')?.value || 'BTC';
+  const tf = document.getElementById('tfSelect')?.value || '1h';
+  // Verdict ableiten — nutze gleiche Logik wie buildStrategyAssessment
+  let verdictKey = 'mid';   // approved | mid | rejected
+  let verdictText = 'NEEDS WORK';
+  let verdictColor = REVEAL_BRAND.warning;
+  let verdictIcon = 'warning';
+
+  // EOD-Trades
+  const eodTrades = trades.filter(t => /end of data|eod/i.test(String(t.exitReason || t.reason || '')));
+  const eodPnl = eodTrades.reduce((s, t) => s + (t.pnlUsd || 0), 0);
+  const totalGrossProfit = trades.filter(t => (t.pnlUsd || 0) > 0).reduce((s, t) => s + t.pnlUsd, 0);
+  const eodShare = totalGrossProfit > 0 ? eodPnl / totalGrossProfit : 0;
+
+  let isRejected = false;
+  if (m.profitFactor < 1 && trades.length >= 5) isRejected = true;
+  if (eodShare > 0.5) isRejected = true;
+  if (trades.length < 10) isRejected = true;
+  // Single-Winner-Check
+  const winners = trades.filter(t => (t.pnlUsd || 0) > 0);
+  if (winners.length > 0) {
+    const totalWin = winners.reduce((s, t) => s + t.pnlUsd, 0);
+    const biggestShare = totalWin > 0 ? Math.max(...winners.map(t => t.pnlUsd)) / totalWin : 0;
+    if (biggestShare > 0.9 || winners.length === 1) isRejected = true;
+  }
+
+  let isApproved = false;
+  if (!isRejected && trades.length >= 30 && m.profitFactor >= 1.5 && m.totalReturn > result.buyHoldReturn) {
+    isApproved = true;
+  }
+
+  if (isApproved) {
+    verdictKey = 'approved';
+    verdictText = 'FINALBOSS APPROVED';
+    verdictColor = REVEAL_BRAND.approved;
+    verdictIcon = 'check';
+  } else if (isRejected) {
+    verdictKey = 'rejected';
+    verdictText = 'FINALBOSS REJECTED';
+    verdictColor = REVEAL_BRAND.rejected;
+    verdictIcon = 'x';
+  }
+
+  // Empfehlung
+  let recommendation = '';
+  if (verdictKey === 'rejected' || verdictKey === 'mid') {
+    if (m.profitFactor < 1) {
+      recommendation = 'Versuch einen EMA-Filter oder Trend-Bestätigung dazuzubauen';
+    } else if (eodShare > 0.3) {
+      recommendation = 'Definiere ein klares Take-Profit (z.B. 2x Risk)';
+    } else if (trades.length < 30) {
+      recommendation = 'Längeren Zeitraum testen für mehr Signal';
+    } else if (m.totalReturn < result.buyHoldReturn) {
+      recommendation = 'Probier andere Coins oder Timeframes';
+    } else {
+      recommendation = 'Optimiere Parameter im Grid-Optimizer';
+    }
+  }
+
+  return {
+    strategyName: strategy ? strategy.name : 'Unknown Strategy',
+    symbol, tf,
+    nTrades: trades.length,
+    winRate: m.winRate,
+    profitFactor: Math.min(m.profitFactor, 99.99),
+    totalReturn: m.totalReturn,
+    buyHoldReturn: result.buyHoldReturn,
+    alpha: m.totalReturn - result.buyHoldReturn,
+    verdictKey, verdictText, verdictColor, verdictIcon,
+    recommendation
+  };
+}
+
+// ── Audio-Synthese (Web Audio API) ──
+function _audioTick(audioCtx, dest) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 1200;
+  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+  osc.connect(gain).connect(dest);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+function _audioApprovedChime(audioCtx, dest) {
+  // C5 - E5 - G5 ascending (525 - 660 - 785 Hz)
+  const notes = [523.25, 659.25, 783.99];
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const t0 = audioCtx.currentTime + i * 0.13;
+    gain.gain.setValueAtTime(0.0, t0);
+    gain.gain.linearRampToValueAtTime(0.35, t0 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.6);
+    osc.connect(gain).connect(dest);
+    osc.start(t0);
+    osc.stop(t0 + 0.7);
+  });
+}
+
+function _audioRejectedBuzz(audioCtx, dest) {
+  // Tiefer dreckiger Buzzer, descending Frequenz
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+  osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.6);
+  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
+  osc.connect(gain).connect(dest);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.7);
+}
+
+function _audioMidDing(audioCtx, dest) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = 440;
+  gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+  osc.connect(gain).connect(dest);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.55);
+}
+
+// ── Render-Helpers ──
+function _drawBg(ctx, W, H) {
+  // Dunkler Verlauf mit FinalBoss-Orange als Akzent
+  const grad = ctx.createRadialGradient(W/2, H*0.4, 0, W/2, H*0.5, W*0.9);
+  grad.addColorStop(0, REVEAL_BRAND.bgGradient1);
+  grad.addColorStop(1, REVEAL_BRAND.bgGradient2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function _drawBrandStamp(ctx, W, H) {
+  // FinalBoss-Logo im Header (oben)
+  const y = H * 0.07;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold ' + Math.round(H*0.032) + 'px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.primary;
+  ctx.fillText('FINAL', W/2 - W*0.075, y);
+  ctx.fillStyle = REVEAL_BRAND.secondary;
+  ctx.fillText('BOSS', W/2 + W*0.075, y);
+  // Linie drunter
+  ctx.strokeStyle = REVEAL_BRAND.primary;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(W*0.32, y + H*0.025);
+  ctx.lineTo(W*0.68, y + H*0.025);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function _drawAppFooter(ctx, W, H, opacity) {
+  ctx.save();
+  ctx.globalAlpha = opacity || 1;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.textMuted;
+  ctx.fillText('Test it yourself →', W/2, H*0.94);
+  ctx.font = 'bold ' + Math.round(H*0.024) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.secondary;
+  ctx.fillText(REVEAL_BRAND.appUrl, W/2, H*0.97);
+  ctx.restore();
+}
+
+function _renderIntro(ctx, W, H, t /*0..1*/, data) {
+  _drawBg(ctx, W, H);
+  _drawBrandStamp(ctx, W, H);
+  // Fade-in
+  const op = Math.min(1, t * 2);
+  ctx.save();
+  ctx.globalAlpha = op;
+  // "Reviewed Strategy:"
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold ' + Math.round(H*0.026) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.textMuted;
+  ctx.fillText('REVIEWING TIKTOK STRATEGY:', W/2, H*0.32);
+  // Strategy Name (große Schrift, wraps)
+  ctx.font = 'bold ' + Math.round(H*0.044) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.textPrimary;
+  const name = data.strategyName.replace(/^📺 /, '').replace(/^🤖 /, '');
+  _wrapText(ctx, name, W/2, H*0.42, W*0.85, H*0.052);
+  // Coin / TF
+  ctx.font = 'bold ' + Math.round(H*0.030) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.secondary;
+  ctx.fillText(data.symbol + ' · ' + data.tf, W/2, H*0.58);
+  // Trades-Info
+  ctx.font = '600 ' + Math.round(H*0.024) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.textMuted;
+  ctx.fillText(data.nTrades + ' Trades getestet', W/2, H*0.65);
+  // Pulsing dot indicator
+  const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 6);
+  ctx.fillStyle = REVEAL_BRAND.primary;
+  ctx.globalAlpha = op * pulse;
+  ctx.beginPath();
+  ctx.arc(W/2, H*0.78, H*0.012, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  _drawAppFooter(ctx, W, H, op * 0.7);
+}
+
+function _renderCountdown(ctx, W, H, t /*0..1 within current digit*/, n) {
+  _drawBg(ctx, W, H);
+  _drawBrandStamp(ctx, W, H);
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // "FinalBoss is checking..."
+  ctx.font = 'bold ' + Math.round(H*0.030) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.secondary;
+  ctx.fillText('FINALBOSS IS CHECKING...', W/2, H*0.30);
+  // Zahl, scale-up + fade
+  const scale = 0.5 + (1 - t) * 1.5;  // start huge, shrink
+  const op = Math.max(0, 1 - t * 0.7);
+  ctx.globalAlpha = op;
+  ctx.font = 'bold ' + Math.round(H*0.20*scale) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.primary;
+  ctx.fillText(String(n), W/2, H*0.55);
+  // Glow ring
+  ctx.globalAlpha = op * 0.4;
+  ctx.strokeStyle = REVEAL_BRAND.secondary;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(W/2, H*0.55, H*0.13*scale, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
+  _drawBg(ctx, W, H);
+  _drawBrandStamp(ctx, W, H);
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Icon (big check / X / warning) — appears + scales in
+  const iconScale = Math.min(1.2, t * 4);
+  const iconY = H * 0.27;
+  const iconSize = H * 0.10 * iconScale;
+  ctx.save();
+  ctx.translate(W/2, iconY);
+  ctx.scale(iconScale, iconScale);
+  if (data.verdictIcon === 'check') {
+    // Green check circle
+    ctx.fillStyle = data.verdictColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, H*0.075, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = H*0.012;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-H*0.030, 0);
+    ctx.lineTo(-H*0.005, H*0.024);
+    ctx.lineTo(H*0.035, -H*0.025);
+    ctx.stroke();
+  } else if (data.verdictIcon === 'x') {
+    // Red X circle
+    ctx.fillStyle = data.verdictColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, H*0.075, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = H*0.012;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-H*0.028, -H*0.028);
+    ctx.lineTo(H*0.028, H*0.028);
+    ctx.moveTo(H*0.028, -H*0.028);
+    ctx.lineTo(-H*0.028, H*0.028);
+    ctx.stroke();
+  } else {
+    // Orange warning triangle
+    ctx.fillStyle = data.verdictColor;
+    ctx.beginPath();
+    ctx.moveTo(0, -H*0.075);
+    ctx.lineTo(H*0.07, H*0.05);
+    ctx.lineTo(-H*0.07, H*0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold ' + Math.round(H*0.075) + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', 0, H*0.005);
+  }
+  ctx.restore();
+  // Verdict-Text — slide in from below
+  const slideOp = Math.min(1, (t - 0.1) * 5);
+  if (slideOp > 0) {
+    ctx.globalAlpha = slideOp;
+    ctx.font = 'bold ' + Math.round(H*0.040) + 'px system-ui, sans-serif';
+    ctx.fillStyle = data.verdictColor;
+    ctx.fillText(data.verdictText, W/2, H*0.42);
+  }
+  // Stats-Block — fade in
+  const statsOp = Math.min(1, (t - 0.3) * 4);
+  if (statsOp > 0) {
+    ctx.globalAlpha = statsOp;
+    const statsY = H * 0.50;
+    const rowH = H * 0.055;
+    ctx.font = 'bold ' + Math.round(H*0.024) + 'px system-ui, sans-serif';
+    const stats = [
+      { label: 'Trades', value: String(data.nTrades), color: REVEAL_BRAND.textPrimary },
+      { label: 'Win Rate', value: data.winRate.toFixed(1) + '%', color: data.winRate >= 50 ? REVEAL_BRAND.approved : REVEAL_BRAND.rejected },
+      { label: 'Profit Factor', value: data.profitFactor.toFixed(2), color: data.profitFactor >= 1.5 ? REVEAL_BRAND.approved : data.profitFactor >= 1 ? REVEAL_BRAND.warning : REVEAL_BRAND.rejected },
+      { label: 'Return', value: (data.totalReturn >= 0 ? '+' : '') + data.totalReturn.toFixed(1) + '%', color: data.totalReturn >= 0 ? REVEAL_BRAND.approved : REVEAL_BRAND.rejected },
+      { label: 'vs Buy & Hold', value: (data.alpha >= 0 ? '+' : '') + data.alpha.toFixed(1) + '%', color: data.alpha >= 0 ? REVEAL_BRAND.approved : REVEAL_BRAND.rejected }
+    ];
+    stats.forEach((s, i) => {
+      const y = statsY + i * rowH;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = REVEAL_BRAND.textMuted;
+      ctx.fillText(s.label, W*0.15, y);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = s.color;
+      ctx.fillText(s.value, W*0.85, y);
+    });
+  }
+  // Recommendation — fade in last
+  const recOp = Math.min(1, (t - 0.55) * 4);
+  if (recOp > 0 && data.recommendation) {
+    ctx.globalAlpha = recOp;
+    ctx.textAlign = 'center';
+    ctx.font = 'italic 600 ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
+    ctx.fillStyle = REVEAL_BRAND.secondary;
+    ctx.fillText('💡 ' + (data.verdictKey === 'rejected' ? 'Improve:' : 'Tipp:'), W/2, H*0.84);
+    ctx.font = '600 ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
+    ctx.fillStyle = REVEAL_BRAND.textPrimary;
+    _wrapText(ctx, data.recommendation, W/2, H*0.875, W*0.85, H*0.030);
+  }
+  ctx.restore();
+  _drawAppFooter(ctx, W, H, Math.min(1, t * 2));
+}
+
+function _wrapText(ctx, text, cx, cy, maxWidth, lineHeight) {
+  const words = String(text).split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  const startY = cy - (lines.length - 1) * lineHeight / 2;
+  lines.forEach((ln, i) => ctx.fillText(ln, cx, startY + i * lineHeight));
+}
+
+// ── Main: spielt die Animation ab, optional mit Recording ──
+async function tiktokRevealPlay(record) {
+  if (_tiktokRevealAnimating) return;
+  _tiktokRevealAnimating = true;
+  _tiktokRevealAbort = false;
+
+  const canvas = document.getElementById('tiktokRevealCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const data = _buildRevealData();
+  const status = document.getElementById('tiktokRevealStatus');
+  const recBtn = document.getElementById('tiktokRevealRecordBtn');
+  const prevBtn = document.getElementById('tiktokRevealPreviewBtn');
+  recBtn.disabled = true; prevBtn.disabled = true;
+
+  // Audio Setup (auch für Preview damit Sound zu hören ist)
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioDest = record ? audioCtx.createMediaStreamDestination() : null;
+  const speakerDest = audioCtx.destination;
+  // Helper: spiele Sound an speaker UND ggf. an record-stream
+  const playSound = (fn) => {
+    fn(audioCtx, speakerDest);
+    if (audioDest) fn(audioCtx, audioDest);
+  };
+
+  // Recorder Setup
+  let recorder = null, chunks = [], blob = null;
+  if (record) {
+    const videoStream = canvas.captureStream(30);
+    const audioStream = audioDest.stream;
+    const combined = new MediaStream([
+      ...videoStream.getVideoTracks(),
+      ...audioStream.getAudioTracks()
+    ]);
+    // Try mp4 first, fall back to webm
+    let mimeType = 'video/webm;codecs=vp9,opus';
+    if (typeof MediaRecorder.isTypeSupported === 'function') {
+      const candidates = [
+        'video/mp4;codecs=avc1.42E01F,mp4a.40.2',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+      for (const c of candidates) {
+        if (MediaRecorder.isTypeSupported(c)) { mimeType = c; break; }
+      }
+    }
+    recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 4_000_000 });
+    recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    recorder.start();
+    status.textContent = '🎥 Aufnahme läuft...';
+  } else {
+    status.textContent = '▶ Vorschau läuft...';
+  }
+
+  // Animation
+  const PHASE1_END = 3.0;
+  const PHASE2_END = 6.0;
+  const PHASE3_END = 12.0;
+  const startTime = performance.now();
+  let lastCountdownNumber = -1;
+  let verdictSoundPlayed = false;
+
+  await new Promise(resolve => {
+    function frame() {
+      if (_tiktokRevealAbort) {
+        resolve();
+        return;
+      }
+      const elapsed = (performance.now() - startTime) / 1000;
+      ctx.clearRect(0, 0, W, H);
+
+      if (elapsed < PHASE1_END) {
+        _renderIntro(ctx, W, H, elapsed / PHASE1_END, data);
+      } else if (elapsed < PHASE2_END) {
+        const ct = elapsed - PHASE1_END;
+        const n = 3 - Math.floor(ct);
+        const tInDigit = ct - Math.floor(ct);
+        if (n !== lastCountdownNumber && n >= 1 && n <= 3) {
+          playSound(_audioTick);
+          lastCountdownNumber = n;
+        }
+        _renderCountdown(ctx, W, H, tInDigit, n);
+      } else if (elapsed < PHASE3_END) {
+        const vt = (elapsed - PHASE2_END) / (PHASE3_END - PHASE2_END);
+        if (!verdictSoundPlayed) {
+          if (data.verdictKey === 'approved') playSound(_audioApprovedChime);
+          else if (data.verdictKey === 'rejected') playSound(_audioRejectedBuzz);
+          else playSound(_audioMidDing);
+          verdictSoundPlayed = true;
+        }
+        _renderVerdict(ctx, W, H, vt, data);
+      } else {
+        // Done
+        _renderVerdict(ctx, W, H, 1, data);  // hold last frame
+        resolve();
+        return;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+
+  // Stop recording + download
+  if (recorder && !_tiktokRevealAbort) {
+    status.textContent = '💾 Datei wird vorbereitet...';
+    await new Promise(r => {
+      recorder.onstop = r;
+      recorder.stop();
+    });
+    blob = new Blob(chunks, { type: chunks[0]?.type || 'video/webm' });
+    const ext = (blob.type || '').includes('mp4') ? 'mp4' : 'webm';
+    const fileName = 'finalboss_review_' + (data.symbol || 'BTC') + '_' + (data.verdictKey) + '_' + new Date().toISOString().slice(0,10) + '.' + ext;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    status.innerHTML = '✅ Heruntergeladen: <strong style="color:#fbbf24">' + fileName + '</strong>';
+    _showSuccessToast('🎬 TikTok-Reveal heruntergeladen!', 4000);
+  } else if (!_tiktokRevealAbort) {
+    status.textContent = '✓ Vorschau fertig — klick "Aufnehmen" für Download';
+  }
+
+  try { audioCtx.close(); } catch(e) {}
+  recBtn.disabled = false; prevBtn.disabled = false;
+  _tiktokRevealAnimating = false;
 }
 
 // ── Initialisierung beim App-Start ──
