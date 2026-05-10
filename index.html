@@ -9085,10 +9085,17 @@ function updateStrategyParams() {
     return;
   }
 
-  // Auto-set timeframe only on first load, not when user manually changed it
-  if (!window._userChangedTF) {
-    const tfSel = document.getElementById('tfSelect');
-    if (tfSel && strat.defaultTF) tfSel.value = strat.defaultTF;
+  // Timeframe setzen: bei AI-Strategien IMMER (wir wollen den Video-TF), bei Standard nur wenn User nicht manuell geändert hat
+  const tfSel = document.getElementById('tfSelect');
+  if (tfSel && strat.defaultTF) {
+    if (strat._isAiCustom) {
+      // AI-Strategie: defaultTF aus Video überschreibt User-Wahl
+      const validTFs = Array.from(tfSel.options).map(o => o.value);
+      if (validTFs.includes(strat.defaultTF)) tfSel.value = strat.defaultTF;
+    } else if (!window._userChangedTF) {
+      // Standard-Strategie: nur wenn User noch nichts manuell geändert hat
+      tfSel.value = strat.defaultTF;
+    }
   }
 
   if (!strat.params || Object.keys(strat.params).length === 0) {
@@ -11980,6 +11987,7 @@ function _mcDrawChart(method) {
 // ═══════════════════════════════════════════════
 function drawEquityChart(result) {
   const canvas = document.getElementById('equityChart');
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -11995,10 +12003,18 @@ function drawEquityChart(result) {
 
   ctx.clearRect(0, 0, W, H);
 
-  const eq = result.equity;
-  if (eq.length < 2) return;
+  // Defensive: Equity-Daten validieren — null-Werte rausfiltern
+  let eq = (result && Array.isArray(result.equity)) ? result.equity.filter(e => e && typeof e.value === 'number' && !isNaN(e.value) && e.ts) : [];
+  if (eq.length < 2) {
+    // Kein Plot möglich — Hinweis zeichnen und raus
+    ctx.fillStyle = '#6e7681';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Keine Equity-Daten zum Plotten (Strategie hat 0 Trades?)', W / 2, H / 2);
+    return;
+  }
 
-  const splitTs = new Date(result.splitDate).getTime();
+  const splitTs = result.splitDate ? new Date(result.splitDate).getTime() : 0;
   const minTs = eq[0].ts;
   const maxTs = eq[eq.length - 1].ts;
   const vals = eq.map(e => e.value);
@@ -12057,11 +12073,14 @@ function drawEquityChart(result) {
   ctx.setLineDash([]);
 
   // End value label
-  const lastVal = eq[eq.length - 1].value;
-  ctx.fillStyle = lastVal >= result.equity[0].value ? '#3fb950' : '#f85149';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(lastVal.toFixed(0), W - pad.right + 5, yScale(lastVal) + 4);
+  const lastVal = eq[eq.length - 1] && typeof eq[eq.length - 1].value === 'number' ? eq[eq.length - 1].value : null;
+  if (lastVal != null && !isNaN(lastVal)) {
+    const startVal = eq[0] && typeof eq[0].value === 'number' ? eq[0].value : lastVal;
+    ctx.fillStyle = lastVal >= startVal ? '#3fb950' : '#f85149';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(lastVal.toFixed(0), W - pad.right + 5, yScale(lastVal) + 4);
+  }
 
   // X axis dates
   ctx.fillStyle = '#6e7681';
@@ -32287,10 +32306,25 @@ function reviewBacktestStrategy() {
       try { csUpdateLabel('strategySelect'); } catch(e) {}
     }
   } catch(e) { console.warn('Select-update failed:', e); }
+  // Timeframe FORCE-setzen — wir wollen DEN Timeframe aus dem Video (z.B. 1m für ICT-Strategien)
+  // Override des _userChangedTF Flags weil das hier eine NEUE Strategie ist
+  try {
+    const tfSel = document.getElementById('tfSelect');
+    if (tfSel && spec.defaultTF) {
+      // Check ob der TF im Dropdown verfügbar ist
+      const validTFs = Array.from(tfSel.options).map(o => o.value);
+      if (validTFs.includes(spec.defaultTF)) {
+        tfSel.value = spec.defaultTF;
+        window._userChangedTF = false;  // Reset damit künftige Wechsel auch greifen
+      } else {
+        console.warn('Strategie-TF "' + spec.defaultTF + '" nicht im Dropdown verfügbar');
+      }
+    }
+  } catch(e) { console.warn('TF-Force-Set fehlgeschlagen:', e); }
   // Tab wechseln
   try { closeFullscreenTab(); } catch(e) {}
   try { document.querySelector('.tab-btn[data-tab="results"]')?.click(); } catch(e) {}
-  _showSuccessToast('▶ "' + finalName + '" hinzugefügt — jetzt "Backtest starten" klicken', 4000);
+  _showSuccessToast('▶ "' + finalName + '" auf ' + (spec.defaultTF || '1h') + ' Timeframe gesetzt — jetzt "Backtest starten" klicken', 4000);
 }
 
 // ── Drag & Drop UI Setup ──
