@@ -1343,6 +1343,8 @@ input[type=number] { -moz-appearance:textfield }
         <strong style="color:var(--orange)">⚠ <span id="lowTradeWarningTitle">Wenig Trades — Ergebnisse mit Vorsicht zu interpretieren</span></strong>
         <div style="color:var(--text-secondary);margin-top:4px"><span id="lowTradeWarningBody">Mit weniger als 30 Trades sind Win-Rate, Profit-Faktor und Sharpe stark vom Zufall geprägt. Empfehlung: längeren Zeitraum wählen, kürzeren Timeframe, oder die Strategie auf mehr Trades tunen.</span></div>
       </div>
+      <!-- Strategie-Assessment-Banner (Auto-Verdict mit Ampel-System) -->
+      <div id="strategyAssessmentBanner" style="display:none;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;line-height:1.5"></div>
       <!-- KI-Refine-Banner (nur sichtbar wenn aktuelle Strategie KI-generiert) -->
       <div id="aiRefineBanner" style="display:none;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.35);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;display:none;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <div style="color:var(--text-primary);line-height:1.4">
@@ -11517,10 +11519,274 @@ function getStrategyParams(stratIdx) {
   return params;
 }
 
+// ── Strategie-Assessment: ehrliche Einschätzung über die getestete Strategie ──
+// Zeigt Warnungen, Risiken und ein Verdict basierend auf den Metriken.
+// Schreibt der User KEINE Strategie-Änderungen vor — bewertet nur was gemessen wurde.
+function buildStrategyAssessment(result, stratName) {
+  const m = result.totalMetrics;
+  const trades = result.trades || [];
+  const n = trades.length;
+  const findings = []; // { sev: 'red'|'orange'|'yellow'|'green'|'info', icon, text }
+
+  // ── 1. End-of-Data-Trades: ungeschlossene Positionen die den PnL verzerren ──
+  const eodTrades = trades.filter(t => /end of data|eod/i.test(String(t.exitReason || t.reason || '')));
+  const eodPnl = eodTrades.reduce((s, t) => s + (t.pnlUsd || 0), 0);
+  const totalGrossProfit = trades.filter(t => (t.pnlUsd || 0) > 0).reduce((s, t) => s + t.pnlUsd, 0);
+  const eodShareOfProfit = totalGrossProfit > 0 ? (eodPnl / totalGrossProfit) : 0;
+  if (eodTrades.length > 0 && eodPnl > 0) {
+    if (eodShareOfProfit > 0.5) {
+      findings.push({
+        sev: 'red',
+        icon: '🚨',
+        text: `<strong>${(eodShareOfProfit*100).toFixed(0)}% des Profits kommen aus ${eodTrades.length} ungeschlossenen Trade${eodTrades.length>1?'s':''}</strong> ("End of Data") — das sind Positionen die nie wirklich exited wurden, ihr "Gewinn" ist nur Mark-to-Market am letzten Datentag. In Realität wären sie noch offen. Ohne diese Trades liegt der echte PnL bei <strong>$${(m.totalPnlUsd - eodPnl).toFixed(0)}</strong>.`
+      });
+    } else if (eodShareOfProfit > 0.2) {
+      findings.push({
+        sev: 'orange',
+        icon: '⚠️',
+        text: `${eodTrades.length} ungeschlossene Trade${eodTrades.length>1?'s':''} bei Daten-Ende, machen ${(eodShareOfProfit*100).toFixed(0)}% des Profits aus. Ohne diese: $${(m.totalPnlUsd - eodPnl).toFixed(0)} echter Gewinn.`
+      });
+    }
+  }
+
+  // ── 2. Sample-Size ──
+  if (n < 10) {
+    findings.push({
+      sev: 'red',
+      icon: '🎲',
+      text: `<strong>Nur ${n} Trade${n!==1?'s':''} — statistisch komplett bedeutungslos.</strong> Für jede Aussage über Edge brauchst du mindestens 30+ Trades, idealerweise 100+. Erweitere den Zeitraum oder probier andere Coins.`
+    });
+  } else if (n < 30) {
+    findings.push({
+      sev: 'orange',
+      icon: '🎲',
+      text: `${n} Trades — zu wenig für statistische Aussage. Win-Rate, PF und Sharpe sind hier eher Rauschen als Signal.`
+    });
+  }
+
+  // ── 3. Win-Rate vs Profit-Factor Asymmetrie (verdächtig wenn 1 Trade alles dominiert) ──
+  if (n > 0 && trades.length >= 3) {
+    const winners = trades.filter(t => (t.pnlUsd || 0) > 0);
+    const totalWinPnl = winners.reduce((s, t) => s + t.pnlUsd, 0);
+    if (winners.length > 0 && totalWinPnl > 0) {
+      const biggest = Math.max(...winners.map(t => t.pnlUsd));
+      const biggestShare = biggest / totalWinPnl;
+      if (biggestShare > 0.7 && winners.length > 1) {
+        findings.push({
+          sev: 'orange',
+          icon: '🎰',
+          text: `Ein einziger Trade macht ${(biggestShare*100).toFixed(0)}% des Gesamtgewinns aus ($${biggest.toFixed(0)}). Wenn der zufällig nicht passiert wäre, wäre die Strategie unprofitabel.`
+        });
+      } else if (biggestShare > 0.9 || winners.length === 1) {
+        findings.push({
+          sev: 'red',
+          icon: '🎰',
+          text: `<strong>Der einzige Gewinner macht praktisch den ganzen Profit aus.</strong> Das ist kein Edge, das ist Glück. Die Strategie hat statistisch keine valide Profit-Quelle.`
+        });
+      }
+    }
+  }
+
+  // ── 4. Fehlende TP-Logik: alle Exits via SL → Strategie hat kein definiertes Take-Profit ──
+  if (n >= 3) {
+    const slCount = trades.filter(t => /sl hit/i.test(String(t.exitReason || t.reason || ''))).length;
+    const tpCount = trades.filter(t => /tp hit/i.test(String(t.exitReason || t.reason || ''))).length;
+    const slShare = slCount / n;
+    if (tpCount === 0 && slShare > 0.5) {
+      findings.push({
+        sev: 'yellow',
+        icon: '🎯',
+        text: `${slCount} von ${n} Trades exited via Stop-Loss, <strong>kein einziger via Take-Profit</strong>. Die Strategie hat kein definiertes TP — Exits passieren nur wenn der SL ausgelöst wird oder das Backtest-Ende erreicht. Das passt zu vielen TikTok-Strategien wo "Target previous highs" nur als Idee gesagt wird, ohne konkrete Logik.`
+      });
+    }
+  }
+
+  // ── 5. Drawdown vs Return ──
+  if (m.totalReturn > 0 && result.maxDD > Math.abs(m.totalReturn)) {
+    findings.push({
+      sev: 'orange',
+      icon: '📉',
+      text: `Max-Drawdown (${result.maxDD.toFixed(1)}%) ist grösser als der Gesamt-Return (${m.totalReturn.toFixed(1)}%). Risikoadjustiert ist das eine schlechte Strategie — du hast mehr riskiert als verdient.`
+    });
+  }
+
+  // ── 6. Sharpe absurd hoch bei wenig Trades ──
+  if (m.sharpe > 3 && n < 50) {
+    findings.push({
+      sev: 'yellow',
+      icon: '📊',
+      text: `Sharpe-Ratio ${m.sharpe.toFixed(1)} ist verdächtig hoch bei nur ${n} Trades. Reale Top-Strategien haben Sharpe 1-2. Werte über 3 sind fast immer Sample-Size-Artefakte oder Overfitting.`
+    });
+  }
+
+  // ── 7. Buy & Hold Vergleich ──
+  const alpha = m.totalReturn - result.buyHoldReturn;
+  if (m.totalReturn > 0 && alpha < 0 && Math.abs(alpha) > 5) {
+    findings.push({
+      sev: 'yellow',
+      icon: '📈',
+      text: `Buy & Hold hätte ${result.buyHoldReturn.toFixed(1)}% gemacht — die Strategie nur ${m.totalReturn.toFixed(1)}%. Trotz Aufwand und Risiko hat sie underperformed.`
+    });
+  }
+
+  // ── 8. Profit-Factor unter 1 = Verlust-Strategie ──
+  if (n >= 5 && m.profitFactor < 1) {
+    findings.push({
+      sev: 'red',
+      icon: '💸',
+      text: `Profit-Factor ${m.profitFactor.toFixed(2)} (<1.0) — die Strategie verliert Geld. Die Verluste übertreffen die Gewinne.`
+    });
+  }
+
+  // ── Verdict bestimmen ──
+  let verdict, verdictColor, verdictBg, verdictBorder, verdictIcon;
+  const hasRed = findings.some(f => f.sev === 'red');
+  const hasOrange = findings.some(f => f.sev === 'orange');
+  const hasYellow = findings.some(f => f.sev === 'yellow');
+
+  if (hasRed) {
+    verdict = 'Strategie funktioniert nicht';
+    verdictColor = '#ef4444';
+    verdictBg = 'rgba(239,68,68,0.08)';
+    verdictBorder = 'rgba(239,68,68,0.40)';
+    verdictIcon = '🚨';
+  } else if (hasOrange) {
+    verdict = 'Strategie ist fragwürdig';
+    verdictColor = '#f97316';
+    verdictBg = 'rgba(249,115,22,0.08)';
+    verdictBorder = 'rgba(249,115,22,0.40)';
+    verdictIcon = '⚠️';
+  } else if (hasYellow) {
+    verdict = 'Strategie hat Schwächen';
+    verdictColor = '#eab308';
+    verdictBg = 'rgba(234,179,8,0.08)';
+    verdictBorder = 'rgba(234,179,8,0.40)';
+    verdictIcon = '🟡';
+  } else if (n >= 30 && m.profitFactor >= 1.5 && m.totalReturn > result.buyHoldReturn) {
+    verdict = 'Strategie zeigt valide Edge';
+    verdictColor = '#22c55e';
+    verdictBg = 'rgba(34,197,94,0.08)';
+    verdictBorder = 'rgba(34,197,94,0.40)';
+    verdictIcon = '✅';
+    findings.push({ sev: 'green', icon: '✅', text: `${n} Trades, PF ${m.profitFactor.toFixed(2)}, Return ${m.totalReturn.toFixed(1)}% (Alpha +${alpha.toFixed(1)}% vs Buy&Hold). Statistisch belastbar.` });
+  } else {
+    verdict = 'Strategie OK aber unauffällig';
+    verdictColor = '#6b7280';
+    verdictBg = 'rgba(107,114,128,0.08)';
+    verdictBorder = 'rgba(107,114,128,0.40)';
+    verdictIcon = '📊';
+  }
+
+  if (findings.length === 0) {
+    findings.push({ sev: 'info', icon: 'ℹ️', text: 'Keine besonderen Auffälligkeiten in den Metriken.' });
+  }
+
+  // ── HTML rendern ──
+  const findingsHtml = findings.map(f => {
+    const colors = {
+      red: '#ef4444', orange: '#f97316', yellow: '#eab308',
+      green: '#22c55e', info: 'var(--text-secondary)'
+    };
+    const c = colors[f.sev] || 'var(--text-secondary)';
+    return `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px"><span style="flex-shrink:0;font-size:14px">${f.icon}</span><span style="color:var(--text-primary)">${f.text}</span></div>`;
+  }).join('');
+
+  // ── Verbesserungs-Tipps: konkrete Tool-Empfehlungen passend zu den Problemen ──
+  // Nur bei nicht-grünem Verdict (also wenn's was zu verbessern gibt)
+  const tips = [];
+  // AI-Strategie? Dann ist Refine ein Top-Tipp
+  let isAiStrategy = false;
+  try {
+    const idx = parseInt(document.getElementById('strategySelect')?.value || -1);
+    if (idx >= 0 && STRATEGIES[idx] && STRATEGIES[idx]._isAiCustom) isAiStrategy = true;
+  } catch(e) {}
+
+  if (hasRed || hasOrange || hasYellow) {
+    if (isAiStrategy) {
+      tips.push({
+        icon: '🔧',
+        text: '<strong>Verfeinern-Button</strong> (oben im violetten Banner) — schick die Backtest-Ergebnisse an die KI zurück. Sie kann z.B. eine TP-Logik dazubauen, Parameter anpassen oder Filter ergänzen, ohne dass du den Code selbst schreiben musst.'
+      });
+    }
+    // EOD-Problem → längerer Zeitraum oder Force-Close
+    if (eodTrades.length > 0 && eodPnl > 0) {
+      tips.push({
+        icon: '⏱️',
+        text: 'Wähle einen <strong>längeren Backtest-Zeitraum</strong>, damit offene Positionen tatsächlich geschlossen werden — oder ergänze eine Time-Based-Exit (z.B. "schliesse nach X Bars").'
+      });
+    }
+    // Sample-Size zu klein
+    if (n < 30) {
+      tips.push({
+        icon: '📅',
+        text: 'Mehr Trades sammeln: <strong>längerer Zeitraum, kürzerer Timeframe oder mehr Coins</strong> testen. Im Tab <strong>Portfolio-Backtest</strong> läufst du dieselbe Strategie auf BTC + ETH + SOL gleichzeitig.'
+      });
+    }
+    // Wenn Params dabei sind → Grid-Optimizer
+    if (n >= 5) {
+      tips.push({
+        icon: '🎛️',
+        text: 'Tab <strong>Optimizer (Grid + Genetic)</strong> — testet automatisch hunderte Parameter-Kombinationen und findet Settings die den Profit-Factor maximieren. Aber Vorsicht: ohne Walk-Forward danach kommt schnell Overfitting raus.'
+      });
+    }
+    // Bei genug Trades → Walk-Forward + Monte Carlo
+    if (n >= 20) {
+      tips.push({
+        icon: '🔬',
+        text: 'Tab <strong>Walk-Forward + Monte Carlo</strong> — wenn die Strategie auch nach Permutation der Trade-Reihenfolge profitabel bleibt, ist der Edge eher echt als Glück. Beste Methode um zwischen Edge und Zufall zu unterscheiden.'
+      });
+    }
+    // TP-Logik fehlt → Refine oder manuell ergänzen
+    const slCount2 = trades.filter(t => /sl hit/i.test(String(t.exitReason || t.reason || ''))).length;
+    const tpCount2 = trades.filter(t => /tp hit/i.test(String(t.exitReason || t.reason || ''))).length;
+    if (n >= 3 && tpCount2 === 0 && slCount2 > 0) {
+      tips.push({
+        icon: '🎯',
+        text: 'Eine <strong>TP-Logik</strong> dazubauen würde den ganzen Charakter ändern. Z.B. "TP bei 2× Risk", "TP am vorherigen Hoch" oder "Trailing-Stop". Die KI kann das per Refine in einen Versuch packen.'
+      });
+    }
+    // Buy & Hold besser → andere Coins / TF probieren
+    if (m.totalReturn > 0 && alpha < 0) {
+      tips.push({
+        icon: '🪙',
+        text: 'Probier andere <strong>Coins oder Timeframes</strong> — manche Strategien funktionieren nur in bestimmten Markt-Regimes. ETH/SOL/4h-Daten haben oft andere Charakteristik als BTC/1m.'
+      });
+    }
+  }
+
+  const tipsHtml = tips.length > 0 ? `
+    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed ${verdictBorder}">
+      <div style="font-size:11px;font-weight:700;color:${verdictColor};margin-bottom:4px;letter-spacing:0.3px">💡 SO KÖNNTEST DU DIE STRATEGIE VERBESSERN</div>
+      ${tips.map(t => `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px;font-size:12px"><span style="flex-shrink:0;font-size:13px">${t.icon}</span><span style="color:var(--text-secondary)">${t.text}</span></div>`).join('')}
+    </div>
+  ` : '';
+
+  return `
+    <div style="background:${verdictBg};border:1px solid ${verdictBorder};border-radius:8px;padding:12px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:18px">${verdictIcon}</span>
+        <strong style="color:${verdictColor};font-size:14px">FinalBoss-Verdict: ${verdict}</strong>
+      </div>
+      <div style="color:var(--text-secondary);font-size:11px;margin-bottom:8px">Automatische Analyse der Backtest-Metriken — keine Anlageempfehlung.</div>
+      ${findingsHtml}
+      ${tipsHtml}
+    </div>
+  `;
+}
+
 function displayResults(result, stratName) {
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('resultsArea').style.display = 'block';
   document.getElementById('tabBar').style.display = 'flex';
+
+  // Strategie-Assessment-Banner rendern
+  try {
+    const assessEl = document.getElementById('strategyAssessmentBanner');
+    if (assessEl) {
+      assessEl.innerHTML = buildStrategyAssessment(result, stratName);
+      assessEl.style.display = 'block';
+    }
+  } catch(e) { console.warn('Assessment-Banner Fehler:', e); }
 
   const m = result.totalMetrics;
 
@@ -34277,14 +34543,12 @@ function aiRebuildStrategyDropdown() {
   if (!sel) return;
   const currentValue = sel.value;
   sel.innerHTML = '';
-  // KI-Strategien sammeln (mit Original-Index!)
   const aiOnes = [];
   const standardOnes = [];
   STRATEGIES.forEach((s, idx) => {
     if (s._isAiCustom) aiOnes.push({ s, idx });
     else standardOnes.push({ s, idx });
   });
-  // KI-Gruppe oben (nur wenn vorhanden)
   if (aiOnes.length > 0) {
     const aiGroup = document.createElement('optgroup');
     aiGroup.label = '🤖 KI-generiert';
@@ -34296,7 +34560,6 @@ function aiRebuildStrategyDropdown() {
     }
     sel.appendChild(aiGroup);
   }
-  // Standard-Gruppe darunter
   const stdGroup = document.createElement('optgroup');
   stdGroup.label = aiOnes.length > 0 ? '📊 Standard-Strategien' : '';
   for (const { s, idx } of standardOnes) {
@@ -34304,12 +34567,10 @@ function aiRebuildStrategyDropdown() {
     opt.value = idx;
     opt.textContent = s.name;
     if (aiOnes.length > 0) stdGroup.appendChild(opt);
-    else sel.appendChild(opt);  // ohne Gruppe wenn keine AI-Strategien
+    else sel.appendChild(opt);
   }
   if (aiOnes.length > 0 && standardOnes.length > 0) sel.appendChild(stdGroup);
-  // Vorher gewählten Wert wiederherstellen wenn möglich
   if (currentValue) sel.value = currentValue;
-  // Custom-Dropdown sync
   try {
     if (typeof csRebuild === 'function') csRebuild('strategySelect');
     if (typeof csUpdateLabel === 'function') csUpdateLabel('strategySelect');
@@ -34337,14 +34598,11 @@ function aiRefreshCustomList() {
   }).join('');
 }
 
-// Alle AI-Strategien aus localStorage + STRATEGIES entfernen (Cleanup)
 function aiClearAllCustom() {
   const list = aiLoadCustomStrategies();
   if (list.length === 0) { _showInfoToast('Keine AI-Strategien zum Löschen', 2000); return; }
   if (!confirm('Wirklich alle ' + list.length + ' KI-Strategien löschen? Diese Aktion ist nicht rückgängig zu machen.')) return;
-  // localStorage leeren
   aiSaveCustomStrategies([]);
-  // Alle AI-Strategien aus STRATEGIES entfernen
   for (let i = STRATEGIES.length - 1; i >= 0; i--) {
     if (STRATEGIES[i] && STRATEGIES[i]._isAiCustom) {
       STRATEGIES.splice(i, 1);
@@ -34359,12 +34617,10 @@ function aiSelectStrategy(name) {
   const idx = STRATEGIES.findIndex(s => s.name === name);
   if (idx < 0) { _showErrorToast('Strategie nicht gefunden: ' + name); return; }
   const sel = document.getElementById('strategySelect');
-  // Defensive: change-Handler können in Fremdcode crashen
   try {
     if (sel) {
       sel.value = idx;
       sel.dispatchEvent(new Event('change'));
-      // Custom-Dropdown-Label updaten damit User die Strategie auch sieht
       try { if (typeof csUpdateLabel === 'function') csUpdateLabel('strategySelect'); } catch(e) {}
     }
   } catch(e) {
@@ -34382,11 +34638,9 @@ function aiDeleteCustom(idx) {
   const removed = list[idx];
   list.splice(idx, 1);
   aiSaveCustomStrategies(list);
-  // Aus STRATEGIES entfernen
   const sIdx = STRATEGIES.findIndex(s => s.name === removed.name && s._isAiCustom);
   if (sIdx >= 0) STRATEGIES.splice(sIdx, 1);
   aiRefreshCustomList();
-  // Strategie-Dropdown neu bauen
   try { aiRebuildStrategyDropdown(); } catch(e) {}
 }
 
@@ -34397,7 +34651,6 @@ function aiQuickSwitchProvider() {
   const provider = sel.value;
   const cfg = aiLoadConfig();
   cfg.provider = provider;
-  // Modell auf provider-default setzen falls aktuelles inkompatibel
   const info = AI_PROVIDERS[provider];
   if (info) {
     const validIds = info.models.map(m => m.id);
@@ -34407,7 +34660,6 @@ function aiQuickSwitchProvider() {
   aiPopulateModelDropdown();
   aiUpdateBanner();
   aiSyncQuickProviderSelect();
-  // Wenn der neue Provider keinen Key hat → Settings öffnen
   if (provider !== 'ollama' && !(cfg.keys && cfg.keys[provider])) {
     _showInfoToast('🔑 Kein API-Key für ' + (info ? info.name : provider) + ' — öffne Einstellungen', 4000);
     setTimeout(aiOpenSettings, 600);
@@ -34416,7 +34668,6 @@ function aiQuickSwitchProvider() {
   }
 }
 
-// ── Sync Quick-Switcher mit aktuellem Config-State ──
 function aiSyncQuickProviderSelect() {
   const sel = document.getElementById('aiQuickProviderSelect');
   if (!sel) return;
@@ -34427,9 +34678,7 @@ function aiSyncQuickProviderSelect() {
 // ── Initialisierung beim App-Start ──
 function aiInitOnLoad() {
   aiSyncQuickProviderSelect();
-  // Settings-Banner aktualisieren
   aiUpdateBanner();
-  // Persistierte Strategien laden + injizieren — kaputte werden automatisch entfernt
   const list = aiLoadCustomStrategies();
   const validStrategies = [];
   let removedCount = 0;
@@ -34442,32 +34691,26 @@ function aiInitOnLoad() {
       removedCount++;
     }
   }
-  // Falls kaputte Strategien gefunden: localStorage bereinigen
   if (removedCount > 0) {
     aiSaveCustomStrategies(validStrategies);
     console.log('🧹 ' + removedCount + ' kaputte AI-Strategien automatisch entfernt');
   }
   aiRefreshCustomList();
-  // Strategie-Dropdown nach Laden der Custom-Strategien neu bauen
   try { aiRebuildStrategyDropdown(); } catch(e) {}
-  // Modell-Dropdown an aktuellen Provider anpassen + selektieren
   aiPopulateModelDropdown();
   const sel = document.getElementById('aiModelSelect');
-  // Bei Model-Change: in Config speichern
   if (sel) sel.addEventListener('change', () => {
     const c = aiLoadConfig();
     c.model = sel.value;
     aiSaveConfig(c);
   });
 }
-// Auf DOMContentLoaded warten falls noch nicht passiert
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', aiInitOnLoad);
 } else {
   setTimeout(aiInitOnLoad, 100);
 }
 
-// PWA Service Worker mit COI-Reload-Logik (fuer SharedArrayBuffer / ffmpeg.wasm)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
     console.log('Service Worker registered');
