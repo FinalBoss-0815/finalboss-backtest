@@ -34879,16 +34879,157 @@ function _buildRevealData() {
 }
 
 // ── Audio-Synthese (Web Audio API) ──
+// Klarer Tick (wird bei jedem Countdown-Number on top vom Tension-Build gespielt)
 function _audioTick(audioCtx, dest) {
+  const t0 = audioCtx.currentTime;
+  // Body: Brassy hit
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = 1200;
-  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-  osc.connect(gain).connect(dest);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.1);
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(800, t0);
+  osc.frequency.exponentialRampToValueAtTime(450, t0 + 0.10);
+  gain.gain.setValueAtTime(0.0, t0);
+  gain.gain.linearRampToValueAtTime(0.35, t0 + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
+  const filt = audioCtx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.value = 2500;
+  osc.connect(filt).connect(gain).connect(dest);
+  osc.start(t0);
+  osc.stop(t0 + 0.16);
+  // Sub-Hit für Wucht
+  const sub = audioCtx.createOscillator();
+  const subGain = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(80, t0);
+  sub.frequency.exponentialRampToValueAtTime(40, t0 + 0.15);
+  subGain.gain.setValueAtTime(0.6, t0);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+  sub.connect(subGain).connect(dest);
+  sub.start(t0);
+  sub.stop(t0 + 0.2);
+}
+
+// RISING TENSION BUILD — laeuft kontinuierlich 3 Sekunden waehrend des Countdowns
+// Mehrere Layer: Sub-Bass-Drone, Mid-Saw-Drone, Hi-String-Pad, Heartbeat-Pulse
+// Volume + Filter + Pitch steigen alle linear an → Peak am Reveal-Moment
+function _audioRisingTension(audioCtx, dest, durationSec) {
+  durationSec = durationSec || 3.0;
+  const t0 = audioCtx.currentTime;
+  const tEnd = t0 + durationSec;
+
+  // Master Bus mit Filter
+  const master = audioCtx.createGain();
+  master.gain.value = 1.0;
+  const masterFilter = audioCtx.createBiquadFilter();
+  masterFilter.type = 'lowpass';
+  masterFilter.frequency.setValueAtTime(800, t0);
+  masterFilter.frequency.exponentialRampToValueAtTime(8000, tEnd);
+  masterFilter.Q.value = 1;
+  master.connect(masterFilter).connect(dest);
+
+  // ── Layer 1: SUB-BASS DRONE — tief grollendes Fundament ──
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(40, t0);
+  sub.frequency.linearRampToValueAtTime(75, tEnd);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.05, t0);
+  subGain.gain.linearRampToValueAtTime(0.55, tEnd);
+  sub.connect(subGain).connect(master);
+  sub.start(t0);
+  sub.stop(tEnd + 0.05);
+
+  // ── Layer 2: MID-DRONE (Detuned Saws fuer Streicher-Feel) ──
+  [110, 113, 165, 220].forEach(freq => {
+    const o = audioCtx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(freq, t0);
+    o.frequency.linearRampToValueAtTime(freq * 1.5, tEnd);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0, t0);
+    g.gain.linearRampToValueAtTime(0.045, tEnd);
+    o.connect(g).connect(master);
+    o.start(t0);
+    o.stop(tEnd + 0.05);
+  });
+
+  // ── Layer 3: HI STRING PAD (steigert die Spannung visuell hoch) ──
+  const hi = audioCtx.createOscillator();
+  hi.type = 'triangle';
+  hi.frequency.setValueAtTime(440, t0);
+  hi.frequency.linearRampToValueAtTime(880, tEnd);
+  const hiGain = audioCtx.createGain();
+  hiGain.gain.setValueAtTime(0.0, t0);
+  hiGain.gain.linearRampToValueAtTime(0.10, tEnd);
+  hi.connect(hiGain).connect(master);
+  hi.start(t0);
+  hi.stop(tEnd + 0.05);
+
+  // ── Layer 4: HEARTBEAT-PULSE (zwei Hits pro Sekunde, wird schneller) ──
+  // Tempo: startet bei 1.5/sek, endet bei 5/sek
+  const startInterval = 0.6;
+  const endInterval = 0.18;
+  let t = t0;
+  let pulseCount = 0;
+  while (t < tEnd - 0.05) {
+    const progress = (t - t0) / durationSec;
+    const interval = startInterval + (endInterval - startInterval) * progress;
+    // ein Heartbeat = zwei Schläge kurz hintereinander (lub-dub)
+    [0, interval * 0.18].forEach(off => {
+      const beat = audioCtx.createOscillator();
+      beat.type = 'sine';
+      beat.frequency.value = 60 + 30 * progress;  // wird höher mit Spannung
+      const beatGain = audioCtx.createGain();
+      const beatT = t + off;
+      beatGain.gain.setValueAtTime(0.0, beatT);
+      beatGain.gain.linearRampToValueAtTime(0.20 + 0.40 * progress, beatT + 0.01);
+      beatGain.gain.exponentialRampToValueAtTime(0.001, beatT + 0.08);
+      beat.connect(beatGain).connect(master);
+      beat.start(beatT);
+      beat.stop(beatT + 0.10);
+    });
+    t += interval;
+    pulseCount++;
+    if (pulseCount > 30) break;  // safety
+  }
+
+  // ── Layer 5: WHITE-NOISE-RISER (das "Whoosh" das immer lauter wird) ──
+  const noiseBufLen = Math.floor(audioCtx.sampleRate * durationSec);
+  const noiseBuf = audioCtx.createBuffer(1, noiseBufLen, audioCtx.sampleRate);
+  const noiseData = noiseBuf.getChannelData(0);
+  for (let i = 0; i < noiseBufLen; i++) {
+    noiseData[i] = (Math.random() * 2 - 1);
+  }
+  const noiseSrc = audioCtx.createBufferSource();
+  noiseSrc.buffer = noiseBuf;
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'highpass';
+  noiseFilter.frequency.setValueAtTime(2000, t0);
+  noiseFilter.frequency.linearRampToValueAtTime(8000, tEnd);
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.0, t0);
+  noiseGain.gain.linearRampToValueAtTime(0.18, tEnd);
+  noiseSrc.connect(noiseFilter).connect(noiseGain).connect(master);
+  noiseSrc.start(t0);
+  noiseSrc.stop(tEnd + 0.05);
+}
+
+// PEAK-CUT — kurzer scharfer "snap" wenn der Reveal startet (cuts off tension)
+function _audioRevealCut(audioCtx, dest) {
+  const t0 = audioCtx.currentTime;
+  // Boom-Hit für den Reveal-Moment
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(120, t0);
+  sub.frequency.exponentialRampToValueAtTime(40, t0 + 0.4);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.0, t0);
+  subGain.gain.linearRampToValueAtTime(0.85, t0 + 0.005);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
+  sub.connect(subGain).connect(dest);
+  sub.start(t0);
+  sub.stop(t0 + 0.5);
 }
 
 function _audioApprovedChime(audioCtx, dest) {
@@ -34910,87 +35051,82 @@ function _audioApprovedChime(audioCtx, dest) {
 }
 
 function _audioRejectedBuzz(audioCtx, dest) {
-  // CINEMATIC VILLAIN-SOUND — Multi-Layer, descending, evil
+  // CLASSIC WRONG-BUZZER (Game-Show Style) — konstanter, harter Sägezahn mit Vibrato
+  // Wie aus "Family Feud" / "Wer wird Millionär" / "Price is Right" wenn jemand falsch ist
   const t0 = audioCtx.currentTime;
-  const masterGain = audioCtx.createGain();
-  masterGain.gain.value = 1.0;
-  // Lowpass filter mit LFO-Wobble fuer das "boese" Gefuehl
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(800, t0);
-  filter.frequency.linearRampToValueAtTime(180, t0 + 1.2);
-  filter.Q.value = 6;
-  masterGain.connect(filter).connect(dest);
+  const duration = 1.6;
+  const tEnd = t0 + duration;
 
-  // ── Layer 1: SHARP IMPACT-HIT (short noise burst at t=0) ──
-  const noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
-  const noiseData = noiseBuf.getChannelData(0);
-  for (let i = 0; i < noiseData.length; i++) {
-    noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/noiseData.length, 3);
-  }
-  const noiseSrc = audioCtx.createBufferSource();
-  noiseSrc.buffer = noiseBuf;
-  const noiseFilter = audioCtx.createBiquadFilter();
-  noiseFilter.type = 'lowpass';
-  noiseFilter.frequency.value = 400;
-  const noiseGain = audioCtx.createGain();
-  noiseGain.gain.setValueAtTime(0.7, t0);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
-  noiseSrc.connect(noiseFilter).connect(noiseGain).connect(masterGain);
-  noiseSrc.start(t0);
+  // Master mit leichtem Lowpass damit's "muffled" aber kräftig klingt
+  const master = audioCtx.createGain();
+  master.gain.value = 1.0;
+  const lowpass = audioCtx.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = 1800;
+  lowpass.Q.value = 1.5;
+  master.connect(lowpass).connect(dest);
 
-  // ── Layer 2: SUB-BASS HIT (deep boom at t=0) ──
-  const sub = audioCtx.createOscillator();
-  sub.type = 'sine';
-  sub.frequency.setValueAtTime(80, t0);
-  sub.frequency.exponentialRampToValueAtTime(35, t0 + 0.3);
-  const subGain = audioCtx.createGain();
-  subGain.gain.setValueAtTime(0.0, t0);
-  subGain.gain.linearRampToValueAtTime(0.9, t0 + 0.01);
-  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.8);
-  sub.connect(subGain).connect(masterGain);
-  sub.start(t0);
-  sub.stop(t0 + 0.8);
+  // ── HAUPT-SÄGEZAHN bei ~200Hz mit Vibrato ──
+  const baseFreq = 200;
+  const osc1 = audioCtx.createOscillator();
+  osc1.type = 'sawtooth';
+  osc1.frequency.value = baseFreq;
 
-  // ── Layer 3: TWO DETUNED SAWS (the dirty growl, descending pitch) ──
-  // Frequencies start 180/183 Hz (slight detune for beating) → drop to 75/76 Hz
-  [180, 183].forEach((freqStart, i) => {
-    const osc = audioCtx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(freqStart, t0 + 0.05);
-    osc.frequency.exponentialRampToValueAtTime(75 + i, t0 + 1.15);
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0.0, t0);
-    gain.gain.linearRampToValueAtTime(0.18, t0 + 0.08);
-    gain.gain.setValueAtTime(0.18, t0 + 0.9);
-    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.3);
-    osc.connect(gain).connect(masterGain);
-    osc.start(t0 + 0.05);
-    osc.stop(t0 + 1.3);
-  });
-
-  // ── Layer 4: FILTER-WOBBLE LFO (creates the menacing "drone" feel) ──
+  // LFO für Vibrato (Frequenz-Modulation)
   const lfo = audioCtx.createOscillator();
   lfo.type = 'sine';
-  lfo.frequency.value = 5.5;
+  lfo.frequency.value = 6.5;  // klassische Game-Show Vibrato-Frequenz
   const lfoGain = audioCtx.createGain();
-  lfoGain.gain.value = 80;
-  lfo.connect(lfoGain).connect(filter.frequency);
-  lfo.start(t0);
-  lfo.stop(t0 + 1.3);
+  lfoGain.gain.value = 6;  // ±6Hz Modulationsamplitude
+  lfo.connect(lfoGain).connect(osc1.frequency);
 
-  // ── Layer 5: HIGH DISSONANT TAIL (a faint screech for that horror-vibe) ──
-  const dissonant = audioCtx.createOscillator();
-  dissonant.type = 'sawtooth';
-  dissonant.frequency.setValueAtTime(550, t0 + 0.3);
-  dissonant.frequency.linearRampToValueAtTime(180, t0 + 1.2);
-  const dissonantGain = audioCtx.createGain();
-  dissonantGain.gain.setValueAtTime(0.0, t0);
-  dissonantGain.gain.linearRampToValueAtTime(0.05, t0 + 0.4);
-  dissonantGain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
-  dissonant.connect(dissonantGain).connect(filter);
-  dissonant.start(t0 + 0.3);
-  dissonant.stop(t0 + 1.3);
+  // Hard Attack / hold / Hard Release
+  const gain1 = audioCtx.createGain();
+  gain1.gain.setValueAtTime(0.0, t0);
+  gain1.gain.linearRampToValueAtTime(0.40, t0 + 0.015);  // sehr schneller attack
+  gain1.gain.setValueAtTime(0.40, tEnd - 0.05);          // hold flat
+  gain1.gain.linearRampToValueAtTime(0.0, tEnd);         // sharp cut
+
+  osc1.connect(gain1).connect(master);
+  osc1.start(t0);
+  osc1.stop(tEnd + 0.02);
+  lfo.start(t0);
+  lfo.stop(tEnd + 0.02);
+
+  // ── ZWEITE STIMME eine Oktave tiefer für Wucht ──
+  const osc2 = audioCtx.createOscillator();
+  osc2.type = 'square';
+  osc2.frequency.value = baseFreq / 2;  // 100Hz
+
+  // Auch dieser kriegt das Vibrato
+  const lfoGain2 = audioCtx.createGain();
+  lfoGain2.gain.value = 3;
+  lfo.connect(lfoGain2).connect(osc2.frequency);
+
+  const gain2 = audioCtx.createGain();
+  gain2.gain.setValueAtTime(0.0, t0);
+  gain2.gain.linearRampToValueAtTime(0.20, t0 + 0.015);
+  gain2.gain.setValueAtTime(0.20, tEnd - 0.05);
+  gain2.gain.linearRampToValueAtTime(0.0, tEnd);
+
+  osc2.connect(gain2).connect(master);
+  osc2.start(t0);
+  osc2.stop(tEnd + 0.02);
+
+  // ── DRITTE STIMME leicht detuned für Dirty-Feel ──
+  const osc3 = audioCtx.createOscillator();
+  osc3.type = 'sawtooth';
+  osc3.frequency.value = baseFreq + 4;  // 204Hz (leicht out of tune)
+
+  const gain3 = audioCtx.createGain();
+  gain3.gain.setValueAtTime(0.0, t0);
+  gain3.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
+  gain3.gain.setValueAtTime(0.18, tEnd - 0.05);
+  gain3.gain.linearRampToValueAtTime(0.0, tEnd);
+
+  osc3.connect(gain3).connect(master);
+  osc3.start(t0);
+  osc3.stop(tEnd + 0.02);
 }
 
 function _audioMidDing(audioCtx, dest) {
@@ -35318,6 +35454,11 @@ async function tiktokRevealPlay(record) {
         const ct = elapsed - PHASE1_END;
         const n = 3 - Math.floor(ct);
         const tInDigit = ct - Math.floor(ct);
+        // Beim Eintritt in Phase 2 (n===3 first time): rising tension build (3s)
+        if (lastCountdownNumber === -1 && n === 3) {
+          playSound((ac, d) => _audioRisingTension(ac, d, 3.0));
+        }
+        // Tick-Hit on top für jede Number
         if (n !== lastCountdownNumber && n >= 1 && n <= 3) {
           playSound(_audioTick);
           lastCountdownNumber = n;
@@ -35326,6 +35467,8 @@ async function tiktokRevealPlay(record) {
       } else if (elapsed < PHASE3_END) {
         const vt = (elapsed - PHASE2_END) / (PHASE3_END - PHASE2_END);
         if (!verdictSoundPlayed) {
+          // Reveal-Cut sofort, dann Verdict-Sound mit kleinem Delay damit's übereinander wirkt
+          playSound(_audioRevealCut);
           if (data.verdictKey === 'approved') playSound(_audioApprovedChime);
           else if (data.verdictKey === 'rejected') playSound(_audioRejectedBuzz);
           else playSound(_audioMidDing);
