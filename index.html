@@ -864,7 +864,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 11:36 UTC</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 11:54 UTC</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -31773,7 +31773,7 @@ document.addEventListener('visibilitychange', () => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-10 11:36 UTC';
+const APP_BUILD = '2026-05-10 11:54 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -35935,6 +35935,357 @@ function _wrapText(ctx, text, cx, cy, maxWidth, lineHeight) {
   lines.forEach((ln, i) => ctx.fillText(ln, cx, startY + i * lineHeight));
 }
 
+// ════════════════════════════════════════════════════════
+// OFFLINE AUDIO RENDERER — pre-baked audio track für perfekte Sync
+// Alle Sounds werden vor Recording in EINEN AudioBuffer gerendert,
+// dann als single BufferSource gespielt. Garantiert synchron mit Canvas.
+// ════════════════════════════════════════════════════════
+
+// Dekodiert einen Custom-Sound (data URL) als AudioBuffer im gegebenen Context.
+async function _decodeCustomSound(dataUrl, audioCtx) {
+  if (!dataUrl) return null;
+  try {
+    const r = await fetch(dataUrl);
+    const arr = await r.arrayBuffer();
+    return await audioCtx.decodeAudioData(arr.slice(0));
+  } catch (e) {
+    console.warn('Custom sound decode failed:', e);
+    return null;
+  }
+}
+
+// Lädt alle Custom-Sounds (gefetched + decoded) vor — gibt eine Map zurück.
+async function _preloadAllCustomSounds(audioCtx) {
+  const pack = loadSoundPack();
+  const cache = {};
+  for (const slot of SOUND_SLOTS) {
+    if (pack[slot.key]) {
+      const buf = await _decodeCustomSound(pack[slot.key], audioCtx);
+      if (buf) {
+        const trim = getSoundTrim(slot.key);
+        cache[slot.key] = {
+          buffer: buf,
+          offset: trim ? trim.start : 0,
+          duration: trim ? Math.max(0.01, trim.end - trim.start) : buf.duration
+        };
+      }
+    }
+  }
+  return cache;
+}
+
+// Rendert die komplette 13.5s Audio-Track in einen AudioBuffer (offline).
+// Schedule:
+//   t=0.0  : Whoosh (Phase 0 start)
+//   t=4.5  : Rising Tension start (3 sek lang) + Tick bei 3
+//   t=5.5  : Tick bei 2
+//   t=6.5  : Tick bei 1
+//   t=7.5  : Reveal-Cut + Verdict-Sound
+async function _buildOfflineRevealAudio(verdictKey, customCache) {
+  const sampleRate = 44100;
+  const totalSec = 13.6;  // small tail buffer
+  const offCtx = new OfflineAudioContext(2, sampleRate * totalSec, sampleRate);
+
+  // Helper: spielt einen Custom-Sound zur Zeit t in den Offline-Context
+  const playCustom = (slotKey, t) => {
+    const c = customCache && customCache[slotKey];
+    if (!c) return false;
+    const src = offCtx.createBufferSource();
+    src.buffer = c.buffer;
+    src.connect(offCtx.destination);
+    src.start(t, c.offset, c.duration);
+    return true;
+  };
+
+  // Helper: schedule synth sound mit dem offline-context als sowohl audioCtx als auch dest
+  // (unsere Synth-Funktionen erwarten audioCtx.currentTime, deshalb müssen wir trick:n
+  // wir setzen die audioCtx-currentTime via start times als offset)
+  const playSynthAt = (synthFn, t) => {
+    // Wir können nicht offCtx.currentTime ändern — stattdessen müssen wir die Synth-Funktion
+    // anpassen damit sie eine baseTime annimmt.
+    // Trick: wir schreiben eine Wrapper-Funktion die einen Pseudo-Context erstellt
+    // dessen "currentTime" einfach offCtx.currentTime + t liefert
+    // Da OfflineAudioContext das in Echtzeit nicht macht, müssen wir die Sounds direkt programmieren
+    // Statt dessen nutze ich die Synth-Funktionen direkt mit dem offCtx und manueller Zeit-Anpassung
+    synthFn(offCtx, offCtx.destination, t);
+  };
+
+  // ── 0.0s: Whoosh (Phase 0) ──
+  if (!playCustom('whoosh', 0)) {
+    _audioWhooshAt(offCtx, offCtx.destination, 0);
+  }
+
+  // ── 4.5s: Rising Tension (3s) + Tick "3" ──
+  if (!playCustom('tension', 4.5)) {
+    _audioRisingTensionAt(offCtx, offCtx.destination, 4.5, 3.0);
+  }
+  if (!playCustom('tick', 4.5)) {
+    _audioTickAt(offCtx, offCtx.destination, 4.5);
+  }
+
+  // ── 5.5s: Tick "2" ──
+  if (!playCustom('tick', 5.5)) {
+    _audioTickAt(offCtx, offCtx.destination, 5.5);
+  }
+
+  // ── 6.5s: Tick "1" ──
+  if (!playCustom('tick', 6.5)) {
+    _audioTickAt(offCtx, offCtx.destination, 6.5);
+  }
+
+  // ── 7.5s: Reveal-Cut + Verdict-Sound ──
+  if (!playCustom('reveal', 7.5)) {
+    _audioRevealCutAt(offCtx, offCtx.destination, 7.5);
+  }
+  const verdictSlot = verdictKey === 'approved' ? 'approved' : (verdictKey === 'rejected' ? 'rejected' : 'mid');
+  const verdictFnMap = {
+    approved: _audioApprovedChimeAt,
+    rejected: _audioRejectedBuzzAt,
+    mid: _audioMidDingAt
+  };
+  if (!playCustom(verdictSlot, 7.5)) {
+    verdictFnMap[verdictSlot](offCtx, offCtx.destination, 7.5);
+  }
+
+  return await offCtx.startRendering();
+}
+
+// ── "At-Time" varianten der Synth-Funktionen — nehmen explizite startTime an ──
+// damit sie im OfflineAudioContext zur richtigen Zeit klingen.
+
+function _audioTickAt(audioCtx, dest, t0) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(800, t0);
+  osc.frequency.exponentialRampToValueAtTime(450, t0 + 0.10);
+  gain.gain.setValueAtTime(0.0, t0);
+  gain.gain.linearRampToValueAtTime(0.35, t0 + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
+  const filt = audioCtx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.value = 2500;
+  osc.connect(filt).connect(gain).connect(dest);
+  osc.start(t0);
+  osc.stop(t0 + 0.16);
+  const sub = audioCtx.createOscillator();
+  const subGain = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(80, t0);
+  sub.frequency.exponentialRampToValueAtTime(40, t0 + 0.15);
+  subGain.gain.setValueAtTime(0.6, t0);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+  sub.connect(subGain).connect(dest);
+  sub.start(t0);
+  sub.stop(t0 + 0.2);
+}
+
+function _audioRisingTensionAt(audioCtx, dest, t0, durationSec) {
+  durationSec = durationSec || 3.0;
+  const tEnd = t0 + durationSec;
+  const master = audioCtx.createGain(); master.gain.value = 1.0;
+  const masterFilter = audioCtx.createBiquadFilter();
+  masterFilter.type = 'lowpass';
+  masterFilter.frequency.setValueAtTime(800, t0);
+  masterFilter.frequency.exponentialRampToValueAtTime(8000, tEnd);
+  masterFilter.Q.value = 1;
+  master.connect(masterFilter).connect(dest);
+
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(40, t0);
+  sub.frequency.linearRampToValueAtTime(75, tEnd);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.05, t0);
+  subGain.gain.linearRampToValueAtTime(0.55, tEnd);
+  sub.connect(subGain).connect(master);
+  sub.start(t0); sub.stop(tEnd + 0.05);
+
+  [110, 113, 165, 220].forEach(freq => {
+    const o = audioCtx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(freq, t0);
+    o.frequency.linearRampToValueAtTime(freq * 1.5, tEnd);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0, t0);
+    g.gain.linearRampToValueAtTime(0.045, tEnd);
+    o.connect(g).connect(master);
+    o.start(t0); o.stop(tEnd + 0.05);
+  });
+
+  const hi = audioCtx.createOscillator();
+  hi.type = 'triangle';
+  hi.frequency.setValueAtTime(440, t0);
+  hi.frequency.linearRampToValueAtTime(880, tEnd);
+  const hiGain = audioCtx.createGain();
+  hiGain.gain.setValueAtTime(0.0, t0);
+  hiGain.gain.linearRampToValueAtTime(0.10, tEnd);
+  hi.connect(hiGain).connect(master);
+  hi.start(t0); hi.stop(tEnd + 0.05);
+
+  const startInterval = 0.6, endInterval = 0.18;
+  let t = t0, pulseCount = 0;
+  while (t < tEnd - 0.05) {
+    const progress = (t - t0) / durationSec;
+    const interval = startInterval + (endInterval - startInterval) * progress;
+    [0, interval * 0.18].forEach(off => {
+      const beat = audioCtx.createOscillator();
+      beat.type = 'sine';
+      beat.frequency.value = 60 + 30 * progress;
+      const beatGain = audioCtx.createGain();
+      const beatT = t + off;
+      beatGain.gain.setValueAtTime(0.0, beatT);
+      beatGain.gain.linearRampToValueAtTime(0.20 + 0.40 * progress, beatT + 0.01);
+      beatGain.gain.exponentialRampToValueAtTime(0.001, beatT + 0.08);
+      beat.connect(beatGain).connect(master);
+      beat.start(beatT); beat.stop(beatT + 0.10);
+    });
+    t += interval; pulseCount++;
+    if (pulseCount > 30) break;
+  }
+
+  const noiseBufLen = Math.floor(audioCtx.sampleRate * durationSec);
+  const noiseBuf = audioCtx.createBuffer(1, noiseBufLen, audioCtx.sampleRate);
+  const noiseData = noiseBuf.getChannelData(0);
+  for (let i = 0; i < noiseBufLen; i++) noiseData[i] = (Math.random() * 2 - 1);
+  const noiseSrc = audioCtx.createBufferSource();
+  noiseSrc.buffer = noiseBuf;
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'highpass';
+  noiseFilter.frequency.setValueAtTime(2000, t0);
+  noiseFilter.frequency.linearRampToValueAtTime(8000, tEnd);
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.0, t0);
+  noiseGain.gain.linearRampToValueAtTime(0.18, tEnd);
+  noiseSrc.connect(noiseFilter).connect(noiseGain).connect(master);
+  noiseSrc.start(t0); noiseSrc.stop(tEnd + 0.05);
+}
+
+function _audioWhooshAt(audioCtx, dest, t0) {
+  const noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.6, audioCtx.sampleRate);
+  const noiseData = noiseBuf.getChannelData(0);
+  for (let i = 0; i < noiseData.length; i++) noiseData[i] = (Math.random() * 2 - 1);
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(400, t0);
+  filter.frequency.exponentialRampToValueAtTime(4000, t0 + 0.5);
+  filter.Q.value = 3;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.0, t0);
+  gain.gain.linearRampToValueAtTime(0.4, t0 + 0.1);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
+  src.connect(filter).connect(gain).connect(dest);
+  src.start(t0); src.stop(t0 + 0.6);
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(120, t0);
+  sub.frequency.exponentialRampToValueAtTime(45, t0 + 0.25);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.0, t0);
+  subGain.gain.linearRampToValueAtTime(0.7, t0 + 0.01);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.4);
+  sub.connect(subGain).connect(dest);
+  sub.start(t0); sub.stop(t0 + 0.4);
+}
+
+function _audioApprovedChimeAt(audioCtx, dest, t0) {
+  const master = audioCtx.createGain(); master.gain.value = 1.0;
+  master.connect(dest);
+  function bell(startTime, fundamental) {
+    const harmonics = [
+      { mult: 1.0, gain: 0.45, decay: 1.5 },
+      { mult: 2.0, gain: 0.25, decay: 1.2 },
+      { mult: 2.4, gain: 0.18, decay: 0.9 },
+      { mult: 3.0, gain: 0.12, decay: 0.7 },
+      { mult: 4.5, gain: 0.08, decay: 0.5 }
+    ];
+    harmonics.forEach(h => {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = fundamental * h.mult;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0, startTime);
+      g.gain.linearRampToValueAtTime(h.gain, startTime + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.001, startTime + h.decay);
+      osc.connect(g).connect(master);
+      osc.start(startTime); osc.stop(startTime + h.decay + 0.05);
+    });
+  }
+  bell(t0, 783.99);
+  bell(t0 + 0.32, 1046.50);
+}
+
+function _audioRejectedBuzzAt(audioCtx, dest, t0) {
+  const duration = 1.6;
+  const tEnd = t0 + duration;
+  const master = audioCtx.createGain(); master.gain.value = 1.0;
+  const lowpass = audioCtx.createBiquadFilter();
+  lowpass.type = 'lowpass'; lowpass.frequency.value = 1800; lowpass.Q.value = 1.5;
+  master.connect(lowpass).connect(dest);
+  const baseFreq = 200;
+  const osc1 = audioCtx.createOscillator();
+  osc1.type = 'sawtooth'; osc1.frequency.value = baseFreq;
+  const lfo = audioCtx.createOscillator();
+  lfo.type = 'sine'; lfo.frequency.value = 6.5;
+  const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 6;
+  lfo.connect(lfoGain).connect(osc1.frequency);
+  const gain1 = audioCtx.createGain();
+  gain1.gain.setValueAtTime(0.0, t0);
+  gain1.gain.linearRampToValueAtTime(0.40, t0 + 0.015);
+  gain1.gain.setValueAtTime(0.40, tEnd - 0.05);
+  gain1.gain.linearRampToValueAtTime(0.0, tEnd);
+  osc1.connect(gain1).connect(master);
+  osc1.start(t0); osc1.stop(tEnd + 0.02);
+  lfo.start(t0); lfo.stop(tEnd + 0.02);
+  const osc2 = audioCtx.createOscillator();
+  osc2.type = 'square'; osc2.frequency.value = baseFreq / 2;
+  const lfoGain2 = audioCtx.createGain(); lfoGain2.gain.value = 3;
+  lfo.connect(lfoGain2).connect(osc2.frequency);
+  const gain2 = audioCtx.createGain();
+  gain2.gain.setValueAtTime(0.0, t0);
+  gain2.gain.linearRampToValueAtTime(0.20, t0 + 0.015);
+  gain2.gain.setValueAtTime(0.20, tEnd - 0.05);
+  gain2.gain.linearRampToValueAtTime(0.0, tEnd);
+  osc2.connect(gain2).connect(master);
+  osc2.start(t0); osc2.stop(tEnd + 0.02);
+  const osc3 = audioCtx.createOscillator();
+  osc3.type = 'sawtooth'; osc3.frequency.value = baseFreq + 4;
+  const gain3 = audioCtx.createGain();
+  gain3.gain.setValueAtTime(0.0, t0);
+  gain3.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
+  gain3.gain.setValueAtTime(0.18, tEnd - 0.05);
+  gain3.gain.linearRampToValueAtTime(0.0, tEnd);
+  osc3.connect(gain3).connect(master);
+  osc3.start(t0); osc3.stop(tEnd + 0.02);
+}
+
+function _audioMidDingAt(audioCtx, dest, t0) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = 440;
+  gain.gain.setValueAtTime(0.0, t0);
+  gain.gain.linearRampToValueAtTime(0.3, t0 + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
+  osc.connect(gain).connect(dest);
+  osc.start(t0); osc.stop(t0 + 0.55);
+}
+
+function _audioRevealCutAt(audioCtx, dest, t0) {
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(120, t0);
+  sub.frequency.exponentialRampToValueAtTime(40, t0 + 0.4);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.0, t0);
+  subGain.gain.linearRampToValueAtTime(0.85, t0 + 0.005);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
+  sub.connect(subGain).connect(dest);
+  sub.start(t0); sub.stop(t0 + 0.5);
+}
+
 // ── Main: spielt die Animation ab, optional mit Recording ──
 async function tiktokRevealPlay(record) {
   if (_tiktokRevealAnimating) return;
@@ -35950,16 +36301,24 @@ async function tiktokRevealPlay(record) {
   const recBtn = document.getElementById('tiktokRevealRecordBtn');
   const prevBtn = document.getElementById('tiktokRevealPreviewBtn');
   recBtn.disabled = true; prevBtn.disabled = true;
+  status.textContent = '⏳ Audio wird vorbereitet (Pre-Render)...';
 
-  // Audio Setup (auch für Preview damit Sound zu hören ist)
+  // ── 1. Audio-Pre-Render: alle Sounds in EINEN Buffer mergen ──
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const customCache = await _preloadAllCustomSounds(audioCtx);
+  const renderedBuffer = await _buildOfflineRevealAudio(data.verdictKey, customCache);
+
+  // ── 2. Audio-Setup: 1 BufferSource speist Speaker + Recording-Stream ──
   const audioDest = record ? audioCtx.createMediaStreamDestination() : null;
   const speakerDest = audioCtx.destination;
-  // Helper: spiele Sound an speaker UND ggf. an record-stream
-  const playSound = (fn) => {
-    fn(audioCtx, speakerDest);
-    if (audioDest) fn(audioCtx, audioDest);
-  };
+  const audioSrc = audioCtx.createBufferSource();
+  audioSrc.buffer = renderedBuffer;
+  audioSrc.connect(speakerDest);
+  if (audioDest) audioSrc.connect(audioDest);
+  // (audioSrc.start() kommt später, exakt mit recorder.start() syncing)
+
+  // Stub für legacy-callers — nicht mehr genutzt mit pre-rendered audio
+  const playSound = () => {};
 
   // Recorder Setup
   let recorder = null, chunks = [], blob = null;
@@ -35991,6 +36350,10 @@ async function tiktokRevealPlay(record) {
     status.textContent = '▶ Vorschau läuft...';
   }
 
+  // ── Audio-Buffer GENAU JETZT starten — synced mit Canvas-Loop ──
+  // (audioSrc wurde oben verbunden, hier startet es mit minimaler Latenz)
+  try { audioSrc.start(0); } catch(e) { console.warn('audioSrc start failed:', e); }
+
   // Animation
   const PHASE0_END = 1.5;   // "LET'S TEST IT" intro
   const PHASE1_END = 4.5;   // Strategy info card (3s)
@@ -36012,40 +36375,16 @@ async function tiktokRevealPlay(record) {
       ctx.clearRect(0, 0, W, H);
 
       if (elapsed < PHASE0_END) {
-        // Phase 0: LET'S TEST IT intro + Whoosh-Sound
-        if (!whooshPlayed) {
-          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
-          for (const d of dests) _audioWhoosh(audioCtx, d);
-          whooshPlayed = true;
-        }
         _renderLetsTestIt(ctx, W, H, elapsed / PHASE0_END);
       } else if (elapsed < PHASE1_END) {
         _renderIntro(ctx, W, H, (elapsed - PHASE0_END) / (PHASE1_END - PHASE0_END), data);
       } else if (elapsed < PHASE2_END) {
-        const ct = elapsed - PHASE1_END;  // 0..3s im Countdown
+        const ct = elapsed - PHASE1_END;
         const n = 3 - Math.floor(ct);
         const tInDigit = ct - Math.floor(ct);
-        // Beim Eintritt in Phase 2 (n===3 first time): rising tension build (3s)
-        if (lastCountdownNumber === -1 && n === 3) {
-          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
-          _playSoundOrCustom('tension', audioCtx, dests, 3.0);
-        }
-        // Tick-Hit on top für jede Number
-        if (n !== lastCountdownNumber && n >= 1 && n <= 3) {
-          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
-          _playSoundOrCustom('tick', audioCtx, dests);
-          lastCountdownNumber = n;
-        }
         _renderCountdown(ctx, W, H, tInDigit, n);
       } else if (elapsed < PHASE3_END) {
         const vt = (elapsed - PHASE2_END) / (PHASE3_END - PHASE2_END);
-        if (!verdictSoundPlayed) {
-          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
-          // Reveal-Cut sofort, dann Verdict-Sound mit kleinem Delay damit's übereinander wirkt
-          _playSoundOrCustom('reveal', audioCtx, dests);
-          _playSoundOrCustom(data.verdictKey === 'approved' ? 'approved' : (data.verdictKey === 'rejected' ? 'rejected' : 'mid'), audioCtx, dests);
-          verdictSoundPlayed = true;
-        }
         _renderVerdict(ctx, W, H, vt, data);
       } else {
         // Done
