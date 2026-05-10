@@ -32263,19 +32263,36 @@ function reviewBlobToBase64(blob) {
 }
 
 // ── Gemini Direct: ganzes Video → Gemini API (Audio + Bild nativ, ohne ffmpeg/Whisper) ──
-async function reviewExtractStrategyGeminiDirect(file) {
-  reviewSetProgress('gemini-direct', 'running', '🎬 Video wird an Gemini geschickt (Audio + Bild nativ)...');
+async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
+  const attempt = _retryAttempt || 0;
+  if (attempt === 0) {
+    reviewSetProgress('gemini-direct', 'running', '🎬 Video wird an Gemini geschickt (Audio + Bild nativ)...');
+  } else {
+    reviewSetProgress('gemini-direct', 'running', '🔄 Retry ' + attempt + ': Gemini hat fehlerhaften Code geliefert, versuche es nochmal...');
+  }
   const cfg = aiLoadConfig();
   const apiKey = (cfg.keys && cfg.keys.gemini) || '';
   if (!apiKey) throw new Error('Gemini-Direct-Mode braucht Gemini-Key');
   const model = cfg.model && cfg.model.startsWith('gemini-') ? cfg.model : 'gemini-2.5-flash';
   // Video als Base64
-  reviewSetProgress('gemini-base64', 'running', '📦 Video wird vorbereitet (Base64)...');
+  if (attempt === 0) {
+    reviewSetProgress('gemini-base64', 'running', '📦 Video wird vorbereitet (Base64)...');
+  }
   const base64 = await reviewBlobToBase64(file);
-  reviewSetProgress('gemini-base64', 'done', '📦 Video bereit (' + (file.size / (1024*1024)).toFixed(1) + ' MB)');
+  if (attempt === 0) {
+    reviewSetProgress('gemini-base64', 'done', '📦 Video bereit (' + (file.size / (1024*1024)).toFixed(1) + ' MB)');
+  }
   // Multimodal-Prompt: Video + Anweisung
-  const userText = 'Analysiere dieses TikTok/YouTube-Trading-Video. Du siehst und hörst alles — was wird gesprochen, welche Charts/Indikatoren werden gezeigt, welcher Coin/Timeframe, welche Setup-Markierungen?\n\n' +
+  let userText = 'Analysiere dieses TikTok/YouTube-Trading-Video. Du siehst und hörst alles — was wird gesprochen, welche Charts/Indikatoren werden gezeigt, welcher Coin/Timeframe, welche Setup-Markierungen?\n\n' +
     'Extrahiere die Trading-Strategie als JSON-Spec. Du MUSST IMMER eine Strategie liefern — auch wenn nichts Konkretes erkennbar ist (dann mit Vermerk im description-Feld).';
+  if (attempt > 0) {
+    userText += '\n\nWICHTIG (RETRY): Dein letzter Versuch hat fehlerhaften Code generiert. Achte diesmal extra auf:\n' +
+      '1. enterCode MUSS gefüllt sein und valide JS sein (keine \`c.time.getHours()\` — gibts nicht! Nutz \`new Date(c.ts).getUTCHours()\`)\n' +
+      '2. Halte den Code SEHR kurz (max 600 Zeichen)\n' +
+      '3. Keine Code-Wiederholungen, kein doppeltes \`const\` für gleiche Variable\n' +
+      '4. Newlines im JSON-String müssen mit \\n escaped sein, nicht raw\n' +
+      '5. Vereinfache die Strategie — nur 1-2 Hauptbedingungen, weniger ist mehr.';
+  }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const body = {
     systemInstruction: { parts: [{ text: AI_VISION_SYSTEM_PROMPT }] },
@@ -32318,9 +32335,18 @@ async function reviewExtractStrategyGeminiDirect(file) {
     throw new Error('Gemini-Direct: kein JSON in Antwort (finishReason=' + finishReason + ').\n\nGemini sagte:\n"' + preview + '"');
   }
   if (!parsed.enterCode || parsed.enterCode.trim() === '') {
-    throw new Error('Gemini-Direct: Antwort wurde mitten im enterCode abgeschnitten (finishReason=' + finishReason + '). Versuch noch einmal mit kürzerem Video oder schalt auf einen anderen Provider.');
+    if (attempt < 2) {
+      console.warn('[GeminiDirect] enterCode leer/fehlt — auto-retry (' + (attempt+1) + '/2)');
+      return await reviewExtractStrategyGeminiDirect(file, attempt + 1);
+    }
+    throw new Error('Gemini-Direct: Auch nach 2 Retries hat Gemini keinen brauchbaren enterCode geliefert (finishReason=' + finishReason + '). Versuch ein anderes Video oder einen anderen Provider.');
   }
-  reviewSetProgress('gemini-direct', 'done', '🧠 Gemini-Analyse fertig: "' + parsed.name + '"');
+  // Quick-Sanity-Check: enterCode darf nicht offensichtlich kaputt sein (c.time, c.date)
+  if (/c\.time\.|c\.date\.|getHours\s*\(/i.test(parsed.enterCode) && attempt < 2) {
+    console.warn('[GeminiDirect] enterCode nutzt nicht-existente Properties (c.time / getHours) — auto-retry');
+    return await reviewExtractStrategyGeminiDirect(file, attempt + 1);
+  }
+  reviewSetProgress('gemini-direct', 'done', '🧠 Gemini-Analyse fertig: "' + parsed.name + '"' + (attempt > 0 ? ' (nach ' + attempt + ' Retry)' : ''));
   return { spec: parsed, rawReply: text, transcript: '' };
 }
 
@@ -32372,6 +32398,16 @@ JSON-Schema:
   "enterCode": "JS-Code für shouldEnter(candles, i, params)",
   "exitCode": "JS-Code für shouldExit(candles, i, position, params)"
 }
+
+KERZEN-STRUKTUR (KRITISCH WICHTIG):
+Jede Kerze \`candles[i]\` hat genau diese Felder:
+  - \`open\`, \`high\`, \`low\`, \`close\` (numbers)
+  - \`volume\` (number)
+  - \`ts\` (Unix-Timestamp in MILLISEKUNDEN, number — NICHT Date-Objekt!)
+
+Es gibt KEIN \`c.time\`, KEIN \`c.date\`, KEIN \`getHours()\`, KEIN Moment.js.
+Wenn du Stunden/Minuten brauchst, mach das so:
+  \`const d = new Date(candles[i].ts); const hour = d.getUTCHours(); const minute = d.getUTCMinutes();\`
 
 VERFÜGBARE INDICATORS (im Code: Indicators.X(...)):
 - ema(closes, period), sma(closes, period), rsi(closes, period), atr(highs, lows, closes, period)
