@@ -32037,17 +32037,31 @@ const AI_VISION_SYSTEM_PROMPT = `Du bist ein Experte für quantitatives Trading.
 OUTPUT-FORMAT (STRIKT EINHALTEN — KEINE AUSNAHMEN):
 Antworte AUSSCHLIESSLICH mit einem JSON-Block in einem \`\`\`json Codeblock. KEIN Vor-/Nachtext, KEINE Prosa-Erklärungen, KEINE Disclaimer wie "Ich kann keine Strategie erkennen".
 
-Du MUSST IMMER eine Strategie liefern — auch wenn nichts klar zu erkennen ist. Wähl dann eine sinnvolle Default-Strategie und vermerke im description-Feld z.B. "Aus dem Video keine konkreten Regeln ableitbar — Default-Trendfolgestrategie als Platzhalter".
+Du MUSST IMMER eine Strategie liefern — auch wenn nichts klar zu erkennen ist.
 
-WICHTIG ZUR LÄNGE — TOKEN-BUDGET BEACHTEN:
-- description: MAX 200 Zeichen
-- initCode + enterCode + exitCode ZUSAMMEN: max 2000 Zeichen
-- KEINE LANGEN KOMMENTARE im Code (// ... entfernen)
-- Variable-Namen kurz halten (c, e, sl statt fvg_middle_candle_close)
-- Komplexe Logik EINFACH und KOMPAKT — wenn Setup zu komplex für 2000 Zeichen wäre, vereinfache
-- Verzichte auf detaillierte Dokumentation und Multi-Line-Kommentare im Code
+KRITISCH WICHTIG — JSON-FELDER PRIORITÄT:
+1. enterCode ist das WICHTIGSTE Feld (Entry-Logik) — MUSS gefüllt sein
+2. params (mit value, min, max, step) — MUSS gefüllt sein
+3. exitCode (Exit-Logik oder "return false;" wenn nur SL/TP)
+4. name + description (kurz halten!)
+5. initCode (Indikator-Setup, optional — leer wenn keine Indikatoren)
 
-KOMPLETTES JSON MUSS unter 8000 Tokens passen — wenn du merkst dass die Description zu lang wird, KÜRZE sie. Wenn der Code zu lang wird, vereinfache die Logik.
+REIHENFOLGE im JSON: name → description → defaultTF → params → initCode → enterCode → exitCode
+(damit selbst bei Truncation die wichtigsten Felder schon da sind)
+
+LÄNGE-LIMITS (KOMPAKT bleiben damit das JSON in 8K Tokens passt):
+- description: MAX 100 Zeichen
+- params: nur 3-5 wichtigste Parameter
+- initCode + enterCode + exitCode ZUSAMMEN: max 1500 Zeichen
+- Keine Kommentare im Code (// entfernen)
+- Variable-Namen 1-2 Zeichen (c, e, sl, tp statt fvg_middle_candle_close)
+
+BEISPIEL für minimale gültige Strategie (nutze als Template):
+"initCode": "this._ema = Indicators.ema(candles.map(c=>c.close), 20); this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), candles.map(c=>c.close), 14);",
+"enterCode": "if (i < 21 || isNaN(this._ema[i])) return null; const c = candles[i].close; if (c > this._ema[i]) return { dir: 'long', sl: c - 2*this._atr[i] }; return null;",
+"exitCode": "return false;"
+
+Halte dich an dieses Pattern. Wenn die Strategie komplexer ist, vereinfache sie auf max 3 Bedingungen.
 
 JSON-Schema:
 {
@@ -33524,9 +33538,17 @@ function aiExtractJSON(text) {
 
 // ── Sandbox-Validierung: kompiliert die Strategie und führt sie auf 100 Test-Kerzen aus ──
 function aiValidateStrategy(spec) {
-  if (!spec || !spec.name || !spec.params || !spec.initCode || !spec.enterCode || !spec.exitCode) {
-    return { ok: false, error: 'Schema unvollständig (name/params/init/enter/exit)' };
+  if (!spec || !spec.name) {
+    return { ok: false, error: 'name fehlt' };
   }
+  if (!spec.params) spec.params = {};
+  // enterCode ist Pflicht — ohne Entry keine Strategie
+  if (!spec.enterCode || spec.enterCode.trim() === '') {
+    return { ok: false, error: 'enterCode fehlt — Strategie muss Entry-Logik haben' };
+  }
+  // initCode + exitCode optional — Defaults wenn fehlen
+  if (!spec.initCode) spec.initCode = '';
+  if (!spec.exitCode) spec.exitCode = 'return false;';
   try {
     const strat = aiBuildStrategyObject(spec);
     // Test-Kerzen: 200 random walk
