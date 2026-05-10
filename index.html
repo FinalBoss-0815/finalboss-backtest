@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google" content="notranslate">
-<title>FinalBoss — Crypto Backtest Engine (v1.0-beta)</title>
+<title>FinalBoss — Crypto Backtest Engine (v1.3.0-beta)</title>
 <meta name="description" content="Open-Source Krypto-Backtest-Tool. 71+ Strategien, Walk-Forward, Monte Carlo, Genetic Optimizer, Portfolio-Backtest, Paper Trading — alles im Browser, ohne Account.">
 <meta name="keywords" content="crypto, backtest, trading, strategy, bitcoin, monte carlo, walk-forward, paper trading, technical analysis">
 
@@ -864,7 +864,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span style="font-size:11px;font-weight:400;color:var(--text-muted);background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle">v1.0-beta</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 08:56 UTC</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -1369,6 +1369,17 @@ input[type=number] { -moz-appearance:textfield }
             <button type="button" id="tiktokRevealPreviewBtn" onclick="tiktokRevealPlay(false)" style="background:#1f2937;border:1px solid #4b5563;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">▶ Vorschau (ohne Recording)</button>
             <button type="button" id="tiktokRevealRecordBtn" onclick="tiktokRevealPlay(true)" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🎥 Aufnehmen + Download</button>
           </div>
+          <details style="margin-top:14px;background:#111;border-radius:6px;padding:0;overflow:hidden">
+            <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:#fbbf24;user-select:none">🔊 Custom Sound-Pack (eigene Sounds hochladen)</summary>
+            <div style="padding:10px 14px 14px;border-top:1px solid #222">
+              <div style="font-size:11px;color:#9ca3af;line-height:1.6;margin-bottom:10px">
+                Lade deine eigenen MP3/WAV-Sounds hoch. Sie ersetzen die synthetisierten Sounds bei jedem Reveal. Sounds werden lokal in deinem Browser gespeichert.<br>
+                <strong style="color:#fbbf24">Tipp:</strong> Royalty-free Sounds findest du auf <a href="https://mixkit.co/free-sound-effects/" target="_blank" style="color:#fbbf24">mixkit.co</a> oder <a href="https://freesound.org" target="_blank" style="color:#fbbf24">freesound.org</a>.
+              </div>
+              <div id="soundPackSlots"></div>
+              <button type="button" onclick="resetAllSounds()" style="background:#374151;border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;margin-top:8px">↺ Alle auf Default zurücksetzen</button>
+            </div>
+          </details>
           <div style="margin-top:12px;padding:10px;background:#111;border-radius:6px;font-size:11px;color:#9ca3af;line-height:1.5">
             <strong style="color:#fbbf24">💡 Tipp:</strong> Output ist <strong>.webm</strong> (1080×1920, 9:16). Direkt zu TikTok hochladbar — TikTok konvertiert automatisch.
             Wenn du dein Original-Video davorschneiden willst: Reveal + Original-Video in CapCut zusammenfügen, fertig.
@@ -31761,7 +31772,71 @@ document.addEventListener('visibilitychange', () => {
 // ═══════════════════════════════════════════════
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
-const APP_VERSION = 'v1.0.0-beta';
+const APP_VERSION = 'v1.3.0-beta';
+const APP_BUILD = '2026-05-10 08:56 UTC';
+
+// ── Version-Info-Modal mit Update-Check ──
+function showVersionInfo() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div style="background:#0a0a0a;border:2px solid #f59e0b;border-radius:12px;padding:24px;max-width:480px;width:100%;color:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0;color:#fbbf24;font-size:18px">📦 FinalBoss Version</h2>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;color:#9ca3af;font-size:22px;cursor:pointer">×</button>
+      </div>
+      <div style="background:#1a1a1a;border-radius:8px;padding:14px;margin-bottom:14px;font-family:monospace;line-height:1.8;font-size:13px">
+        <div><span style="color:#9ca3af">Version:</span> <strong style="color:#fbbf24">${APP_VERSION}</strong></div>
+        <div><span style="color:#9ca3af">Build:</span> <strong>${APP_BUILD}</strong></div>
+        <div><span style="color:#9ca3af">Loaded:</span> <span id="versionLoadedTime">${new Date().toLocaleString()}</span></div>
+      </div>
+      <div id="versionUpdateCheck" style="background:#111;border-radius:8px;padding:10px 14px;font-size:12px;color:#9ca3af;margin-bottom:14px">
+        ⏳ Checking for updates...
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="forceReloadApp()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;flex:1">🔄 Force-Reload (Cache leeren)</button>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#374151;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">Schliessen</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  // Check if a newer version is on the server
+  fetch('index.html?cb=' + Date.now()).then(r => r.text()).then(t => {
+    const m = t.match(/const APP_BUILD = '([^']+)'/);
+    const checkEl = document.getElementById('versionUpdateCheck');
+    if (!checkEl) return;
+    if (m && m[1] && m[1] !== APP_BUILD) {
+      checkEl.innerHTML = '🆕 <strong style="color:#22c55e">Neuere Version verfügbar!</strong><br>Server: <code>' + m[1] + '</code><br>Du: <code>' + APP_BUILD + '</code><br>Klick "Force-Reload" um zu aktualisieren.';
+      checkEl.style.background = 'rgba(34,197,94,0.1)';
+      checkEl.style.color = '#fff';
+    } else {
+      checkEl.innerHTML = '✅ Du bist auf der neuesten Version.';
+      checkEl.style.background = 'rgba(34,197,94,0.1)';
+      checkEl.style.color = '#22c55e';
+    }
+  }).catch(() => {
+    const el = document.getElementById('versionUpdateCheck');
+    if (el) el.textContent = '⚠️ Update-Check fehlgeschlagen (offline?)';
+  });
+}
+
+function forceReloadApp() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(rs => {
+      return Promise.all(rs.map(r => r.unregister()));
+    }).then(() => {
+      return caches.keys();
+    }).then(keys => {
+      return Promise.all(keys.map(k => caches.delete(k)));
+    }).then(() => {
+      window.location.reload();
+    });
+  } else {
+    window.location.reload();
+  }
+}
+
 const GITHUB_REPO_URL = 'https://github.com/FinalBoss-0815/finalboss-backtest';
 const GITHUB_ISSUES_URL = GITHUB_REPO_URL + '/issues/new';
 
@@ -34784,6 +34859,7 @@ function openTikTokRevealModal() {
   }
   document.getElementById('tiktokRevealModal').style.display = 'flex';
   document.getElementById('tiktokRevealStatus').textContent = 'Bereit zum Generieren';
+  try { renderSoundPackSlots(); } catch(e) { console.warn('Sound-Pack render failed:', e); }
   // Initial-Render: zeig Endbild (Verdict) als Preview
   try {
     const data = _buildRevealData();
@@ -35164,6 +35240,164 @@ function _audioMidDing(audioCtx, dest) {
   osc.stop(audioCtx.currentTime + 0.55);
 }
 
+// ════════════════════════════════════════════════════════
+// CUSTOM SOUND-PACK: User uploads MP3/WAV, saved in localStorage
+// ════════════════════════════════════════════════════════
+
+const SOUND_SLOTS = [
+  { key: 'tick',     label: 'Countdown-Tick',  desc: 'Hit bei jedem 3/2/1', synth: '_audioTick' },
+  { key: 'tension',  label: 'Rising Tension',  desc: 'Build-Up während Countdown (3sek)', synth: '_audioRisingTension' },
+  { key: 'approved', label: 'Approved-Sound',  desc: 'Wenn Strategie gut ist (✅)', synth: '_audioApprovedChime' },
+  { key: 'rejected', label: 'Rejected-Sound',  desc: 'Wenn Strategie schlecht ist (❌)', synth: '_audioRejectedBuzz' },
+  { key: 'mid',      label: 'Mid-Tier-Sound',  desc: 'Wenn neutral (⚠️ NEEDS WORK)', synth: '_audioMidDing' },
+  { key: 'reveal',   label: 'Reveal-Boom',     desc: 'Boom-Hit beim Verdict-Moment', synth: '_audioRevealCut' }
+];
+
+const SOUND_STORAGE_KEY = 'fb_sound_pack_v1';
+
+function loadSoundPack() {
+  try { return JSON.parse(localStorage.getItem(SOUND_STORAGE_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+
+function saveSoundPack(pack) {
+  try { localStorage.setItem(SOUND_STORAGE_KEY, JSON.stringify(pack)); }
+  catch (e) { _showErrorToast('Speichern fehlgeschlagen — Sound zu groß? (Limit ~5MB total)'); }
+}
+
+// Render the upload-slots UI
+function renderSoundPackSlots() {
+  const wrap = document.getElementById('soundPackSlots');
+  if (!wrap) return;
+  const pack = loadSoundPack();
+  wrap.innerHTML = SOUND_SLOTS.map(slot => {
+    const has = !!pack[slot.key];
+    const bytes = has ? Math.round(pack[slot.key].length * 0.75 / 1024) : 0;  // approx KB from base64
+    return `
+      <div style="background:#0a0a0a;border:1px solid #222;border-radius:6px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:140px">
+            <div style="font-size:12px;font-weight:700;color:#fff">${slot.label}</div>
+            <div style="font-size:10px;color:#9ca3af">${slot.desc}</div>
+            ${has ? `<div style="font-size:10px;color:#22c55e;margin-top:2px">✓ Custom (${bytes} KB)</div>` : `<div style="font-size:10px;color:#6b7280;margin-top:2px">Default (synth)</div>`}
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button type="button" onclick="previewSound('${slot.key}')" title="Anhören" style="background:#1f2937;border:1px solid #374151;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">▶</button>
+            <label style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">
+              📁 ${has ? 'Wechseln' : 'Hochladen'}
+              <input type="file" accept="audio/*" style="display:none" onchange="uploadSound('${slot.key}', this)">
+            </label>
+            ${has ? `<button type="button" onclick="resetSound('${slot.key}')" title="Zurück auf Default" style="background:#7f1d1d;border:none;color:#fff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px">×</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function uploadSound(slotKey, inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  // Size check — base64 inflates by ~33%, localStorage limit ~5MB
+  if (file.size > 600 * 1024) {
+    if (!confirm('Datei ist ' + (file.size/1024).toFixed(0) + ' KB. localStorage-Limit ist insgesamt ~5MB. Trotzdem hochladen?')) {
+      inputEl.value = '';
+      return;
+    }
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    const pack = loadSoundPack();
+    pack[slotKey] = dataUrl;
+    saveSoundPack(pack);
+    renderSoundPackSlots();
+    _showSuccessToast('✓ Sound hochgeladen: ' + file.name, 2500);
+  };
+  reader.onerror = () => _showErrorToast('Fehler beim Lesen der Datei');
+  reader.readAsDataURL(file);
+  inputEl.value = '';
+}
+
+function resetSound(slotKey) {
+  const pack = loadSoundPack();
+  delete pack[slotKey];
+  saveSoundPack(pack);
+  renderSoundPackSlots();
+}
+
+function resetAllSounds() {
+  if (!confirm('Alle Custom-Sounds zurück auf Default?')) return;
+  localStorage.removeItem(SOUND_STORAGE_KEY);
+  renderSoundPackSlots();
+  _showSuccessToast('✓ Alle Sounds zurückgesetzt', 2000);
+}
+
+async function previewSound(slotKey) {
+  const pack = loadSoundPack();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (pack[slotKey]) {
+    // Custom Sound — load + play
+    try {
+      const r = await fetch(pack[slotKey]);
+      const buf = await r.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(buf);
+      const src = audioCtx.createBufferSource();
+      src.buffer = audioBuf;
+      src.connect(audioCtx.destination);
+      src.start();
+    } catch (e) {
+      _showErrorToast('Sound konnte nicht abgespielt werden: ' + e.message);
+    }
+  } else {
+    // Synthetisiert
+    const slot = SOUND_SLOTS.find(s => s.key === slotKey);
+    const fnName = slot && slot.synth;
+    if (fnName && typeof window[fnName] === 'function') {
+      if (fnName === '_audioRisingTension') {
+        window[fnName](audioCtx, audioCtx.destination, 3.0);
+      } else {
+        window[fnName](audioCtx, audioCtx.destination);
+      }
+    }
+  }
+}
+
+// HELPER: spielt Custom-Sound (oder fallback auf synth) auf den Audio-Streams
+// Wird aus tiktokRevealPlay() aufgerufen statt direkt _audioXyz(...)
+async function _playSoundOrCustom(slotKey, audioCtx, dests, durationSec) {
+  const pack = loadSoundPack();
+  if (pack[slotKey]) {
+    try {
+      const r = await fetch(pack[slotKey]);
+      const buf = await r.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(buf);
+      // Play to ALL destinations (speaker + recording)
+      for (const dest of dests) {
+        const src = audioCtx.createBufferSource();
+        src.buffer = audioBuf;
+        src.connect(dest);
+        src.start();
+      }
+      return;
+    } catch (e) {
+      console.warn('Custom sound failed, fallback to synth:', e);
+    }
+  }
+  // Synth fallback
+  const slot = SOUND_SLOTS.find(s => s.key === slotKey);
+  const fnName = slot && slot.synth;
+  if (fnName && typeof window[fnName] === 'function') {
+    for (const dest of dests) {
+      if (fnName === '_audioRisingTension') {
+        window[fnName](audioCtx, dest, durationSec || 3.0);
+      } else {
+        window[fnName](audioCtx, dest);
+      }
+    }
+  }
+}
+
 // ── Render-Helpers ──
 function _drawBg(ctx, W, H) {
   // Dunkler Verlauf mit FinalBoss-Orange als Akzent
@@ -35478,22 +35712,23 @@ async function tiktokRevealPlay(record) {
         const tInDigit = ct - Math.floor(ct);
         // Beim Eintritt in Phase 2 (n===3 first time): rising tension build (3s)
         if (lastCountdownNumber === -1 && n === 3) {
-          playSound((ac, d) => _audioRisingTension(ac, d, 3.0));
+          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
+          _playSoundOrCustom('tension', audioCtx, dests, 3.0);
         }
         // Tick-Hit on top für jede Number
         if (n !== lastCountdownNumber && n >= 1 && n <= 3) {
-          playSound(_audioTick);
+          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
+          _playSoundOrCustom('tick', audioCtx, dests);
           lastCountdownNumber = n;
         }
         _renderCountdown(ctx, W, H, tInDigit, n);
       } else if (elapsed < PHASE3_END) {
         const vt = (elapsed - PHASE2_END) / (PHASE3_END - PHASE2_END);
         if (!verdictSoundPlayed) {
+          const dests = audioDest ? [speakerDest, audioDest] : [speakerDest];
           // Reveal-Cut sofort, dann Verdict-Sound mit kleinem Delay damit's übereinander wirkt
-          playSound(_audioRevealCut);
-          if (data.verdictKey === 'approved') playSound(_audioApprovedChime);
-          else if (data.verdictKey === 'rejected') playSound(_audioRejectedBuzz);
-          else playSound(_audioMidDing);
+          _playSoundOrCustom('reveal', audioCtx, dests);
+          _playSoundOrCustom(data.verdictKey === 'approved' ? 'approved' : (data.verdictKey === 'rejected' ? 'rejected' : 'mid'), audioCtx, dests);
           verdictSoundPlayed = true;
         }
         _renderVerdict(ctx, W, H, vt, data);
