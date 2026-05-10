@@ -32020,7 +32020,7 @@ async function reviewExtractStrategyGeminiDirect(file) {
         { text: userText }
       ]
     }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 8192 }
+    generationConfig: { temperature: 0.4, maxOutputTokens: 32768 }
   };
   reviewSetProgress('gemini-direct', 'running', '🧠 Gemini analysiert Video (kann 20-60 Sek dauern)...');
   const resp = await fetch(url, {
@@ -32039,12 +32039,20 @@ async function reviewExtractStrategyGeminiDirect(file) {
   const data = await resp.json();
   const cand = data.candidates && data.candidates[0];
   const text = cand && cand.content && cand.content.parts && cand.content.parts.map(p => p.text || '').join('');
+  const finishReason = cand && cand.finishReason;
+  console.log('[GeminiDirect] finishReason:', finishReason, 'len:', (text||'').length);
   console.log('[GeminiDirect] Antwort:', text);
-  if (!text) throw new Error('Gemini-Direct: leere Antwort');
+  if (!text) throw new Error('Gemini-Direct: leere Antwort (finishReason=' + finishReason + ')');
+  if (finishReason === 'MAX_TOKENS') {
+    console.warn('[GeminiDirect] Antwort wurde durch Token-Limit abgeschnitten — versuche JSON-Recovery');
+  }
   const parsed = aiExtractJSON(text);
   if (!parsed || !parsed.name) {
     const preview = text.slice(0, 400);
-    throw new Error('Gemini-Direct: kein JSON in Antwort.\n\nGemini sagte:\n"' + preview + '"');
+    throw new Error('Gemini-Direct: kein JSON in Antwort (finishReason=' + finishReason + ').\n\nGemini sagte:\n"' + preview + '"');
+  }
+  if (!parsed.enterCode || parsed.enterCode.trim() === '') {
+    throw new Error('Gemini-Direct: Antwort wurde mitten im enterCode abgeschnitten (finishReason=' + finishReason + '). Versuch noch einmal mit kürzerem Video oder schalt auf einen anderen Provider.');
   }
   reviewSetProgress('gemini-direct', 'done', '🧠 Gemini-Analyse fertig: "' + parsed.name + '"');
   return { spec: parsed, rawReply: text, transcript: '' };
@@ -33543,18 +33551,10 @@ function aiExtractJSON(text) {
     try { return JSON.parse(candidate.slice(i1, i2 + 1)); } catch(e) {}
   }
   // Versuch 3: Truncated JSON — versuche Klammern automatisch zu schließen
-  // Nützlich bei Token-Limit-Abschneidungen
+  // Nützlich bei Token-Limit-Abschneidungen. WICHTIG: Inhalt NICHT verwerfen, nur abschließen.
   if (i1 >= 0) {
     let attempt = candidate.slice(i1);
-    // Trim trailing junk wenn nicht mit } endet
-    const lastBrace = attempt.lastIndexOf('}');
-    const lastQuote = attempt.lastIndexOf('"');
-    // Wenn Antwort mitten im String/Property abgebrochen: schneide an letztem Komma
-    if (lastBrace < lastQuote) {
-      const lastComma = attempt.lastIndexOf(',');
-      if (lastComma > 0) attempt = attempt.slice(0, lastComma);
-    }
-    // Zähle offene vs geschlossene Klammern und {} und füg fehlende zu
+    // Zähle offene Klammern + ob wir mitten in einem String stehen
     let openBraces = 0, openBrackets = 0, inString = false, escape = false;
     for (let k = 0; k < attempt.length; k++) {
       const ch = attempt[k];
@@ -33567,11 +33567,33 @@ function aiExtractJSON(text) {
       else if (ch === '[') openBrackets++;
       else if (ch === ']') openBrackets--;
     }
-    // Wenn offen: schließe
-    if (inString) attempt += '"';
+    // Wenn mitten im String abgeschnitten: schließe den String.
+    // Zusätzlich: falls der String JS-Code ist (enterCode/initCode/exitCode),
+    // ist das letzte Statement vermutlich unvollständig. Wir kappen den letzten
+    // unvollständigen Statement-Teil ab und fügen "; return null;" hinzu damit
+    // der JS-Code beim Sandbox-Compile nicht crasht.
+    if (inString) {
+      // Suche letzten Semikolon im String — alles danach ist unvollständig
+      const lastSemi = attempt.lastIndexOf(';');
+      const lastOpenQuote = attempt.lastIndexOf('"');
+      // Wenn das letzte ; NACH dem letzten unschließenen " kommt, ist der Code-Block
+      // wenigstens bis dort sauber. Trim alles nach dem ; ab.
+      if (lastSemi > lastOpenQuote) {
+        attempt = attempt.slice(0, lastSemi + 1);
+        // Sicherstellen dass return null falls kein return im letzten Block
+        if (!/return\s+(null|false|true|\{)/.test(attempt.slice(lastOpenQuote))) {
+          attempt += ' return null;';
+        }
+      }
+      attempt += '"';
+    }
+    // Trailing-Komma vor dem Schließen entfernen (sonst invalid JSON)
+    attempt = attempt.replace(/,(\s*)$/, '$1');
     while (openBrackets > 0) { attempt += ']'; openBrackets--; }
     while (openBraces > 0) { attempt += '}'; openBraces--; }
-    try { return JSON.parse(attempt); } catch(e) {}
+    try { return JSON.parse(attempt); } catch(e) {
+      console.warn('[aiExtractJSON] Recovery scheiterte:', e.message, '\nAttempt:', attempt.slice(-200));
+    }
   }
   return null;
 }
@@ -34445,18 +34467,15 @@ if (document.readyState === 'loading') {
   setTimeout(aiInitOnLoad, 100);
 }
 
-// PWA Service Worker mit COI-Reload-Logik (für SharedArrayBuffer / ffmpeg.wasm)
+// PWA Service Worker mit COI-Reload-Logik (fuer SharedArrayBuffer / ffmpeg.wasm)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
     console.log('Service Worker registered');
-    // Falls SAB noch nicht verfügbar (COI nicht aktiv) und SW grade frisch installiert:
-    // einmal neuladen damit SW die Headers injiziert
     if (!window.crossOriginIsolated && reg.active && !navigator.serviceWorker.controller) {
       console.log('Reloading for Cross-Origin-Isolation...');
       window.location.reload();
     }
   }).catch(err => console.log('SW registration failed:', err));
-  // Falls SW kontrolliert aber COI noch nicht aktiv: einmal neu laden
   if (navigator.serviceWorker.controller && !window.crossOriginIsolated) {
     if (!sessionStorage.getItem('coi-reload-done')) {
       sessionStorage.setItem('coi-reload-done', '1');
