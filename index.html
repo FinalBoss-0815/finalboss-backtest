@@ -34852,15 +34852,15 @@ function _buildRevealData() {
   let recommendation = '';
   if (verdictKey === 'rejected' || verdictKey === 'mid') {
     if (m.profitFactor < 1) {
-      recommendation = 'Versuch einen EMA-Filter oder Trend-Bestätigung dazuzubauen';
+      recommendation = 'Try adding an EMA filter or trend confirmation';
     } else if (eodShare > 0.3) {
-      recommendation = 'Definiere ein klares Take-Profit (z.B. 2x Risk)';
+      recommendation = 'Define a clear take-profit (e.g. 2x risk)';
     } else if (trades.length < 30) {
-      recommendation = 'Längeren Zeitraum testen für mehr Signal';
+      recommendation = 'Test a longer period for more signal';
     } else if (m.totalReturn < result.buyHoldReturn) {
-      recommendation = 'Probier andere Coins oder Timeframes';
+      recommendation = 'Try other coins or timeframes';
     } else {
-      recommendation = 'Optimiere Parameter im Grid-Optimizer';
+      recommendation = 'Optimize parameters in the Grid-Optimizer';
     }
   }
 
@@ -34910,17 +34910,87 @@ function _audioApprovedChime(audioCtx, dest) {
 }
 
 function _audioRejectedBuzz(audioCtx, dest) {
-  // Tiefer dreckiger Buzzer, descending Frequenz
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-  osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.6);
-  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
-  osc.connect(gain).connect(dest);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.7);
+  // CINEMATIC VILLAIN-SOUND — Multi-Layer, descending, evil
+  const t0 = audioCtx.currentTime;
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.value = 1.0;
+  // Lowpass filter mit LFO-Wobble fuer das "boese" Gefuehl
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(800, t0);
+  filter.frequency.linearRampToValueAtTime(180, t0 + 1.2);
+  filter.Q.value = 6;
+  masterGain.connect(filter).connect(dest);
+
+  // ── Layer 1: SHARP IMPACT-HIT (short noise burst at t=0) ──
+  const noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
+  const noiseData = noiseBuf.getChannelData(0);
+  for (let i = 0; i < noiseData.length; i++) {
+    noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/noiseData.length, 3);
+  }
+  const noiseSrc = audioCtx.createBufferSource();
+  noiseSrc.buffer = noiseBuf;
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'lowpass';
+  noiseFilter.frequency.value = 400;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.7, t0);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
+  noiseSrc.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+  noiseSrc.start(t0);
+
+  // ── Layer 2: SUB-BASS HIT (deep boom at t=0) ──
+  const sub = audioCtx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(80, t0);
+  sub.frequency.exponentialRampToValueAtTime(35, t0 + 0.3);
+  const subGain = audioCtx.createGain();
+  subGain.gain.setValueAtTime(0.0, t0);
+  subGain.gain.linearRampToValueAtTime(0.9, t0 + 0.01);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.8);
+  sub.connect(subGain).connect(masterGain);
+  sub.start(t0);
+  sub.stop(t0 + 0.8);
+
+  // ── Layer 3: TWO DETUNED SAWS (the dirty growl, descending pitch) ──
+  // Frequencies start 180/183 Hz (slight detune for beating) → drop to 75/76 Hz
+  [180, 183].forEach((freqStart, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freqStart, t0 + 0.05);
+    osc.frequency.exponentialRampToValueAtTime(75 + i, t0 + 1.15);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0, t0);
+    gain.gain.linearRampToValueAtTime(0.18, t0 + 0.08);
+    gain.gain.setValueAtTime(0.18, t0 + 0.9);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.3);
+    osc.connect(gain).connect(masterGain);
+    osc.start(t0 + 0.05);
+    osc.stop(t0 + 1.3);
+  });
+
+  // ── Layer 4: FILTER-WOBBLE LFO (creates the menacing "drone" feel) ──
+  const lfo = audioCtx.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 5.5;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = 80;
+  lfo.connect(lfoGain).connect(filter.frequency);
+  lfo.start(t0);
+  lfo.stop(t0 + 1.3);
+
+  // ── Layer 5: HIGH DISSONANT TAIL (a faint screech for that horror-vibe) ──
+  const dissonant = audioCtx.createOscillator();
+  dissonant.type = 'sawtooth';
+  dissonant.frequency.setValueAtTime(550, t0 + 0.3);
+  dissonant.frequency.linearRampToValueAtTime(180, t0 + 1.2);
+  const dissonantGain = audioCtx.createGain();
+  dissonantGain.gain.setValueAtTime(0.0, t0);
+  dissonantGain.gain.linearRampToValueAtTime(0.05, t0 + 0.4);
+  dissonantGain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+  dissonant.connect(dissonantGain).connect(filter);
+  dissonant.start(t0 + 0.3);
+  dissonant.stop(t0 + 1.3);
 }
 
 function _audioMidDing(audioCtx, dest) {
@@ -35006,7 +35076,7 @@ function _renderIntro(ctx, W, H, t /*0..1*/, data) {
   // Trades-Info
   ctx.font = '600 ' + Math.round(H*0.024) + 'px system-ui, sans-serif';
   ctx.fillStyle = REVEAL_BRAND.textMuted;
-  ctx.fillText(data.nTrades + ' Trades getestet', W/2, H*0.65);
+  ctx.fillText(data.nTrades + ' Trades tested', W/2, H*0.65);
   // Pulsing dot indicator
   const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 6);
   ctx.fillStyle = REVEAL_BRAND.primary;
@@ -35142,7 +35212,7 @@ function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
     ctx.textAlign = 'center';
     ctx.font = 'italic 600 ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
     ctx.fillStyle = REVEAL_BRAND.secondary;
-    ctx.fillText('💡 ' + (data.verdictKey === 'rejected' ? 'Improve:' : 'Tipp:'), W/2, H*0.84);
+    ctx.fillText('💡 ' + (data.verdictKey === 'rejected' ? 'Improve:' : 'Tip:'), W/2, H*0.84);
     ctx.font = '600 ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
     ctx.fillStyle = REVEAL_BRAND.textPrimary;
     _wrapText(ctx, data.recommendation, W/2, H*0.875, W*0.85, H*0.030);
