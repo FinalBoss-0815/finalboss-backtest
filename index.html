@@ -864,7 +864,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 11:54 UTC</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 17:33 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -31773,7 +31773,7 @@ document.addEventListener('visibilitychange', () => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-10 11:54 UTC';
+const APP_BUILD = '2026-05-10 17:33 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -35983,7 +35983,7 @@ async function _preloadAllCustomSounds(audioCtx) {
 //   t=7.5  : Reveal-Cut + Verdict-Sound
 async function _buildOfflineRevealAudio(verdictKey, customCache) {
   const sampleRate = 44100;
-  const totalSec = 13.6;  // small tail buffer
+  const totalSec = 14.6;  // small tail buffer (Phase 0 verlaengert auf 2.5s)
   const offCtx = new OfflineAudioContext(2, sampleRate * totalSec, sampleRate);
 
   // Helper: spielt einen Custom-Sound zur Zeit t in den Offline-Context
@@ -35997,45 +35997,32 @@ async function _buildOfflineRevealAudio(verdictKey, customCache) {
     return true;
   };
 
-  // Helper: schedule synth sound mit dem offline-context als sowohl audioCtx als auch dest
-  // (unsere Synth-Funktionen erwarten audioCtx.currentTime, deshalb müssen wir trick:n
-  // wir setzen die audioCtx-currentTime via start times als offset)
-  const playSynthAt = (synthFn, t) => {
-    // Wir können nicht offCtx.currentTime ändern — stattdessen müssen wir die Synth-Funktion
-    // anpassen damit sie eine baseTime annimmt.
-    // Trick: wir schreiben eine Wrapper-Funktion die einen Pseudo-Context erstellt
-    // dessen "currentTime" einfach offCtx.currentTime + t liefert
-    // Da OfflineAudioContext das in Echtzeit nicht macht, müssen wir die Sounds direkt programmieren
-    // Statt dessen nutze ich die Synth-Funktionen direkt mit dem offCtx und manueller Zeit-Anpassung
-    synthFn(offCtx, offCtx.destination, t);
-  };
-
-  // ── 0.0s: Whoosh (Phase 0) ──
+  // ── 0.0s: Whoosh (Phase 0 — LET'S TEST IT) ──
   if (!playCustom('whoosh', 0)) {
     _audioWhooshAt(offCtx, offCtx.destination, 0);
   }
 
-  // ── 4.5s: Rising Tension (3s) + Tick "3" ──
-  if (!playCustom('tension', 4.5)) {
-    _audioRisingTensionAt(offCtx, offCtx.destination, 4.5, 3.0);
+  // ── 5.5s: Rising Tension (3s) + Tick "3" ──
+  if (!playCustom('tension', 5.5)) {
+    _audioRisingTensionAt(offCtx, offCtx.destination, 5.5, 3.0);
   }
-  if (!playCustom('tick', 4.5)) {
-    _audioTickAt(offCtx, offCtx.destination, 4.5);
-  }
-
-  // ── 5.5s: Tick "2" ──
   if (!playCustom('tick', 5.5)) {
     _audioTickAt(offCtx, offCtx.destination, 5.5);
   }
 
-  // ── 6.5s: Tick "1" ──
+  // ── 6.5s: Tick "2" ──
   if (!playCustom('tick', 6.5)) {
     _audioTickAt(offCtx, offCtx.destination, 6.5);
   }
 
-  // ── 7.5s: Reveal-Cut + Verdict-Sound ──
-  if (!playCustom('reveal', 7.5)) {
-    _audioRevealCutAt(offCtx, offCtx.destination, 7.5);
+  // ── 7.5s: Tick "1" ──
+  if (!playCustom('tick', 7.5)) {
+    _audioTickAt(offCtx, offCtx.destination, 7.5);
+  }
+
+  // ── 8.5s: Reveal-Cut + Verdict-Sound ──
+  if (!playCustom('reveal', 8.5)) {
+    _audioRevealCutAt(offCtx, offCtx.destination, 8.5);
   }
   const verdictSlot = verdictKey === 'approved' ? 'approved' : (verdictKey === 'rejected' ? 'rejected' : 'mid');
   const verdictFnMap = {
@@ -36043,8 +36030,8 @@ async function _buildOfflineRevealAudio(verdictKey, customCache) {
     rejected: _audioRejectedBuzzAt,
     mid: _audioMidDingAt
   };
-  if (!playCustom(verdictSlot, 7.5)) {
-    verdictFnMap[verdictSlot](offCtx, offCtx.destination, 7.5);
+  if (!playCustom(verdictSlot, 8.5)) {
+    verdictFnMap[verdictSlot](offCtx, offCtx.destination, 8.5);
   }
 
   return await offCtx.startRendering();
@@ -36355,10 +36342,10 @@ async function tiktokRevealPlay(record) {
   try { audioSrc.start(0); } catch(e) { console.warn('audioSrc start failed:', e); }
 
   // Animation
-  const PHASE0_END = 1.5;   // "LET'S TEST IT" intro
-  const PHASE1_END = 4.5;   // Strategy info card (3s)
-  const PHASE2_END = 7.5;   // Countdown 3-2-1 (3s)
-  const PHASE3_END = 13.5;  // Verdict reveal (6s)
+  const PHASE0_END = 2.5;   // "LET'S TEST IT" intro (verlaengert fuer mehr Spannung)
+  const PHASE1_END = 5.5;   // Strategy info card (3s)
+  const PHASE2_END = 8.5;   // Countdown 3-2-1 (3s)
+  const PHASE3_END = 14.5;  // Verdict reveal (6s)
   const startTime = performance.now();
   let lastCountdownNumber = -1;
   let verdictSoundPlayed = false;
@@ -36422,6 +36409,84 @@ async function tiktokRevealPlay(record) {
   recBtn.disabled = false; prevBtn.disabled = false;
   _tiktokRevealAnimating = false;
 }
+
+// ════════════════════════════════════════════════════════
+// ADMIN-ANALYTICS: Visit-Tracking + Live Online-Counter
+// Tracking laeuft fuer ALLE User. Display nur fuer Admin sichtbar.
+// ════════════════════════════════════════════════════════
+
+const ANALYTICS_SESSION_KEY = 'fb_analytics_session_id';
+const ANALYTICS_HEARTBEAT_MS = 30 * 1000;  // alle 30sec heartbeat
+let _analyticsTimer = null;
+let _analyticsAdminTimer = null;
+
+function _getOrCreateSessionId() {
+  let id = sessionStorage.getItem(ANALYTICS_SESSION_KEY);
+  if (!id) {
+    id = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    sessionStorage.setItem(ANALYTICS_SESSION_KEY, id);
+  }
+  return id;
+}
+
+async function analyticsTrackVisit(isNewSession) {
+  const cfg = (typeof reviewGetWorkerCfg === 'function') ? reviewGetWorkerCfg() : null;
+  if (!cfg || !cfg.url) return;  // kein Worker konfiguriert -> nichts zu tracken
+  const sessionId = _getOrCreateSessionId();
+  try {
+    await fetch(cfg.url + '/track-visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, is_new_session: !!isNewSession }),
+      keepalive: true,
+    });
+  } catch (e) {
+    // silent — analytics darf die App nie blocken
+  }
+}
+
+async function analyticsRefreshDisplay() {
+  if (typeof reviewIsAdmin !== 'function' || !reviewIsAdmin()) return;
+  const cfg = reviewGetWorkerCfg();
+  if (!cfg || !cfg.url) return;
+  try {
+    const r = await fetch(cfg.url + '/stats');
+    if (!r.ok) return;
+    const data = await r.json();
+    const onlineEl = document.getElementById('analyticsOnline');
+    const totalEl = document.getElementById('analyticsTotal');
+    if (onlineEl) onlineEl.textContent = data.online_now || 0;
+    if (totalEl) totalEl.textContent = (data.total_visits || 0).toLocaleString();
+  } catch(e) {}
+}
+
+function analyticsStart() {
+  // Widget nur in Admin-Mode anzeigen
+  const w = document.getElementById('adminAnalyticsWidget');
+  const isAdmin = (typeof reviewIsAdmin === 'function') ? reviewIsAdmin() : false;
+  if (w) w.style.display = isAdmin ? 'inline-block' : 'none';
+
+  // Initial-Tracking + Heartbeats (laufen IMMER, auch fuer Non-Admin)
+  analyticsTrackVisit(true);
+  if (_analyticsTimer) clearInterval(_analyticsTimer);
+  _analyticsTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      analyticsTrackVisit(false);
+    }
+  }, ANALYTICS_HEARTBEAT_MS);
+
+  // Admin-Display-Refresh alle 30s
+  if (isAdmin) {
+    analyticsRefreshDisplay();
+    if (_analyticsAdminTimer) clearInterval(_analyticsAdminTimer);
+    _analyticsAdminTimer = setInterval(analyticsRefreshDisplay, ANALYTICS_HEARTBEAT_MS);
+  }
+}
+
+// Bei Admin-Mode-Switch (URL ?admin=1) das Widget ein/ausblenden
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(analyticsStart, 800);  // small delay damit reviewGetWorkerCfg + reviewIsAdmin verfügbar sind
+});
 
 // ── Initialisierung beim App-Start ──
 function aiInitOnLoad() {
