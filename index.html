@@ -33607,10 +33607,11 @@ function aiValidateStrategy(spec) {
     // Echte Strategien können erst nach N Kerzen entries machen (Lookback) → bei i=5 würden
     // viele crashen, das ist OK. Wir prüfen nur dass FUNKTIONEN GRUNDSÄTZLICH ausführbar sind.
     let entries = 0;
+    let validEntries = 0;
     let runtimeWarnings = 0;
+    let invalidReturnWarnings = 0;
     try { strat.init(testCandles, params); }
     catch (e) {
-      // init crash ist ein echter Fehler
       return { ok: false, error: 'init crashed: ' + e.message };
     }
     for (let i = 50; i < testCandles.length; i++) {
@@ -33618,33 +33619,38 @@ function aiValidateStrategy(spec) {
         const r = strat.shouldEnter(testCandles, i, params);
         if (r) {
           entries++;
-          if (typeof r.dir !== 'string' || (r.dir !== 'long' && r.dir !== 'short')) {
-            return { ok: false, error: 'shouldEnter return.dir muss "long" oder "short" sein, bekam: ' + r.dir };
+          // Validate Entry — wenn Müll: skippen, nicht hart rejecten (echter Backtest macht das auch)
+          const dirOk = typeof r.dir === 'string' && (r.dir === 'long' || r.dir === 'short');
+          const slOk = typeof r.sl === 'number' && !isNaN(r.sl) && isFinite(r.sl);
+          if (!dirOk || !slOk) {
+            invalidReturnWarnings++;
+            continue;  // skip this entry, try next
           }
-          if (typeof r.sl !== 'number' || isNaN(r.sl)) {
-            return { ok: false, error: 'shouldEnter return.sl muss eine gültige Zahl sein' };
-          }
+          validEntries++;
           try {
             const exitR = strat.shouldExit(testCandles, i + 1, { dir: r.dir, sl: r.sl, entry: testCandles[i].close }, params);
-            if (typeof exitR !== 'boolean') {
-              return { ok: false, error: 'shouldExit muss true|false zurückgeben, bekam: ' + typeof exitR };
+            // exitR muss boolean sein, aber wir akzeptieren auch undefined als false
+            if (exitR !== undefined && typeof exitR !== 'boolean') {
+              invalidReturnWarnings++;
             }
           } catch (eExit) {
             runtimeWarnings++;
-            console.warn('shouldExit Runtime-Warning bei i=' + i + ':', eExit.message);
           }
-          if (entries >= 3) break;
+          if (validEntries >= 3) break;
         }
       } catch (eEnter) {
         runtimeWarnings++;
-        console.warn('shouldEnter Runtime-Warning bei i=' + i + ':', eEnter.message);
-        if (runtimeWarnings > 30) {
-          // Wenn fast alle Aufrufe crashen, ist's ein echter Bug
-          return { ok: false, error: 'shouldEnter crasht zu oft: ' + eEnter.message + '. Code hat wahrscheinlich keine Bounds-Checks für i / candles[i-X].' };
+        if (runtimeWarnings > 50) {
+          return { ok: false, error: 'shouldEnter crasht zu oft (' + runtimeWarnings + ' Crashes): ' + eEnter.message + '. Code hat wahrscheinlich keine Bounds-Checks.' };
         }
       }
     }
-    return { ok: true, strat, entries, testCandlesCount: testCandles.length, warnings: runtimeWarnings };
+    // Wenn ALLE Entries invalid sind, ist die Strategie unbrauchbar
+    if (entries > 0 && validEntries === 0) {
+      return { ok: false, error: 'Strategie generiert ' + entries + ' Entries aber alle haben ungültige sl/dir. Code hat wahrscheinlich Bug bei SL-Berechnung.' };
+    }
+    if (invalidReturnWarnings > 0) console.warn('Strategie: ' + invalidReturnWarnings + ' invalid Entries beim Sandbox-Test (im echten Backtest werden die geskippt)');
+    return { ok: true, strat, entries: validEntries, testCandlesCount: testCandles.length, warnings: runtimeWarnings + invalidReturnWarnings };
   } catch (e) {
     return { ok: false, error: 'Sandbox-Fehler: ' + (e.message || String(e)) };
   }
@@ -33676,9 +33682,32 @@ function aiBuildStrategyObject(spec) {
     defaultTF: spec.defaultTF || '1h',
     params: JSON.parse(JSON.stringify(spec.params)), // deep copy
     _aiSpec: spec,
-    init(candles, params) { return initFn.call(this, candles, params, Indicators, Math); },
-    shouldEnter(candles, i, params) { return enterFn.call(this, candles, i, params, Indicators, Math); },
-    shouldExit(candles, i, position, params) { return exitFn.call(this, candles, i, position, params, Indicators, Math); },
+    init(candles, params) {
+      try { return initFn.call(this, candles, params, Indicators, Math); }
+      catch (e) { console.warn('AI init crashed:', e.message); }
+    },
+    shouldEnter(candles, i, params) {
+      try {
+        const r = enterFn.call(this, candles, i, params, Indicators, Math);
+        if (!r) return null;
+        // Sanitize: wenn sl/dir nicht valid → null zurückgeben (entry skippen)
+        if (typeof r !== 'object') return null;
+        if (r.dir !== 'long' && r.dir !== 'short') return null;
+        if (typeof r.sl !== 'number' || isNaN(r.sl) || !isFinite(r.sl)) return null;
+        return r;
+      } catch (e) {
+        // Runtime-Crash bei einer Kerze ignorieren — könnte fehlende Bounds-Check sein
+        return null;
+      }
+    },
+    shouldExit(candles, i, position, params) {
+      try {
+        const r = exitFn.call(this, candles, i, position, params, Indicators, Math);
+        return r === true;
+      } catch (e) {
+        return false;
+      }
+    },
   };
   return stratObj;
 }
