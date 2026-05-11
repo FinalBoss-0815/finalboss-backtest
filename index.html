@@ -941,7 +941,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 10:32 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 14:51 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -1512,6 +1512,7 @@ input[type=number] { -moz-appearance:textfield }
       <div style="display:flex;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px;overflow:hidden">
         <div style="display:flex;align-items:center;gap:10px;white-space:nowrap">
           <button id="liveChartBtn" onclick="toggleLiveChart()" style="padding:3px 10px;font-size:11px;font-weight:600;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);border-radius:4px;cursor:pointer;transition:all 0.2s" title="Live-Chart mit Echtzeit-Daten">● LIVE</button>
+          <button id="liveReplayBtn" onclick="liveReplayEnterPickMode()" style="padding:3px 10px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;border-radius:4px;cursor:pointer;transition:all 0.2s;margin-left:4px" title="Bar Replay: Klick eine Kerze als Start-Punkt — danach läuft die Zeit kerze für kerze ab">🎬 Bar Replay</button>
           <select id="liveSymbol" style="padding:3px 6px;font-size:11px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer" onchange="clearBacktestOverlay();if(liveChartActive)startLiveChart()">
             <option value="BTCUSDT">BTC</option><option value="ETHUSDT">ETH</option><option value="SOLUSDT">SOL</option>
             <option value="BNBUSDT">BNB</option><option value="XRPUSDT">XRP</option><option value="ADAUSDT">ADA</option>
@@ -1723,6 +1724,25 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <canvas id="tradeChart" style="cursor:crosshair;position:absolute;top:0;left:40px;width:calc(100% - 40px);height:100%"></canvas>
         <canvas id="tradeChartOverlay" style="position:absolute;top:0;left:40px;width:calc(100% - 40px);height:100%;pointer-events:none"></canvas>
+        <!-- Bar Replay Pick-Mode Hint Banner -->
+        <div id="liveReplayPickHint" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;z-index:50;box-shadow:0 2px 12px rgba(245,158,11,0.4)">🎯 Klick eine Kerze als Replay-Start <button onclick="liveReplayExit()" style="background:rgba(0,0,0,0.2);border:none;color:#000;padding:2px 8px;margin-left:8px;border-radius:3px;cursor:pointer;font-size:11px;font-weight:700">Abbrechen (ESC)</button></div>
+        <!-- Bar Replay Controls (when active) -->
+        <div id="liveReplayControls" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(13,17,23,0.95);border:1px solid #f59e0b;border-radius:6px;padding:6px 8px;z-index:50;display:none;align-items:center;gap:6px;font-size:11px;box-shadow:0 2px 12px rgba(245,158,11,0.3)">
+          <button onclick="liveReplayStep(-10)" title="-10 Kerzen" style="background:var(--bg-tertiary);border:1px solid var(--border);color:#fbbf24;width:28px;height:24px;border-radius:3px;cursor:pointer;font-weight:700">⏪</button>
+          <button onclick="liveReplayStep(-1)" title="-1 Kerze" style="background:var(--bg-tertiary);border:1px solid var(--border);color:#fbbf24;width:28px;height:24px;border-radius:3px;cursor:pointer;font-weight:700">⏮</button>
+          <button id="liveReplayPlayBtn" onclick="liveReplayToggle()" title="Play/Pause" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;width:32px;height:24px;border-radius:3px;cursor:pointer;font-weight:700">▶</button>
+          <button onclick="liveReplayStep(1)" title="+1 Kerze" style="background:var(--bg-tertiary);border:1px solid var(--border);color:#fbbf24;width:28px;height:24px;border-radius:3px;cursor:pointer;font-weight:700">⏭</button>
+          <button onclick="liveReplayStep(10)" title="+10 Kerzen" style="background:var(--bg-tertiary);border:1px solid var(--border);color:#fbbf24;width:28px;height:24px;border-radius:3px;cursor:pointer;font-weight:700">⏩</button>
+          <select id="liveReplaySpeed" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:2px 4px;border-radius:3px;font-size:10px">
+            <option value="2000">0.5×</option>
+            <option value="1000" selected>1×</option>
+            <option value="500">2×</option>
+            <option value="200">5×</option>
+            <option value="100">10×</option>
+          </select>
+          <span id="liveReplayCounter" style="color:#fbbf24;font-weight:700;font-family:monospace;padding:0 6px">0 / 0</span>
+          <button onclick="liveReplayExit()" title="Replay beenden" style="background:#7f1d1d;border:none;color:#fff;padding:2px 8px;border-radius:3px;cursor:pointer;font-weight:700">⏹ Stop</button>
+        </div>
       </div>
       <div style="margin-top:8px;font-size:11px;color:var(--text-muted);display:flex;gap:16px;flex-wrap:wrap">
         <span><span style="color:#3fb950">▲</span> Long Entry</span>
@@ -16030,6 +16050,148 @@ function clearBacktestOverlay() {
   }
 }
 
+// ════════════════════════════════════════════════════════
+// LIVE-CHART BAR REPLAY (Idee 2)
+// User klickt "Bar Replay" → Cursor wird Fadenkreuz →
+// User klickt eine Kerze als Start → alles danach wird ausgeblendet →
+// Play/Step/Reset Controls erscheinen
+// ════════════════════════════════════════════════════════
+let liveReplayPicking = false;
+let liveReplayActive = false;
+let liveReplayIndex = 0;
+let liveReplayStartIdx = 0;
+let liveReplayPlaying = false;
+let liveReplayTimer = null;
+let _liveReplayOriginalCandles = null;
+
+function liveReplayEnterPickMode() {
+  if (!liveChartActive || !liveChartCandles || liveChartCandles.length < 30) {
+    _showErrorToast('Bar Replay braucht aktiven Live-Chart mit mindestens 30 Kerzen. Erst "● LIVE" klicken.', 5000);
+    return;
+  }
+  if (liveReplayActive) { liveReplayExit(); return; }
+  liveReplayPicking = true;
+  document.getElementById('liveReplayPickHint').style.display = 'block';
+  // Cursor auf Fadenkreuz setzen
+  const canvas = document.getElementById('tradeChart');
+  if (canvas) canvas.style.cursor = 'crosshair';
+  // ESC-Listener
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      liveReplayExit();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  _showInfoToast('🎯 Klick eine Kerze auf dem Chart als Replay-Startpunkt', 5000);
+}
+
+function liveReplayHandleChartClick(mouseX, mouseY) {
+  // Wird aus dem chart click-handler aufgerufen wenn liveReplayPicking aktiv ist
+  if (!liveReplayPicking || !chartScaleState || !liveChartCandles) return false;
+  const s = chartScaleState;
+  // Pixel zu Candle-Index konvertieren
+  const idx = Math.round(s.exactStart + (mouseX - s.pad.left) / s.effectiveW * s.logicalCount);
+  const clampedIdx = Math.max(20, Math.min(liveChartCandles.length - 1, idx));
+  liveReplayPicking = false;
+  document.getElementById('liveReplayPickHint').style.display = 'none';
+  liveReplayActivate(clampedIdx);
+  return true;  // signalisiert dem caller dass wir den click verarbeitet haben
+}
+
+function liveReplayActivate(startIdx) {
+  liveReplayActive = true;
+  liveReplayStartIdx = startIdx;
+  liveReplayIndex = startIdx;
+  // Backup der originalen Kerzen
+  _liveReplayOriginalCandles = liveChartCandles;
+  liveChartCandles = _liveReplayOriginalCandles.slice(0, startIdx + 1);
+  // Controls anzeigen
+  const ctrls = document.getElementById('liveReplayControls');
+  if (ctrls) { ctrls.style.display = 'flex'; }
+  // Cursor zurücksetzen
+  const canvas = document.getElementById('tradeChart');
+  if (canvas) canvas.style.cursor = '';
+  // Counter aktualisieren
+  _updateLiveReplayUI();
+  // Chart neu zeichnen
+  try {
+    chartIndicatorCandles = null;
+    computeChartIndicators(liveChartCandles);
+    drawCandleChart('tradeChart', liveChartCandles, backtestOverlayTrades || [], chartViewStart, chartViewEnd, false, chartYShift);
+  } catch(e) { console.warn('Replay draw error:', e); }
+  _showSuccessToast('🎬 Bar Replay aktiv ab Kerze ' + (startIdx + 1) + '. Play oder Pfeile zum Vorspulen.', 4500);
+}
+
+function liveReplayStep(delta) {
+  if (!liveReplayActive) return;
+  const newIdx = Math.max(liveReplayStartIdx, Math.min(_liveReplayOriginalCandles.length - 1, liveReplayIndex + delta));
+  liveReplayIndex = newIdx;
+  liveChartCandles = _liveReplayOriginalCandles.slice(0, newIdx + 1);
+  _updateLiveReplayUI();
+  try {
+    chartIndicatorCandles = null;
+    computeChartIndicators(liveChartCandles);
+    drawCandleChart('tradeChart', liveChartCandles, backtestOverlayTrades || [], chartViewStart, chartViewEnd, false, chartYShift);
+  } catch(e) {}
+  // Wenn am Ende angekommen: Auto-Pause
+  if (newIdx >= _liveReplayOriginalCandles.length - 1 && liveReplayPlaying) {
+    liveReplayToggle();
+  }
+}
+
+function liveReplayToggle() {
+  if (!liveReplayActive) return;
+  liveReplayPlaying = !liveReplayPlaying;
+  const btn = document.getElementById('liveReplayPlayBtn');
+  if (liveReplayPlaying) {
+    if (btn) btn.textContent = '⏸';
+    const speedSel = document.getElementById('liveReplaySpeed');
+    const intervalMs = speedSel ? parseInt(speedSel.value) : 1000;
+    liveReplayTimer = setInterval(() => liveReplayStep(1), intervalMs);
+  } else {
+    if (btn) btn.textContent = '▶';
+    if (liveReplayTimer) { clearInterval(liveReplayTimer); liveReplayTimer = null; }
+  }
+}
+
+function liveReplayExit() {
+  // Pick-Mode abbrechen
+  if (liveReplayPicking) {
+    liveReplayPicking = false;
+    document.getElementById('liveReplayPickHint').style.display = 'none';
+    const canvas = document.getElementById('tradeChart');
+    if (canvas) canvas.style.cursor = '';
+  }
+  // Active Mode beenden
+  if (liveReplayActive) {
+    liveReplayActive = false;
+    liveReplayPlaying = false;
+    if (liveReplayTimer) { clearInterval(liveReplayTimer); liveReplayTimer = null; }
+    // Original-Kerzen wiederherstellen
+    if (_liveReplayOriginalCandles) {
+      liveChartCandles = _liveReplayOriginalCandles;
+      _liveReplayOriginalCandles = null;
+    }
+    // Controls verstecken
+    const ctrls = document.getElementById('liveReplayControls');
+    if (ctrls) ctrls.style.display = 'none';
+    // Chart neu zeichnen mit Original-Daten
+    try {
+      chartIndicatorCandles = null;
+      computeChartIndicators(liveChartCandles);
+      drawCandleChart('tradeChart', liveChartCandles, backtestOverlayTrades || [], chartViewStart, chartViewEnd, false, chartYShift);
+    } catch(e) {}
+  }
+}
+
+function _updateLiveReplayUI() {
+  const counter = document.getElementById('liveReplayCounter');
+  if (counter && _liveReplayOriginalCandles) {
+    counter.textContent = (liveReplayIndex + 1) + ' / ' + _liveReplayOriginalCandles.length;
+  }
+}
+
 function toggleLiveChart() {
   if (liveChartActive) stopLiveChart();
   else startLiveChart();
@@ -19409,6 +19571,17 @@ window.addEventListener('resize', () => {
 
   // Mouse drag to pan (X + Y) OR start drawing
   canvas.addEventListener('mousedown', (e) => {
+    // ── Bar Replay Pick-Mode: erster Klick = Replay-Start ──
+    if (typeof liveReplayPicking !== 'undefined' && liveReplayPicking) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const mx = (e.clientX - rect.left) * (canvas.width / rect.width / dpr);
+      if (typeof liveReplayHandleChartClick === 'function' && liveReplayHandleChartClick(mx, 0)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
     // Always hide edit bar on chart click (debShow will re-show if a drawing is hit)
     debHide();
 
@@ -32113,7 +32286,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-11 10:32 UTC';
+const APP_BUILD = '2026-05-11 14:51 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
