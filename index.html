@@ -10122,7 +10122,7 @@ const STRATEGY_INFO = {
     desc: "Multi-Timeframe SMC-Strategie aus dem FinalBoss Live-Bot v4: findet Swing-Hochs/Tiefs auf 1h, baut Fibonacci-Zonen (0.5-0.667 Retracement), validiert mit Break-of-Structure (BOS), Pullback (PB), Change-of-Character (CHoCH) und Fib-786-Filter. Entry-Trigger auf 5m mit 3-Kerzen-Lookback + EMA50-Trendfilter (aktueller 1h-Trend, kein Stale-Cache). Risk-Management: Min-SL 0.5%, Max-RR 12, Lost-Zone-Block ±2% für 24h nach SL.",
     entry: "1h-SETUP: Swing-Sequenz mit höherem Tief (Long) bzw. tieferem Hoch (Short), Korrektur-Tiefe ≥ 0.30 der Impuls-Range, entweder Traumsequenz (BC/AB > 1.5, Korr 0.45-0.75) ODER BOS-Bestätigung. Kein CHoCH gegen die Richtung. Kein Fib-786-Overshoot. Zone = Fib 0.5-0.667 vom B-Punkt (Impuls-High/Low). 5m-ENTRY: Zone in den letzten 15 Kerzen (~75 Min) berührt, jetzt 5m-Close > Zone-Top (Long) UND grüne Kerze UND Close ≤ Zone-Top + 2× Zonenbreite. Bei Short spiegelbildlich. Drei-Kerzen-Lookback: prüft die letzten 3 5m-Kerzen, damit kein Close verpasst wird (Live-Bot check_5m_entry_live). FILTER: EMA50-Trend auf 1h-Kerzen (aktueller Trend, NICHT vom Sequenz-Discovery-Zeitpunkt — siehe Live-Bot scan_sk_zones EMA-Override). Min-SL-Distanz 0.5% des Entry-Preises (l1_min_sl_pct). RR (TP1/SL-Dist) zwischen 1.5 und 12. Lost-Zone-Block: nach SL-Hit wird der Entry-Preis als ±2%-Zone für 288 5m-Bars (24h) gesperrt.",
     exit: "SL = Zone-Referenz (slRef = C-Punkt der Sequenz / Pullback-Tief bzw. -Hoch) ± slBuffer (default 0.2%). TP1 = B-Punkt der Sequenz (Impuls-Hoch/Tief). Bei TP1-Hit: 50% Teilverkauf + SL → Break-Even (Engine-managed). TP2 = B-Punkt + 0.618× Impuls-Range. Doppel-Bestätigung bei TP1: zweiter Ticker-Preis wird abgefragt um Glitch-Trigger zu verhindern. TP1-vor-SL: wenn TP1 und SL in derselben Bar getroffen werden, gilt TP1 zuerst (Live-Bot Fix vom 06.05.).",
-    market: "Krypto (BTC/USDT, ETH/USDT etc.) — der Live-Bot tradet aktuell 8 Coins: BLUR, FET, DOT, FLOKI, COMP, DOGE, SAND, ADA. ETH und JUP wurden am 06.05.2026 entfernt (negative Backtest-Performance).",
+    market: "Krypto-Coins mit klarer Swing-Struktur und ausreichender Volatilität (Top-30 nach Marktkap.). Funktioniert auf Major-Coins (BTC, ETH) sowie auf liquiden Mid-Caps. Schlechter auf extrem trending oder extrem choppy Coins.",
     indicators: "1h-Swings (LB=3) + Fibonacci-Zonen (0.5-0.667), BOS/PB/CHoCH/Fib786-Filter, 1h-EMA50 (aktueller Trend), 5m-Close-Above + grüne/rote Confirmation-Kerze, 24h-Lost-Zone-Block ±2%"
   },
   "MACD Crossover": {
@@ -10451,7 +10451,7 @@ const STRATEGY_INFO_EN = {
   "Regime-Switch Master": { desc: "Detects market regime (trend/range/volatility) and switches sub-strategy automatically.", entry: "Depends on regime — trend strategy in trends, mean reversion in range.", exit: "Regime change or sub-strategy exit.", market: "All — adapts automatically", indicators: "ADX, BB-Width, ATR" },
   "Multi-Strategy Voting": { desc: "Multiple sub-strategies vote — entry only when N out of M agree.", entry: "Long when ≥3 of 5 indicators signal bullish: EMA-50 trend, EMA-9/21 cross, RSI direction, ADX+DI, Supertrend. Short reverse.", exit: "Majority votes opposite or stop-loss.", market: "All — robust against single-strategy weakness", indicators: "EMA-50, EMA-9/21, RSI, ADX/DI, Supertrend" },
   "ML Feature Classifier": { desc: "Simple Random-Forest-style classifier with technical features. Predicts up/down probability.", entry: "Long when probability > 0.6. Short when < 0.4.", exit: "Signal ends or stop-loss.", market: "All — adapts to historical patterns (caution: overfitting possible!)", indicators: "RSI, ADX, BB-position, EMA-slopes, volatility, volume — as ML features" },
-  "FinalBoss Zonen": { desc: "Multi-timeframe SMC strategy from the FinalBoss live bot v4: finds 1h swing highs/lows, builds Fibonacci zones (0.5-0.667 retracement), validates with Break-of-Structure (BOS), Pullback (PB), Change-of-Character (CHoCH) and Fib-786 invalidation. Entry trigger on 5m with 3-candle lookback + 1h-EMA50 trend filter (current trend, no stale cache). Risk: Min-SL 0.5%, Max-RR 12, Lost-Zone block ±2% for 24h after SL.", entry: "1h SETUP: swing sequence with higher low (long) / lower high (short), correction depth >= 0.30 of impulse range, either Traumsequenz (BC/AB > 1.5, corr 0.45-0.75) OR BOS confirmation. No CHoCH against direction. No Fib-786 overshoot. Zone = Fib 0.5-0.667 from B point. 5m ENTRY: zone touched in last 15 candles (~75 min), now 5m close > zone top (long) AND green candle AND close <= zone top + 2x zone width. Short mirrored. 3-candle lookback (check_5m_entry_live). EMA50 on 1h closes (current trend). Min-SL-distance 0.5% of entry price. RR (TP1/SL-dist) between 1.5 and 12. Lost-zone block: after SL hit, entry price is blocked +-2% for 288 5m bars (24h).", exit: "SL = zone reference (C point / pullback low/high) +- slBuffer (default 0.2%). TP1 = B point of sequence (impulse high/low). On TP1 hit: 50% partial close + SL -> break-even (engine-managed). TP2 = B point + 0.618 x impulse range. Double-confirm at TP1 (second ticker fetch to prevent glitch triggers). TP1-before-SL: if TP1 and SL hit in the same bar, TP1 takes priority (live bot fix 06.05.).", market: "Crypto (BTC/USDT, ETH/USDT etc.) — live bot currently trades 8 coins: BLUR, FET, DOT, FLOKI, COMP, DOGE, SAND, ADA. ETH and JUP removed on 06.05.2026 (negative backtest performance).", indicators: "1h swings (LB=3) + Fibonacci zones (0.5-0.667), BOS/PB/CHoCH/Fib786 filters, 1h EMA50 (current trend), 5m close-above + green/red confirmation candle, 24h lost-zone block +-2%" },
+  "FinalBoss Zonen": { desc: "Multi-timeframe SMC strategy from the FinalBoss live bot v4: finds 1h swing highs/lows, builds Fibonacci zones (0.5-0.667 retracement), validates with Break-of-Structure (BOS), Pullback (PB), Change-of-Character (CHoCH) and Fib-786 invalidation. Entry trigger on 5m with 3-candle lookback + 1h-EMA50 trend filter (current trend, no stale cache). Risk: Min-SL 0.5%, Max-RR 12, Lost-Zone block ±2% for 24h after SL.", entry: "1h SETUP: swing sequence with higher low (long) / lower high (short), correction depth >= 0.30 of impulse range, either Traumsequenz (BC/AB > 1.5, corr 0.45-0.75) OR BOS confirmation. No CHoCH against direction. No Fib-786 overshoot. Zone = Fib 0.5-0.667 from B point. 5m ENTRY: zone touched in last 15 candles (~75 min), now 5m close > zone top (long) AND green candle AND close <= zone top + 2x zone width. Short mirrored. 3-candle lookback (check_5m_entry_live). EMA50 on 1h closes (current trend). Min-SL-distance 0.5% of entry price. RR (TP1/SL-dist) between 1.5 and 12. Lost-zone block: after SL hit, entry price is blocked +-2% for 288 5m bars (24h).", exit: "SL = zone reference (C point / pullback low/high) +- slBuffer (default 0.2%). TP1 = B point of sequence (impulse high/low). On TP1 hit: 50% partial close + SL -> break-even (engine-managed). TP2 = B point + 0.618 x impulse range. Double-confirm at TP1 (second ticker fetch to prevent glitch triggers). TP1-before-SL: if TP1 and SL hit in the same bar, TP1 takes priority (live bot fix 06.05.).", market: "Crypto coins with clear swing structure and sufficient volatility (top-30 market cap). Works on major coins (BTC, ETH) as well as liquid mid-caps. Less effective on extreme trending or extreme choppy coins.", indicators: "1h swings (LB=3) + Fibonacci zones (0.5-0.667), BOS/PB/CHoCH/Fib786 filters, 1h EMA50 (current trend), 5m close-above + green/red confirmation candle, 24h lost-zone block +-2%" },
   "MACD Crossover": { desc: "Classic momentum signal: MACD line crosses signal line.", entry: "Long when MACD crosses above signal. Short for opposite cross.", exit: "Opposite cross or stop-loss.", market: "Trending to mildly volatile markets", indicators: "MACD (12/26/9), ATR" },
   "Stochastic K/D Cross": { desc: "Stochastic oscillator: K line crosses D line in extreme zones.", entry: "Long: K crosses D upward in oversold (<30). Short: K crosses D downward in overbought (>70).", exit: "Stochastic reaches opposite extreme or stop-loss.", market: "Range / mean-reverting", indicators: "Stochastic (14,3), ATR" },
   "Williams %R Reversal": { desc: "%R measures where close lies relative to last N candles' range. Extreme values signal reversal.", entry: "Long when %R turns up from -80 (oversold). Short when down from -20 (overbought).", exit: "Other side of range reached or stop-loss.", market: "Mean-reversion", indicators: "Williams %R (14), ATR" },
@@ -11273,7 +11273,7 @@ const STRATEGY_INFO_SIMPLE = {
       "Lost-Zone-Block = nach SL gesperrte Zone. Verhindert dass du 3× hintereinander an derselben Stelle SL kassierst.",
       "Break-Even (BE) = SL auf Entry-Preis verschieben — Trade kann nicht mehr ins Minus."
     ],
-    market: "Krypto-Coins mit klarer Struktur und ausreichender Volatilität. Der Live-Bot tradet derzeit 8 Coins: BLUR, FET, DOT, FLOKI, COMP, DOGE, SAND, ADA. ETH und JUP wurden am 06.05.2026 entfernt (waren die einzigen Verlierer im 365-Tage-Backtest)."
+    market: "Krypto-Coins mit klarer Swing-Struktur und ausreichender Volatilität. Major-Coins (BTC, ETH) gehen genauso wie liquide Mid-Caps. Schlechter auf Coins die extrem stark trenden oder zu choppy sind — nutze einen Backtest um die optimalen Coins für deinen Setup zu finden."
   },
   "MACD Crossover": {
     desc: "Klassisches Momentum-Signal: MACD-Linie kreuzt Signal-Linie. Aufwärts-Cross = Long-Signal, Abwärts-Cross = Short.",
@@ -28648,10 +28648,13 @@ function _academySvg(schema, isEn, seedKey) {
     }
   } else if (schema === 'smc') {
     const idx = 16;
-    body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
-    body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (OB Retest)</text>`;
-    drawSL(102, 'left');
-    drawTP(candles[idx].close + 12, isEn ? 'TP (next liquidity / 2R)' : 'TP (naechste Liquidity / 2R)', 'right');
+    // Schematischer Layer nur wenn KEINE echten Daten — sonst überlagert er die Real-Data-Linien
+    if (!fullCandles._realData || typeof fullCandles._entryVisIdx !== 'number') {
+      body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+      body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (OB Retest)</text>`;
+      drawSL(102, 'left');
+      drawTP(candles[idx].close + 12, isEn ? 'TP (next liquidity / 2R)' : 'TP (naechste Liquidity / 2R)', 'right');
+    }
     if (fullCandles._realData && typeof fullCandles._entryVisIdx === 'number') {
       const entryIdx = fullCandles._entryVisIdx;
       if (entryIdx > 0 && entryIdx < candles.length) {
@@ -28689,11 +28692,13 @@ function _academySvg(schema, isEn, seedKey) {
     }
   } else if (schema === 'crypto-specific') {
     const idx = 21;
-    body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#f85149" stroke-width="2"/>`;
-    body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) - 14}" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Short (Funding-Top)</text>`;
-    // Short: SL ueber lokalem High, TP darunter
-    drawSL(candles[idx].high + 2, 'right');
-    drawTP(candles[idx].close - (candles[idx].high + 2 - candles[idx].close) * 1.5, isEn ? 'TP (1.5R)' : 'TP (1.5R)', 'right');
+    if (!fullCandles._realData || typeof fullCandles._entryVisIdx !== 'number') {
+      body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#f85149" stroke-width="2"/>`;
+      body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) - 14}" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} Short (Funding-Top)</text>`;
+      // Short: SL ueber lokalem High, TP darunter
+      drawSL(candles[idx].high + 2, 'right');
+      drawTP(candles[idx].close - (candles[idx].high + 2 - candles[idx].close) * 1.5, isEn ? 'TP (1.5R)' : 'TP (1.5R)', 'right');
+    }
     if (fullCandles._realData && typeof fullCandles._entryVisIdx === 'number') {
       const entryIdx = fullCandles._entryVisIdx;
       if (entryIdx > 0 && entryIdx < candles.length) {
@@ -28731,10 +28736,12 @@ function _academySvg(schema, isEn, seedKey) {
     }
   } else if (schema === 'voting') {
     const idx = 8;
-    body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
-    body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (Mehrheits-Vote)</text>`;
-    drawSL(candles[idx].low - 3, 'right');
-    drawTP(candles[idx].close + (candles[idx].close - (candles[idx].low - 3)) * 2, isEn ? 'TP (2R)' : 'TP (2R)', 'right');
+    if (!fullCandles._realData || typeof fullCandles._entryVisIdx !== 'number') {
+      body += `<circle cx="${cx(idx)}" cy="${yScale(candles[idx].close)}" r="6" fill="none" stroke="#3fb950" stroke-width="2"/>`;
+      body += `<text x="${cx(idx)}" y="${yScale(candles[idx].close) + 22}" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">${labels.entry} (Mehrheits-Vote)</text>`;
+      drawSL(candles[idx].low - 3, 'right');
+      drawTP(candles[idx].close + (candles[idx].close - (candles[idx].low - 3)) * 2, isEn ? 'TP (2R)' : 'TP (2R)', 'right');
+    }
     if (fullCandles._realData && typeof fullCandles._entryVisIdx === 'number') {
       const entryIdx = fullCandles._entryVisIdx;
       if (entryIdx > 0 && entryIdx < candles.length) {
@@ -33026,7 +33033,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.6.0-beta';
-const APP_BUILD = '2026-05-11 22:58 UTC';
+const APP_BUILD = '2026-05-11 23:15 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
