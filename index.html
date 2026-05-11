@@ -30567,15 +30567,14 @@ function renderAcademy() {
       const _animKey = _hasAnim || '';
       const _canvasId = 'ak_canvas_' + Math.random().toString(36).slice(2, 10);
       const chartBlockHtml = _animKey ? `
-        <div style="background:#0a0a0a;border:1px solid #1f2937;border-radius:8px;overflow:hidden;margin-bottom:10px">
-          <div style="position:relative">
-            <canvas id="${_canvasId}" width="720" height="540" data-academy-anim="${_animKey}" style="width:100%;display:block;background:#0a0a0a"></canvas>
-            <div style="position:absolute;top:8px;right:10px;font-size:9px;color:#6b7280;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:3px">${isEn ? 'Schematic example · BTC 1h' : 'Schematisches Beispiel · BTC 1h'}</div>
+        <div style="background:#0a0a0a;border:1px solid #1f2937;border-radius:8px;overflow:hidden;margin:0 auto 10px;max-width:600px">
+          <div style="position:relative;width:100%;aspect-ratio:4/3">
+            <canvas id="${_canvasId}" width="720" height="540" data-academy-anim="${_animKey}" style="width:100%;height:100%;display:block;background:#0a0a0a"></canvas>
+            <div style="position:absolute;top:6px;right:8px;font-size:9px;color:#6b7280;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:3px">${isEn ? 'Schematic · BTC 1h' : 'Schematisch · BTC 1h'}</div>
           </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-          <button type="button" onclick="event.preventDefault();event.stopPropagation();playAcademyInlineAnim('${_canvasId}','${_animKey}')" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🎬 ${isEn ? 'Play animation' : 'Animation abspielen'}</button>
-          <span style="align-self:center;font-size:11px;color:#6b7280;line-height:1.4">${isEn ? '19 sec · setup unfolds from trend → trigger → trade' : '19 Sek · vom Trend zum Trigger zum Trade'}</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;justify-content:center">
+          <button type="button" onclick="event.preventDefault();event.stopPropagation();playAcademyInlineAnim('${_canvasId}','${_animKey}')" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🎬 ${isEn ? 'Play animation' : 'Animation abspielen'} <span style="opacity:0.7;font-weight:500">· 19s</span></button>
         </div>` :
         `<div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:8px">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
@@ -33077,7 +33076,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.7.0-beta';
-const APP_BUILD = '2026-05-12 01:30 UTC';
+const APP_BUILD = '2026-05-12 01:48 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36660,7 +36659,7 @@ const ACADEMY_ANIM_CONFIGS = {
     checklist: [
       '(1) Klarer Uptrend (HH+HL)',
       '(2) Pullback auf 50 EMA',
-      '(3) Hoeherer Tief (HL)',
+      '(3) Höheres Tief (HL)',
       '(4) Bullish Engulfing',
       '(5) CRV >= 1:2'
     ]
@@ -39837,4 +39836,4 @@ window.addEventListener('beforeunload', () => {
     <p style="margin:0 0 14px;font-size:13px;color:var(--text-secondary);line-height:1.6">
       Du hast eine gute Strategie gefunden oder gebaut? Schick sie an FinalBoss — wir testen, reviewen und features dich vielleicht im nächsten TikTok-Video.
     </p>
-    <div id="shareStrategyPreview" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-s
+    <div id="shareStrategyPreview" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-s                                                                                               
