@@ -1575,7 +1575,7 @@ input[type=number] { -moz-appearance:textfield }
             🛡️ <strong style="color:#a78bfa">Robustness-Check</strong> ist aktuell <strong style="color:#9ca3af">AUS</strong> — Strategie wird auf allen Daten gezeigt.
             <a href="#" onclick="event.preventDefault();openRobustnessExplain()" style="color:#a78bfa;text-decoration:underline;font-size:11px">Was ist das?</a>
           </div>
-          <button type="button" id="robustnessToggleBtn" onclick="toggleRobustnessMode()" style="padding:8px 14px;font-weight:700;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.40);border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0">🛡️ Aktivieren</button>
+          <button type="button" id="robustnessToggleBtn" onclick="toggleRobustnessMode()" style="padding:8px 14px;font-weight:700;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.40);border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0">🛡️ Robustness-Check: <strong>AUS</strong></button>
         </div>
       </div>
       <!-- Train vs Test (nur wenn Toggle AN) -->
@@ -33026,7 +33026,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.6.0-beta';
-const APP_BUILD = '2026-05-11 22:50 UTC';
+const APP_BUILD = '2026-05-11 22:58 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36650,10 +36650,10 @@ function _robustCheckApplyVisibility() {
   }
   // Button-Label
   if (btn) {
-    btn.innerHTML = on ? '✕ Deaktivieren' : '🛡️ Aktivieren';
-    btn.style.background = on ? 'rgba(239,68,68,0.12)' : 'rgba(167,139,250,0.15)';
-    btn.style.color = on ? '#ef4444' : '#a78bfa';
-    btn.style.borderColor = on ? 'rgba(239,68,68,0.30)' : 'rgba(167,139,250,0.40)';
+    btn.innerHTML = '🛡️ Robustness-Check: <strong>' + (on ? 'AN' : 'AUS') + '</strong>';
+    btn.style.background = on ? 'rgba(167,139,250,0.30)' : 'rgba(167,139,250,0.15)';
+    btn.style.color = '#a78bfa';
+    btn.style.borderColor = on ? '#a78bfa' : 'rgba(167,139,250,0.40)';
   }
 }
 function toggleRobustnessMode() {
