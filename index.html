@@ -471,6 +471,49 @@ details[open] summary span:first-child { transform: rotate(90deg); display: inli
 .tab-btn .info-icon { background: transparent; border-color: transparent; color: var(--text-muted); }
 .tab-btn .info-icon:hover { border-color: var(--blue); color: var(--blue); }
 
+/* ── MOBILE: Touch-Targets vergroessern + Tooltip-Touch-Toggle ── */
+/* Tooltips: auf Touch-Geraeten via :focus/aktiver Klick statt hover anzeigen */
+.info-icon { tap-highlight-color: rgba(88,166,255,0.3); -webkit-tap-highlight-color: rgba(88,166,255,0.3); }
+.info-icon:focus { outline: 2px solid var(--blue); outline-offset: 2px; }
+.info-icon:focus .info-tip { display: block; }
+.info-icon.active .info-tip { display: block; }
+
+/* Touch-Devices: groessere Tap-Targets, Tooltips zum Tap */
+@media (hover: none) and (pointer: coarse) {
+  .info-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+  /* Buttons + Inputs: WCAG-konform 44x44 Mindestgroesse */
+  button, .button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Kleine Action-Bar-Buttons + Icon-Buttons darf bleiben aber padding hoeher */
+  button[style*="padding:4px"], button[style*="padding: 4px"] {
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  /* Inputs + Selects: groesser fuer Daumen-Tippen */
+  input[type="number"], input[type="text"], input[type="url"], select, textarea {
+    min-height: 40px;
+    font-size: 14px;
+  }
+  /* Tooltip auf Touch: per click toggle (siehe JS unten) */
+  .info-icon .info-tip {
+    width: min(280px, calc(100vw - 40px));
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+}
+
+/* Light-Mode Kontrast-Fix: info-icon dunkler im Light-Theme falls aktiv */
+@media (prefers-color-scheme: light) {
+  .info-icon { color: #4b5563; border-color: #9ca3af; }
+}
+
 /* Akademie: "Für Profis"-Button in der Summary nur sichtbar wenn die Karte aufgeklappt ist */
 details[open] > summary .academy-pro-btn { display: inline-flex !important; }
 
@@ -864,7 +907,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-10 18:22 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 03:10 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -1251,9 +1294,9 @@ input[type=number] { -moz-appearance:textfield }
   <!-- Eigene Builder-Gruppe: fester moderater Abstand, klarer abgesetzter Container -->
   <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:rgba(168,85,247,0.05);border:1px dashed rgba(168,85,247,0.30);border-radius:10px;margin-left:50px">
     <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-right:4px">Eigene Strategien</span>
-    <button class="tab-btn" data-tab="builder" style="padding:10px 18px;font-weight:600;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span data-i18n="tab.builder">🧩 Strategy Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();">i<span class="info-tip" data-i18n-html="tip.btn.builder"><strong>Strategy Builder</strong> — baue eigene Strategien <strong>visuell ohne Code</strong>. Wähle Bedingungen aus Bausteinen: z.B. <em>"RSI &lt; 30 UND EMA-Cross UND Volume-Spike"</em> als Entry, <em>"RSI &gt; 70 ODER ATR-Stop"</em> als Exit. SL/TP via ATR. Direkt im Backtest testbar — kein Programmieren nötig. Ideal für Anfänger oder schnelles Prototyping.</span></span></button>
-    <button class="tab-btn" data-tab="aibuilder" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(168,85,247,0.30)"><span data-i18n="tab.aibuilder">🤖 KI-Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.aibuilder"><strong>KI-Strategie-Builder</strong> — beschreibe eine Strategie auf Deutsch oder Englisch, <strong>die KI generiert sofort den fertigen Code</strong>. Auch: <strong>YouTube-Link oder Artikel-URL einfügen</strong> — die KI extrahiert die Strategie daraus. Beispiel: <em>"EMA50/200 Cross + RSI&gt;50, SL bei 1.5× ATR, TP bei 3× ATR"</em>. Sandbox-validiert auf 200 Test-Kerzen, direkt im Backtest nutzbar, lokal gespeichert. <br><br><strong>4 Anbieter zur Auswahl:</strong> <strong>Groq</strong> (KOSTENLOS &amp; funktioniert in CH/EU — empfohlen, Llama 3.3 70B), <strong>Gemini</strong> (gratis 1500/Tag, in CH manchmal gesperrt), <strong>Claude</strong> (beste Qualität ab $5 Guthaben) oder <strong>Ollama lokal</strong> (kostenlos &amp; privat, läuft auf deinem PC). API-Key (außer Ollama) holst du dir selber direkt beim Anbieter — bleibt nur in deinem Browser.</span></span></button>
-    <button class="tab-btn" data-tab="review" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(239,68,68,0.30)"><span data-i18n="tab.review">📺 TikTok Review</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.review"><strong>TikTok Strategy Reviewer</strong> — lade ein TikTok-Video hoch, die KI extrahiert die behauptete Trading-Strategie via Audio-Transkription, backtestet sie auf echten BTC-Daten und generiert ein fertiges <strong>Reaktions-Video</strong> mit Voice-Over und Stats-Overlay. Perfekt für Anti-Scammer-Content: posten als Stitch/Duet auf TikTok. Komplett kostenlos (Groq Whisper + Browser-Render).</span></span></button>
+    <button class="tab-btn" data-tab="builder" aria-label="Tab: 🧩 Strategy Builder" role="tab" style="padding:10px 18px;font-weight:600;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span data-i18n="tab.builder">🧩 Strategy Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();">i<span class="info-tip" data-i18n-html="tip.btn.builder"><strong>Strategy Builder</strong> — baue eigene Strategien <strong>visuell ohne Code</strong>. Wähle Bedingungen aus Bausteinen: z.B. <em>"RSI &lt; 30 UND EMA-Cross UND Volume-Spike"</em> als Entry, <em>"RSI &gt; 70 ODER ATR-Stop"</em> als Exit. SL/TP via ATR. Direkt im Backtest testbar — kein Programmieren nötig. Ideal für Anfänger oder schnelles Prototyping.</span></span></button>
+    <button class="tab-btn" data-tab="aibuilder" aria-label="Tab: 🤖 KI-Builder" role="tab" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(168,85,247,0.30)"><span data-i18n="tab.aibuilder">🤖 KI-Builder</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.aibuilder"><strong>KI-Strategie-Builder</strong> — beschreibe eine Strategie auf Deutsch oder Englisch, <strong>die KI generiert sofort den fertigen Code</strong>. Auch: <strong>YouTube-Link oder Artikel-URL einfügen</strong> — die KI extrahiert die Strategie daraus. Beispiel: <em>"EMA50/200 Cross + RSI&gt;50, SL bei 1.5× ATR, TP bei 3× ATR"</em>. Sandbox-validiert auf 200 Test-Kerzen, direkt im Backtest nutzbar, lokal gespeichert. <br><br><strong>4 Anbieter zur Auswahl:</strong> <strong>Groq</strong> (KOSTENLOS &amp; funktioniert in CH/EU — empfohlen, Llama 3.3 70B), <strong>Gemini</strong> (gratis 1500/Tag, in CH manchmal gesperrt), <strong>Claude</strong> (beste Qualität ab $5 Guthaben) oder <strong>Ollama lokal</strong> (kostenlos &amp; privat, läuft auf deinem PC). API-Key (außer Ollama) holst du dir selber direkt beim Anbieter — bleibt nur in deinem Browser.</span></span></button>
+    <button class="tab-btn" data-tab="review" aria-label="Tab: 📺 TikTok Review" role="tab" style="padding:10px 18px;font-weight:600;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(239,68,68,0.30)"><span data-i18n="tab.review">📺 TikTok Review</span> <span class="info-icon info-down" onclick="event.stopPropagation();" style="background:rgba(255,255,255,0.20);border-color:rgba(255,255,255,0.40);color:#fff">i<span class="info-tip" data-i18n-html="tip.btn.review"><strong>TikTok Strategy Reviewer</strong> — lade ein TikTok-Video hoch, die KI extrahiert die behauptete Trading-Strategie via Audio-Transkription, backtestet sie auf echten BTC-Daten und generiert ein fertiges <strong>Reaktions-Video</strong> mit Voice-Over und Stats-Overlay. Perfekt für Anti-Scammer-Content: posten als Stitch/Duet auf TikTok. Komplett kostenlos (Groq Whisper + Browser-Render).</span></span></button>
   </div>
 </div>
 
@@ -1287,21 +1330,21 @@ input[type=number] { -moz-appearance:textfield }
   <!-- Tab Bar -->
   <div class="tab-bar" id="tabBar">
     <button class="tab-btn active" data-tab="results"><span data-i18n="tab.results">Ergebnisse</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.results">Übersicht aller Backtest-Metriken: PnL, Win-Rate, Profit-Faktor, Sharpe, Max Drawdown, Equity-Kurve und Train/Test-Split.</span></span></button>
-    <button class="tab-btn" data-tab="chart"><span data-i18n="tab.chart">Chart</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.chart">Echtzeit-Chart von Binance + Trade-Marker des letzten Backtests. Mit Indikatoren, Zeichentools (Trendlinien, Fibo, Rechtecke etc.) und Live/Backtest-Modus.</span></span></button>
-    <button class="tab-btn" data-tab="replay"><span data-i18n="tab.replay">Replay</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.replay">Spielt den Backtest Kerze für Kerze ab — wie echtes Trading. Trades erscheinen erst wenn sie tatsächlich passieren. Klick auf Chart = nächste Kerze, Rechtsklick = zurück.</span></span></button>
-    <button class="tab-btn" data-tab="journal"><span data-i18n="tab.journal">Journal</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.journal">Detail-Tabelle aller Trades mit MAE/MFE-Analyse. <strong>MAE</strong> = wie weit ging der Trade gegen dich. <strong>MFE</strong> = wie viel war zwischendurch maximal drin. Hilft Stops &amp; Targets zu optimieren. CSV-Export verfügbar.</span></span></button>
-    <button class="tab-btn" data-tab="walkforward"><span data-i18n="tab.walkforward">Walk-Forward</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.walkforward">Robustheits-Test gegen Overfitting. Strategie wird in vielen rollenden Zeitfenstern abwechselnd trainiert und auf unbekannten Folgedaten getestet. Wenn die Test-Performance auch profitabel ist, ist der Edge echt.</span></span></button>
-    <button class="tab-btn" data-tab="heatmap"><span data-i18n="tab.heatmap">Heatmap</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.heatmap">Testet zwei Parameter (z.B. RSI-Periode &times; SL-%) in vielen Kombinationen als farbiges Raster. Suche eine <strong>große grüne Fläche</strong> statt der einzelnen Spitze — das ist robust statt Zufall.</span></span></button>
-    <button class="tab-btn" data-tab="liquidation"><span data-i18n="tab.liquidation">Liquidation</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.liquidation">Liquidations-Heatmap im CoinGlass-Stil. Zeigt geschätzte <strong>Magnet-Zonen</strong> wo gehebelte Long/Short-Positionen liquidiert würden (10×, 25×, 50×, 100×). Helle Cluster = noch nicht abgeräumt → Preis tendiert dahin. Schätzung basiert auf Volumen + Hebel-Annahmen, nicht auf Echtdaten.</span></span></button>
-<button class="tab-btn" data-tab="academy"><span data-i18n="tab.academy">Akademie</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.academy">Lerne jede Strategie im Detail: Entry-Bedingungen, SL/TP-Platzierung, schematische Chart-Beispiele und Tipps. Hier verstehst du wie eine Strategie funktioniert — bevor du sie tradest.</span></span></button>
-    <button class="tab-btn" data-tab="timeanalysis"><span data-i18n="tab.timeanalysis">Zeitanalyse</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.timeanalysis">PnL und Win-Rate aufgeschlüsselt nach <strong>Tageszeit</strong> (Stunde, UTC) und <strong>Wochentag</strong>. Hilft zu erkennen wann die Strategie funktioniert — z.B. nur US-Session, oder Wochenende abschalten.</span></span></button>
-    <button class="tab-btn" data-tab="optimizer"><span data-i18n="tab.optimizer">Optimizer</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.optimizer">Multi-dimensionale Parameter-Optimierung. Wähle 2–5 Parameter mit Bereich/Schritt — <strong>Grid-Search</strong> testet alle Kombinationen, <strong>Genetic Algorithm</strong> sucht intelligent in großen Räumen. Top-20-Ranking mit In-Sample- und Out-of-Sample-Metriken (Overfitting-Check inklusive).</span></span></button>
-    <button class="tab-btn" data-tab="portfolio"><span data-i18n="tab.portfolio">Portfolio</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.portfolio">Multi-Coin-Backtest mit gemeinsamem Kapital. Eine Strategie läuft parallel auf vielen Coins — geteilte Balance, max. N gleichzeitige Positionen. Zeigt Portfolio-Equity, Drawdown und Vergleich gegen Equal-Weight-Buy&amp;Hold.</span></span></button>
-    <button class="tab-btn" data-tab="distribution"><span data-i18n="tab.distribution">Verteilung</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.distribution">Trade-Verteilungen: <strong>R-Multiple-Histogramm</strong> (wie sind Wins/Losses verteilt), <strong>Hold-Zeit</strong>, <strong>Streaks</strong> (längste Win/Loss-Serien) und <strong>Monthly Returns</strong>. Zeigt sofort ob dein Edge von vielen Trades kommt oder nur 2 Glücks-Treffern.</span></span></button>
-    <button class="tab-btn" data-tab="correlation"><span data-i18n="tab.correlation">Korrelation</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.correlation">Coin-Korrelations-Matrix. Wichtig vor dem Portfolio: wenn alle Coins zu &gt;90% korrelieren, ist Diversifikation nur Illusion — bei BTC-Crash fällt alles. Pearson-Korrelation aus Daily-Returns.</span></span></button>
-    <button class="tab-btn" data-tab="edgedecay"><span data-i18n="tab.edgedecay">Edge-Decay</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.edgedecay">Rolling-Profit-Factor / Sharpe / Win-Rate über die Trade-Historie. Antwortet: <strong>funktioniert mein Setup noch oder ist die Edge tot?</strong> Trend nach unten = Strategie verliert ihren Vorteil, Zeit für Re-Optimierung.</span></span></button>
-    <button class="tab-btn" data-tab="risk"><span data-i18n="tab.risk">Risiko</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.risk">Position-Size-Rechner + Kelly-Criterion + <strong>Risk-of-Ruin-Simulation</strong>. Wie wahrscheinlich ist Account-Blowup bei deiner Win-Rate &amp; R-Verteilung? Zeigt dir die Wahrscheinlichkeit für -25%, -50%, -75% Account-Drawdown bei N Trades.</span></span></button>
-    <button class="tab-btn" data-tab="paper"><span data-i18n="tab.paper">🔴 Paper</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.paper"><strong>Paper-Trading / Forward-Test</strong>. Strategie läuft auf <strong>Live-Daten</strong> mit virtueller Balance — Binance-WebSocket-Stream, Strategie evaluiert jede neue Kerze, virtuelle Trades werden geöffnet/geschlossen mit echten SL/TP. Persistiert im Browser, läuft weiter auch nach Reload. Brücke zwischen Backtest und echtem Geld.</span></span></button>
+    <button class="tab-btn" data-tab="chart" aria-label="Tab: Chart" role="tab"><span data-i18n="tab.chart">Chart</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.chart">Echtzeit-Chart von Binance + Trade-Marker des letzten Backtests. Mit Indikatoren, Zeichentools (Trendlinien, Fibo, Rechtecke etc.) und Live/Backtest-Modus.</span></span></button>
+    <button class="tab-btn" data-tab="replay" aria-label="Tab: Replay" role="tab"><span data-i18n="tab.replay">Replay</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.replay">Spielt den Backtest Kerze für Kerze ab — wie echtes Trading. Trades erscheinen erst wenn sie tatsächlich passieren. Klick auf Chart = nächste Kerze, Rechtsklick = zurück.</span></span></button>
+    <button class="tab-btn" data-tab="journal" aria-label="Tab: Journal" role="tab"><span data-i18n="tab.journal">Journal</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.journal">Detail-Tabelle aller Trades mit MAE/MFE-Analyse. <strong>MAE</strong> = wie weit ging der Trade gegen dich. <strong>MFE</strong> = wie viel war zwischendurch maximal drin. Hilft Stops &amp; Targets zu optimieren. CSV-Export verfügbar.</span></span></button>
+    <button class="tab-btn" data-tab="walkforward" aria-label="Tab: Walk-Forward" role="tab"><span data-i18n="tab.walkforward">Walk-Forward</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.walkforward">Robustheits-Test gegen Overfitting. Strategie wird in vielen rollenden Zeitfenstern abwechselnd trainiert und auf unbekannten Folgedaten getestet. Wenn die Test-Performance auch profitabel ist, ist der Edge echt.</span></span></button>
+    <button class="tab-btn" data-tab="heatmap" aria-label="Tab: Heatmap" role="tab"><span data-i18n="tab.heatmap">Heatmap</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.heatmap">Testet zwei Parameter (z.B. RSI-Periode &times; SL-%) in vielen Kombinationen als farbiges Raster. Suche eine <strong>große grüne Fläche</strong> statt der einzelnen Spitze — das ist robust statt Zufall.</span></span></button>
+    <button class="tab-btn" data-tab="liquidation" aria-label="Tab: Liquidation" role="tab"><span data-i18n="tab.liquidation">Liquidation</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.liquidation">Liquidations-Heatmap im CoinGlass-Stil. Zeigt geschätzte <strong>Magnet-Zonen</strong> wo gehebelte Long/Short-Positionen liquidiert würden (10×, 25×, 50×, 100×). Helle Cluster = noch nicht abgeräumt → Preis tendiert dahin. Schätzung basiert auf Volumen + Hebel-Annahmen, nicht auf Echtdaten.</span></span></button>
+<button class="tab-btn" data-tab="academy" aria-label="Tab: Akademie" role="tab"><span data-i18n="tab.academy">Akademie</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.academy">Lerne jede Strategie im Detail: Entry-Bedingungen, SL/TP-Platzierung, schematische Chart-Beispiele und Tipps. Hier verstehst du wie eine Strategie funktioniert — bevor du sie tradest.</span></span></button>
+    <button class="tab-btn" data-tab="timeanalysis" aria-label="Tab: Zeitanalyse" role="tab"><span data-i18n="tab.timeanalysis">Zeitanalyse</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.timeanalysis">PnL und Win-Rate aufgeschlüsselt nach <strong>Tageszeit</strong> (Stunde, UTC) und <strong>Wochentag</strong>. Hilft zu erkennen wann die Strategie funktioniert — z.B. nur US-Session, oder Wochenende abschalten.</span></span></button>
+    <button class="tab-btn" data-tab="optimizer" aria-label="Tab: Optimizer" role="tab"><span data-i18n="tab.optimizer">Optimizer</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.optimizer">Multi-dimensionale Parameter-Optimierung. Wähle 2–5 Parameter mit Bereich/Schritt — <strong>Grid-Search</strong> testet alle Kombinationen, <strong>Genetic Algorithm</strong> sucht intelligent in großen Räumen. Top-20-Ranking mit In-Sample- und Out-of-Sample-Metriken (Overfitting-Check inklusive).</span></span></button>
+    <button class="tab-btn" data-tab="portfolio" aria-label="Tab: Portfolio" role="tab"><span data-i18n="tab.portfolio">Portfolio</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.portfolio">Multi-Coin-Backtest mit gemeinsamem Kapital. Eine Strategie läuft parallel auf vielen Coins — geteilte Balance, max. N gleichzeitige Positionen. Zeigt Portfolio-Equity, Drawdown und Vergleich gegen Equal-Weight-Buy&amp;Hold.</span></span></button>
+    <button class="tab-btn" data-tab="distribution" aria-label="Tab: Verteilung" role="tab"><span data-i18n="tab.distribution">Verteilung</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.distribution">Trade-Verteilungen: <strong>R-Multiple-Histogramm</strong> (wie sind Wins/Losses verteilt), <strong>Hold-Zeit</strong>, <strong>Streaks</strong> (längste Win/Loss-Serien) und <strong>Monthly Returns</strong>. Zeigt sofort ob dein Edge von vielen Trades kommt oder nur 2 Glücks-Treffern.</span></span></button>
+    <button class="tab-btn" data-tab="correlation" aria-label="Tab: Korrelation" role="tab"><span data-i18n="tab.correlation">Korrelation</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.correlation">Coin-Korrelations-Matrix. Wichtig vor dem Portfolio: wenn alle Coins zu &gt;90% korrelieren, ist Diversifikation nur Illusion — bei BTC-Crash fällt alles. Pearson-Korrelation aus Daily-Returns.</span></span></button>
+    <button class="tab-btn" data-tab="edgedecay" aria-label="Tab: Edge-Decay" role="tab"><span data-i18n="tab.edgedecay">Edge-Decay</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.edgedecay">Rolling-Profit-Factor / Sharpe / Win-Rate über die Trade-Historie. Antwortet: <strong>funktioniert mein Setup noch oder ist die Edge tot?</strong> Trend nach unten = Strategie verliert ihren Vorteil, Zeit für Re-Optimierung.</span></span></button>
+    <button class="tab-btn" data-tab="risk" aria-label="Tab: Risiko" role="tab"><span data-i18n="tab.risk">Risiko</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.risk">Position-Size-Rechner + Kelly-Criterion + <strong>Risk-of-Ruin-Simulation</strong>. Wie wahrscheinlich ist Account-Blowup bei deiner Win-Rate &amp; R-Verteilung? Zeigt dir die Wahrscheinlichkeit für -25%, -50%, -75% Account-Drawdown bei N Trades.</span></span></button>
+    <button class="tab-btn" data-tab="paper" aria-label="Tab: 🔴 Paper" role="tab"><span data-i18n="tab.paper">🔴 Paper</span> <span class="info-icon info-down">i<span class="info-tip" data-i18n-html="tip.tab.paper"><strong>Paper-Trading / Forward-Test</strong>. Strategie läuft auf <strong>Live-Daten</strong> mit virtueller Balance — Binance-WebSocket-Stream, Strategie evaluiert jede neue Kerze, virtuelle Trades werden geöffnet/geschlossen mit echten SL/TP. Persistiert im Browser, läuft weiter auch nach Reload. Brücke zwischen Backtest und echtem Geld.</span></span></button>
   </div>
 
   <!-- Tab: Results -->
@@ -1352,7 +1395,7 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" onclick="aiRefineCurrentSelected()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🔧 Verfeinern</button>
-          <button type="button" onclick="openTikTokRevealModal()" title="Generiere ein 12-Sekunden TikTok-Reveal-Video mit den Backtest-Ergebnissen" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🎬 TikTok-Reveal</button>
+          <button type="button" onclick="openTikTokRevealModal()" aria-label="TikTok-Reveal-Video generieren" title="Generiere ein 12-Sekunden TikTok-Reveal-Video mit den Backtest-Ergebnissen" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🎬 TikTok-Reveal</button>
           <button type="button" onclick="aiDeleteCurrentSelected()" title="Diese KI-Strategie löschen" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.40);color:#ef4444;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🗑️ Löschen</button>
         </div>
       </div>
@@ -2427,7 +2470,7 @@ input[type=number] { -moz-appearance:textfield }
         <div id="reviewTranscript" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text-secondary);line-height:1.6;max-height:160px;overflow-y:auto;white-space:pre-wrap"></div>
         <div id="reviewStrategyBox" style="display:none;margin-top:14px"></div>
         <div id="reviewActions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" onclick="reviewBacktestStrategy()" id="reviewBacktestBtn" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">📊 Strategie backtesten</button>
+          <button type="button" onclick="reviewBacktestStrategy()" id="reviewBacktestBtn" aria-label="Reviewed Strategie im Backtest testen" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">📊 Strategie backtesten</button>
           <button type="button" onclick="reviewReset()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px 16px;border-radius:6px;cursor:pointer;font-size:12px">↺ Anderes Video</button>
         </div>
       </div>
@@ -12572,9 +12615,20 @@ function _onTagChange(idx, newTag) {
 function exportCSV() {
   if (!lastResult || !lastResult.trades.length) { alert('Keine Trades vorhanden!'); return; }
   const trades = lastResult.trades;
+  // CSV-Escape: Werte mit Komma/Anfuehrungszeichen/Newline in Anfuehrungszeichen wrappen + Anfuehrungszeichen verdoppeln
+  // Plus: Excel-Injection-Schutz durch ' prefix bei Werten die mit =, +, -, @ beginnen
+  const _csvEscape = (v) => {
+    if (v === null || v === undefined) return '';
+    let s = String(v);
+    // Excel-Injection-Schutz: prefix mit ' wenn Wert mit =/+/-/@ beginnt
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    // Wenn Komma/Quotes/Newline drin: in Quotes wrappen + Quotes escapen
+    if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
   const header = 'Nr,Coin,Datum,Richtung,Entry,SL,TP,Exit,PnL_USD,PnL_Pct,MAE_Pct,MFE_Pct,Dauer_Min,Grund,Tag,Split\n';
   const rows = trades.map((t, i) =>
-    `${i+1},${t.symbol||''},${new Date(t.entryTs).toISOString()},${t.dir},${t.entry},${t.sl||''},${t.tp||''},${t.exit},${t.pnlUsd.toFixed(2)},${t.pnlPct.toFixed(4)},${(t.maePct||0).toFixed(4)},${(t.mfePct||0).toFixed(4)},${t.duration.toFixed(0)},${t.reason},${_getTradeTag(t)||''},${t.split}`
+    `${i+1},${_csvEscape(t.symbol)},${new Date(t.entryTs).toISOString()},${_csvEscape(t.dir)},${t.entry},${t.sl||''},${t.tp||''},${t.exit},${t.pnlUsd.toFixed(2)},${t.pnlPct.toFixed(4)},${(t.maePct||0).toFixed(4)},${(t.mfePct||0).toFixed(4)},${t.duration.toFixed(0)},${_csvEscape(t.reason)},${_csvEscape(_getTradeTag(t)||'')},${_csvEscape(t.split)}`
   ).join('\n');
 
   const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -18032,7 +18086,7 @@ async function runBacktest() {
         buyHoldReturn: result.buyHoldReturn,
         savedAt: Date.now()
       };
-      localStorage.setItem('fb_last_result', JSON.stringify(persist));
+      _safeSetItem('fb_last_result', JSON.stringify(persist));
     } catch(e) { /* z.B. Quota exceeded — egal, kein Block */ }
 
     log(`Fertig! ${result.trades.length} Trades, PF ${result.totalMetrics.profitFactor.toFixed(2)}, WR ${result.totalMetrics.winRate.toFixed(1)}%`, 'success');
@@ -26343,8 +26397,94 @@ function _academySvg(schema, isEn, seedKey) {
   const cw = chartW / candles.length;
   const cx = (i) => leftPad + i * cw + cw / 2;
   let body = '';
+  // ── Pulsierende Entry/SL/TP Render-Helper (verbessert Klarheit, einheitlich über alle Schemata) ──
+  // Erwartet body als Closure-Variable, nutzt ALLE oben definierten Skalen (yScale, cx, leftPad, rightPad, topPad, etc.)
+  const _addAcademyDefs = () => {
+    return `<defs>
+      <radialGradient id="acEntryGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3fb950" stop-opacity="0.85"/><stop offset="60%" stop-color="#3fb950" stop-opacity="0.25"/><stop offset="100%" stop-color="#3fb950" stop-opacity="0"/></radialGradient>
+      <linearGradient id="acRiskZone" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f85149" stop-opacity="0.04"/><stop offset="100%" stop-color="#f85149" stop-opacity="0.22"/></linearGradient>
+      <linearGradient id="acRewardZone" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#58a6ff" stop-opacity="0.22"/><stop offset="100%" stop-color="#58a6ff" stop-opacity="0.04"/></linearGradient>
+      <pattern id="acRiskPattern" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#f85149" stroke-width="0.6" opacity="0.35"/></pattern>
+    </defs>`;
+  };
+  const _fmtAcPrice = (p) => p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
+  // params = { entryIdx, entryPrice, slPrice, tpPrice, side: 'long'|'short', label?, showRealBadge?, realSym?, realTime? }
+  const _drawEntrySLTPBox = (params) => {
+    const { entryIdx, entryPrice, slPrice, tpPrice } = params;
+    const side = params.side || 'long';
+    const isLong = side === 'long';
+    if (entryIdx == null || isNaN(entryPrice) || isNaN(slPrice) || isNaN(tpPrice)) return '';
+    const xE = cx(entryIdx);
+    const yE = yScale(entryPrice);
+    const ySL = yScale(slPrice);
+    const yTP = yScale(tpPrice);
+    let out = '';
+    // Risk-Zone Rechteck (Entry → SL) — von xE bis rechter Rand
+    const zoneX = xE;
+    const zoneW = (W - rightPad) - zoneX;
+    if (zoneW > 8) {
+      const ryTop = Math.min(yE, ySL), ryBot = Math.max(yE, ySL);
+      out += `<rect x="${zoneX}" y="${ryTop}" width="${zoneW}" height="${Math.max(1, ryBot - ryTop)}" fill="url(#acRiskZone)" stroke="none"/>`;
+      out += `<rect x="${zoneX}" y="${ryTop}" width="${zoneW}" height="${Math.max(1, ryBot - ryTop)}" fill="url(#acRiskPattern)" stroke="none" opacity="0.5"/>`;
+      // Reward-Zone (Entry → TP)
+      const tyTop = Math.min(yE, yTP), tyBot = Math.max(yE, yTP);
+      out += `<rect x="${zoneX}" y="${tyTop}" width="${zoneW}" height="${Math.max(1, tyBot - tyTop)}" fill="url(#acRewardZone)" stroke="none"/>`;
+    }
+    // SL-Linie (klare rote Linie quer durchs Chart)
+    out += `<line x1="${leftPad}" y1="${ySL}" x2="${W - rightPad}" y2="${ySL}" stroke="#f85149" stroke-width="1.2" stroke-dasharray="5 3" opacity="0.95"/>`;
+    // TP-Linie (klare blaue Linie)
+    out += `<line x1="${leftPad}" y1="${yTP}" x2="${W - rightPad}" y2="${yTP}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="5 3" opacity="0.95"/>`;
+    // Entry-Linie (subtil dünn grün)
+    out += `<line x1="${leftPad}" y1="${yE}" x2="${W - rightPad}" y2="${yE}" stroke="#3fb950" stroke-width="0.9" stroke-dasharray="2 4" opacity="0.7"/>`;
+    // Vertikale Entry-Marker-Linie
+    out += `<line x1="${xE}" y1="${topPad + 24}" x2="${xE}" y2="${H - bottomPad}" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>`;
+    // Connector Entry → SL (kleine Linie) mit "1R"-Label
+    const conX = xE - 26;
+    out += `<line x1="${xE}" y1="${yE}" x2="${conX}" y2="${ySL}" stroke="#f85149" stroke-width="1" opacity="0.85"/>`;
+    out += `<rect x="${conX - 14}" y="${(yE + ySL)/2 - 7}" width="28" height="13" rx="2" fill="#f85149" opacity="0.95"/>`;
+    out += `<text x="${conX}" y="${(yE + ySL)/2 + 3}" fill="#fff" font-size="9" font-weight="700" text-anchor="middle">1R</text>`;
+    // Connector Entry → TP mit R-Label
+    const risk = Math.abs(entryPrice - slPrice);
+    const reward = Math.abs(tpPrice - entryPrice);
+    const rLabel = (risk > 0) ? (reward / risk).toFixed(1) + 'R' : '';
+    out += `<line x1="${xE}" y1="${yE}" x2="${conX}" y2="${yTP}" stroke="#58a6ff" stroke-width="1" opacity="0.85"/>`;
+    out += `<rect x="${conX - 16}" y="${(yE + yTP)/2 - 7}" width="32" height="13" rx="2" fill="#58a6ff" opacity="0.95"/>`;
+    out += `<text x="${conX}" y="${(yE + yTP)/2 + 3}" fill="#fff" font-size="9" font-weight="700" text-anchor="middle">${rLabel}</text>`;
+    // Pulsierender Entry-Kreis (groesserer Glow + innerer Punkt)
+    out += `<circle cx="${xE}" cy="${yE}" r="14" fill="url(#acEntryGlow)"><animate attributeName="r" values="10;16;10" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0.35;0.9" dur="1.6s" repeatCount="indefinite"/></circle>`;
+    out += `<circle cx="${xE}" cy="${yE}" r="6" fill="${isLong ? '#3fb950' : '#f85149'}" stroke="#0d1117" stroke-width="1.8"/>`;
+    out += `<circle cx="${xE}" cy="${yE}" r="2.2" fill="#fff"/>`;
+    // Preis-Boxen (Entry/SL/TP) am rechten Rand — klar farbcodiert
+    const boxW = 118;
+    const boxX = W - rightPad - boxW - 2;
+    // SL-Box
+    out += `<rect x="${boxX}" y="${ySL - 9}" width="${boxW}" height="18" rx="3" fill="#f85149" stroke="#0d1117" stroke-width="1"/>`;
+    out += `<text x="${boxX + boxW/2}" y="${ySL + 4}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">SL ${_fmtAcPrice(slPrice)}</text>`;
+    // TP-Box
+    out += `<rect x="${boxX}" y="${yTP - 9}" width="${boxW}" height="18" rx="3" fill="#58a6ff" stroke="#0d1117" stroke-width="1"/>`;
+    out += `<text x="${boxX + boxW/2}" y="${yTP + 4}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">TP ${_fmtAcPrice(tpPrice)}</text>`;
+    // Entry-Box (etwas links der SL/TP-Boxen, damit nichts überlappt)
+    const entryBoxX = leftPad + 2;
+    out += `<rect x="${entryBoxX}" y="${yE - 9}" width="${boxW}" height="18" rx="3" fill="#3fb950" stroke="#0d1117" stroke-width="1"/>`;
+    out += `<text x="${entryBoxX + boxW/2}" y="${yE + 4}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">${isLong ? '▲' : '▼'} Entry ${_fmtAcPrice(entryPrice)}</text>`;
+    // CRV-Banner ganz oben mittig (deutlich sichtbar)
+    const crv = (risk > 0 && reward > 0) ? (reward / risk).toFixed(2) : '—';
+    const bannerW = 380;
+    const bannerX = Math.max(leftPad + 4, Math.min(xE - bannerW/2, W - rightPad - bannerW - 4));
+    const bannerY = topPad + 22;
+    out += `<rect x="${bannerX}" y="${bannerY}" width="${bannerW}" height="22" rx="4" fill="#0d1117" stroke="#3fb950" stroke-width="1.2" opacity="0.96"/>`;
+    out += `<rect x="${bannerX}" y="${bannerY}" width="6" height="22" fill="#3fb950"/>`;
+    out += `<text x="${bannerX + bannerW/2}" y="${bannerY + 15}" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">${isLong ? '▲ LONG' : '▼ SHORT'}  •  Risk ${_fmtAcPrice(risk)}  •  Reward ${_fmtAcPrice(reward)}  •  <tspan fill="#3fb950" font-weight="800">CRV 1 : ${crv}</tspan></text>`;
+    // Real-Data-Badge optional
+    if (params.showRealBadge && params.realSym && params.realTime) {
+      out += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="220" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
+      out += `<text x="${leftPad + 8}" y="${topPad + 16}" fill="#3fb950" font-size="10" font-weight="600">📊 ${params.realSym} 1h • ${params.realTime}</text>`;
+    }
+    return out;
+  };
   // Hintergrund
   body += `<rect width="${W}" height="${H}" fill="#0d1117"/>`;
+  body += _addAcademyDefs();
   // Schema-spezifische Overlays VOR den Kerzen (hinter ihnen)
   if (schema === 'mean-reversion') {
     body += `<line x1="${leftPad}" y1="${yScale(100)}" x2="${W - rightPad}" y2="${yScale(100)}" stroke="#8b949e" stroke-width="1" stroke-dasharray="4 3"/>`;
@@ -26428,25 +26568,8 @@ function _academySvg(schema, isEn, seedKey) {
       const slPrice = entryPrice - rules.slAtrMult * atrVal;
       const tpPrice = entryPrice + rules.slAtrMult * (rules.tpRMult || 2.0) * atrVal;
       const fmtPrice = (p) => p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
-      body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>`;
-      body += `<rect x="${W - rightPad - 110}" y="${yScale(slPrice) - 9}" width="106" height="16" rx="3" fill="#f85149" opacity="0.95"/>`;
-      body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🛑 SL ${fmtPrice(slPrice)}</text>`;
-      body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.85"/>`;
-      body += `<rect x="${W - rightPad - 110}" y="${yScale(tpPrice) - 9}" width="106" height="16" rx="3" fill="#58a6ff" opacity="0.95"/>`;
-      body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🎯 TP ${fmtPrice(tpPrice)}</text>`;
-      body += `<line x1="${cx(entryIdx)}" y1="${topPad + 24}" x2="${cx(entryIdx)}" y2="${H - bottomPad}" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>`;
-      body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="5" fill="#3fb950" stroke="#0d1117" stroke-width="1.5"/>`;
-      const risk = entryPrice - slPrice, reward = tpPrice - entryPrice;
-      const crv = (risk > 0 && reward > 0) ? (reward / risk).toFixed(2) : '—';
-      const bannerW = 350;
-      const bannerX = Math.max(leftPad + 4, Math.min(cx(entryIdx) - bannerW/2, W - rightPad - bannerW - 4));
-      body += `<rect x="${bannerX}" y="${topPad + 24}" width="${bannerW}" height="20" rx="4" fill="#3fb950" opacity="0.95"/>`;
-      body += `<text x="${bannerX + bannerW/2}" y="${topPad + 38}" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}  •  Risk ${fmtPrice(risk)}  •  Reward ${fmtPrice(reward)}  •  CRV 1 : ${crv}</text>`;
-      if (fullCandles._realData && fullCandles._realTime) {
-        const sym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
-        body += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="200" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
-        body += `<text x="${leftPad + 8}" y="${topPad + 16}" fill="#3fb950" font-size="10" font-weight="600">📊 ${sym} 1h • ${fullCandles._realTime}</text>`;
-      }
+      const _sym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
+      body += _drawEntrySLTPBox({ entryIdx, entryPrice, slPrice, tpPrice, side: 'long', showRealBadge: !!(fullCandles._realData && fullCandles._realTime), realSym: _sym, realTime: fullCandles._realTime });
       candles._academyEntryRendered = true;
     }
   } else if (schema === 'ribbon-trend') {
@@ -26475,25 +26598,8 @@ function _academySvg(schema, isEn, seedKey) {
       const slPrice = entryPrice - rules.slAtrMult * atrVal;
       const tpPrice = entryPrice + rules.slAtrMult * (rules.tpRMult || 2.0) * atrVal;
       const fmtPrice = (p) => p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
-      body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>`;
-      body += `<rect x="${W - rightPad - 110}" y="${yScale(slPrice) - 9}" width="106" height="16" rx="3" fill="#f85149" opacity="0.95"/>`;
-      body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🛑 SL ${fmtPrice(slPrice)}</text>`;
-      body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.85"/>`;
-      body += `<rect x="${W - rightPad - 110}" y="${yScale(tpPrice) - 9}" width="106" height="16" rx="3" fill="#58a6ff" opacity="0.95"/>`;
-      body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🎯 TP ${fmtPrice(tpPrice)}</text>`;
-      body += `<line x1="${cx(entryIdx)}" y1="${topPad + 24}" x2="${cx(entryIdx)}" y2="${H - bottomPad}" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>`;
-      body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="5" fill="#3fb950" stroke="#0d1117" stroke-width="1.5"/>`;
-      const risk = entryPrice - slPrice, reward = tpPrice - entryPrice;
-      const crv = (risk > 0 && reward > 0) ? (reward / risk).toFixed(2) : '—';
-      const bannerW = 350;
-      const bannerX = Math.max(leftPad + 4, Math.min(cx(entryIdx) - bannerW/2, W - rightPad - bannerW - 4));
-      body += `<rect x="${bannerX}" y="${topPad + 24}" width="${bannerW}" height="20" rx="4" fill="#3fb950" opacity="0.95"/>`;
-      body += `<text x="${bannerX + bannerW/2}" y="${topPad + 38}" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}  •  Risk ${fmtPrice(risk)}  •  Reward ${fmtPrice(reward)}  •  CRV 1 : ${crv}</text>`;
-      if (fullCandles._realData && fullCandles._realTime) {
-        const sym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
-        body += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="200" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
-        body += `<text x="${leftPad + 8}" y="${topPad + 16}" fill="#3fb950" font-size="10" font-weight="600">📊 ${sym} 1h • ${fullCandles._realTime}</text>`;
-      }
+      const _sym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
+      body += _drawEntrySLTPBox({ entryIdx, entryPrice, slPrice, tpPrice, side: 'long', showRealBadge: !!(fullCandles._realData && fullCandles._realTime), realSym: _sym, realTime: fullCandles._realTime });
       candles._academyEntryRendered = true;
     }
   } else if (schema === 'heikin-ashi') {
@@ -27024,36 +27130,8 @@ function _academySvg(schema, isEn, seedKey) {
           const slPrice = entryPrice - rules.slAtrMult * atrVal;
           const tpPrice = entryPrice + rules.slAtrMult * (rules.tpRMult || 2.0) * atrVal;
           const fmtPrice = (p) => p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
-          body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>`;
-          body += `<rect x="${W - rightPad - 110}" y="${yScale(slPrice) - 9}" width="106" height="16" rx="3" fill="#f85149" opacity="0.95"/>`;
-          body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🛑 SL ${fmtPrice(slPrice)}</text>`;
-          body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.85"/>`;
-          body += `<rect x="${W - rightPad - 110}" y="${yScale(tpPrice) - 9}" width="106" height="16" rx="3" fill="#58a6ff" opacity="0.95"/>`;
-          body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🎯 TP ${fmtPrice(tpPrice)}</text>`;
-          // Vertikale Linie an Entry-Kerze + heller Punkt am Close
-
-          body += `<line x1="${cx(entryIdx)}" y1="${topPad + 24}" x2="${cx(entryIdx)}" y2="${H - bottomPad}" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>`;
-
-          body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="5" fill="#3fb950" stroke="#0d1117" stroke-width="1.5"/>`;
-
-          // Entry-Banner ganz OBEN — Risk/Reward/CRV in einer Zeile, ausserhalb der Kerzen
-
-          const risk = entryPrice - slPrice, reward = tpPrice - entryPrice;
-
-          const crv = (risk > 0 && reward > 0) ? (reward / risk).toFixed(2) : '—';
-
-          const bannerW = 350;
-
-          const bannerX = Math.max(leftPad + 4, Math.min(cx(entryIdx) - bannerW/2, W - rightPad - bannerW - 4));
-
-          body += `<rect x="${bannerX}" y="${topPad + 24}" width="${bannerW}" height="20" rx="4" fill="#3fb950" opacity="0.95"/>`;
-
-          body += `<text x="${bannerX + bannerW/2}" y="${topPad + 38}" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}  •  Risk ${fmtPrice(risk)}  •  Reward ${fmtPrice(reward)}  •  CRV 1 : ${crv}</text>`;
-          if (fullCandles._realTime) {
-            const sym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
-            body += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="200" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
-            body += `<text x="${leftPad + 8}" y="${topPad + 16}" fill="#3fb950" font-size="10" font-weight="600">📊 ${sym} 1h • ${fullCandles._realTime}</text>`;
-          }
+          const _bSym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
+          body += _drawEntrySLTPBox({ entryIdx, entryPrice, slPrice, tpPrice, side: 'long', showRealBadge: !!fullCandles._realTime, realSym: _bSym, realTime: fullCandles._realTime });
           candles._academyEntryRendered = true;
         }
       }
@@ -27310,26 +27388,8 @@ function _academySvg(schema, isEn, seedKey) {
         const rules = (typeof ACADEMY_STRATEGY_RULES !== 'undefined' && ACADEMY_STRATEGY_RULES[seedKey]) ? ACADEMY_STRATEGY_RULES[seedKey] : { slAtrMult: 2.0, tpRMult: 2.0, tpLabel: '2R' };
         const slPrice = entryPrice - rules.slAtrMult * atrVal;
         const tpPrice = entryPrice + rules.slAtrMult * (rules.tpRMult || 2.0) * atrVal;
-        const fmtPrice = (p) => p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
-        body += `<line x1="${leftPad}" y1="${yScale(slPrice)}" x2="${W - rightPad}" y2="${yScale(slPrice)}" stroke="#f85149" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>`;
-        body += `<rect x="${W - rightPad - 110}" y="${yScale(slPrice) - 9}" width="106" height="16" rx="3" fill="#f85149" opacity="0.95"/>`;
-        body += `<text x="${W - rightPad - 4}" y="${yScale(slPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🛑 SL ${fmtPrice(slPrice)}</text>`;
-        body += `<line x1="${leftPad}" y1="${yScale(tpPrice)}" x2="${W - rightPad}" y2="${yScale(tpPrice)}" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.85"/>`;
-        body += `<rect x="${W - rightPad - 110}" y="${yScale(tpPrice) - 9}" width="106" height="16" rx="3" fill="#58a6ff" opacity="0.95"/>`;
-        body += `<text x="${W - rightPad - 4}" y="${yScale(tpPrice) + 3}" fill="#fff" font-size="10" font-weight="700" text-anchor="end">🎯 TP ${fmtPrice(tpPrice)}</text>`;
-        body += `<line x1="${cx(entryIdx)}" y1="${topPad + 24}" x2="${cx(entryIdx)}" y2="${H - bottomPad}" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>`;
-        body += `<circle cx="${cx(entryIdx)}" cy="${yScale(entryPrice)}" r="5" fill="#3fb950" stroke="#0d1117" stroke-width="1.5"/>`;
-        const risk = entryPrice - slPrice, reward = tpPrice - entryPrice;
-        const crv = (risk > 0 && reward > 0) ? (reward / risk).toFixed(2) : '—';
-        const bannerW = 350;
-        const bannerX = Math.max(leftPad + 4, Math.min(cx(entryIdx) - bannerW/2, W - rightPad - bannerW - 4));
-        body += `<rect x="${bannerX}" y="${topPad + 24}" width="${bannerW}" height="20" rx="4" fill="#3fb950" opacity="0.95"/>`;
-        body += `<text x="${bannerX + bannerW/2}" y="${topPad + 38}" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">▲ Entry ${fmtPrice(entryPrice)}  •  Risk ${fmtPrice(risk)}  •  Reward ${fmtPrice(reward)}  •  CRV 1 : ${crv}</text>`;
-        if (fullCandles._realTime) {
-          const sym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
-          body += `<rect x="${leftPad + 4}" y="${topPad + 4}" width="200" height="16" fill="rgba(63,185,80,0.18)" stroke="#3fb950" stroke-width="0.5" rx="3"/>`;
-          body += `<text x="${leftPad + 8}" y="${topPad + 16}" fill="#3fb950" font-size="10" font-weight="600">📊 ${sym} 1h • ${fullCandles._realTime}</text>`;
-        }
+        const _tSym = (typeof ACADEMY_REAL_DATA !== 'undefined' && ACADEMY_REAL_DATA[seedKey] && ACADEMY_REAL_DATA[seedKey].symbol) || 'BTC';
+        body += _drawEntrySLTPBox({ entryIdx, entryPrice, slPrice, tpPrice, side: 'long', showRealBadge: !!fullCandles._realTime, realSym: _tSym, realTime: fullCandles._realTime });
         candles._academyEntryRendered = true;
       }
     }
@@ -31769,11 +31829,28 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ── Touch-Device Tooltip-Toggle ──
+// Auf Touch-Geraeten greift :hover nicht — wir toggeln .active per click
+document.addEventListener('click', (e) => {
+  const icon = e.target.closest('.info-icon');
+  if (icon) {
+    // Toggle .active auf geklickter Icon, alle anderen schliessen
+    document.querySelectorAll('.info-icon.active').forEach(el => {
+      if (el !== icon) el.classList.remove('active');
+    });
+    icon.classList.toggle('active');
+    e.stopPropagation();
+  } else {
+    // Click ausserhalb: alle Tooltips schliessen
+    document.querySelectorAll('.info-icon.active').forEach(el => el.classList.remove('active'));
+  }
+}, true);
+
 // ═══════════════════════════════════════════════
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-10 18:22 UTC';
+const APP_BUILD = '2026-05-11 03:10 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -31970,7 +32047,7 @@ function showDisclaimer() {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
         <div style="font-size:32px">👋</div>
         <h2 style="margin:0;font-size:22px">Willkommen bei FinalBoss</h2>
-        <span style="font-size:11px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:3px 10px;border-radius:10px">v1.0-beta</span>
+        <span style="font-size:11px;font-weight:600;color:#f59e0b;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:3px 10px;border-radius:10px">${APP_VERSION}</span>
       </div>
       <p style="margin:0 0 18px;color:var(--text-secondary);font-size:14px;line-height:1.6">
         Ein Open-Source-Backtest-Tool für Krypto-Trading-Strategien. <strong>71 vorgefertigte Strategien</strong>, Walk-Forward, Monte-Carlo, Genetic-Optimizer, Portfolio-Backtest, Paper-Trading — alles in deinem Browser, ohne Server, ohne Account.
@@ -32001,7 +32078,7 @@ function showDisclaimer() {
 }
 
 function acceptDisclaimer() {
-  localStorage.setItem(DISCLAIMER_KEY, '1');
+  _safeSetItem(DISCLAIMER_KEY, '1');
   const overlay = document.getElementById('disclaimerOverlay');
   if (overlay) {
     overlay.style.transition = 'opacity 0.3s';
@@ -32405,7 +32482,7 @@ async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
     generationConfig: { temperature: 0.15, maxOutputTokens: 32768 }
   };
   reviewSetProgress('gemini-direct', 'running', '🧠 Gemini analysiert Video (kann 20-60 Sek dauern)...');
-  const resp = await fetch(url, {
+  const resp = await _fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
@@ -32557,7 +32634,7 @@ async function reviewExtractStrategyVision(transcript, frames) {
     contents: [{ role: 'user', parts: parts }],
     generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
   };
-  const resp = await fetch(url, {
+  const resp = await _fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
@@ -32626,6 +32703,11 @@ async function reviewExtractStrategy(transcript) {
 
 // ── Hauptaktion: nach Datei-Upload ganzen Pipeline durchlaufen ──
 async function reviewProcessFile(file) {
+  // Tab-Switch Race-Schutz: Jeder Reviewer-Lauf bekommt eine eindeutige Session-ID.
+  // Wenn der User mid-extract das Video wechselt, wird dieser Lauf abgebrochen.
+  const _reviewSessionId = Math.random().toString(36).slice(2);
+  _reviewState._currentSessionId = _reviewSessionId;
+  const _isCurrentSession = () => _reviewState._currentSessionId === _reviewSessionId;
   // Datei-Info anzeigen
   const info = document.getElementById('reviewFileInfo');
   info.style.display = 'block';
@@ -32656,7 +32738,8 @@ async function reviewProcessFile(file) {
     // Step 3: Transkript anzeigen
     document.getElementById('reviewStep3').style.display = 'block';
     document.getElementById('reviewTranscript').textContent = transcript;
-    _reviewState.strategy = spec;
+    if (!_isCurrentSession()) { console.log('[Reviewer] Tab-Switch detected — abort old extract'); return; }
+  _reviewState.strategy = spec;
     // Strategie-Vorschau anzeigen
     const escName = (spec.name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
     const paramsHtml = Object.entries(spec.params || {}).map(([k, v]) =>
@@ -32665,7 +32748,7 @@ async function reviewProcessFile(file) {
     document.getElementById('reviewStrategyBox').innerHTML =
       '<div style="background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.30);border-radius:6px;padding:12px 14px">' +
       '<div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">🧠 Erkannte Strategie: ' + escName + '</div>' +
-      '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5">' + (spec.description || '') + '</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5">' + _escHtml(spec.description || '') + '</div>' +
       '<div>' + paramsHtml + '</div>' +
       '<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Default-Timeframe: <strong>' + (spec.defaultTF || '1h') + '</strong></div>' +
       '</div>';
@@ -32871,8 +32954,8 @@ function reviewCloseWorkerSettings() {
 function reviewSaveWorkerSettings() {
   const url = (document.getElementById('reviewWorkerUrlInput').value || '').trim().replace(/\/$/, '');
   const key = (document.getElementById('reviewWorkerKeyInput').value || '').trim();
-  localStorage.setItem(FB_WORKER_LS_URL, url);
-  localStorage.setItem(FB_WORKER_LS_KEY, key);
+  _safeSetItem(FB_WORKER_LS_URL, url);
+  _safeSetItem(FB_WORKER_LS_KEY, key);
   reviewCloseWorkerSettings();
   _showSuccessToast('✓ Worker-Settings gespeichert', 2500);
   // Direkt mal versuchen die Inbox zu laden
@@ -33354,6 +33437,25 @@ function aiPopulateModelDropdown() {
 
 // ── Provider-agnostisches Interface ──
 // messagesOrText kann sein: ein String (single user message) ODER ein Array von {role, content} (Chat-Verlauf)
+// ── Fetch mit Timeout-Wrapper für alle AI-Provider-Calls (P1-Fix) ──
+// Verhindert dass die App ewig haengt wenn Gemini/Groq/Claude nicht antwortet
+async function _fetchWithTimeout(url, options, timeoutMs) {
+  timeoutMs = timeoutMs || 60000;  // 60s default
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { ...options, signal: ctrl.signal });
+    clearTimeout(timeoutId);
+    return resp;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      throw new Error('Timeout: Anfrage hat länger als ' + (timeoutMs/1000) + 's gedauert. Server überlastet oder Internet langsam — bitte nochmal versuchen.');
+    }
+    throw e;
+  }
+}
+
 async function aiCallLLM(systemPrompt, messagesOrText, model) {
   const cfg = aiLoadConfig();
   const provider = cfg.provider || 'claude';
@@ -33383,7 +33485,7 @@ async function aiCallClaude(systemPrompt, messages, model, apiKey) {
     system: systemPrompt,
     messages: messages.map(m => ({ role: m.role, content: m.content }))
   };
-  const resp = await fetch(url, {
+  const resp = await _fetchWithTimeout(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -33416,7 +33518,7 @@ async function aiCallGemini(systemPrompt, messages, model, apiKey) {
     contents: contents,
     generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
   };
-  const resp = await fetch(url, {
+  const resp = await _fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
@@ -33452,7 +33554,7 @@ async function aiCallGroq(systemPrompt, messages, model, apiKey) {
     temperature: 0.4,
     max_tokens: 4000,
   };
-  const resp = await fetch(url, {
+  const resp = await _fetchWithTimeout(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -33491,7 +33593,7 @@ async function aiCallGeminiWithVideo(systemPrompt, userMessage, model, apiKey, v
     }],
     generationConfig: { temperature: 0.4, maxOutputTokens: 4000 }
   };
-  const resp = await fetch(url, {
+  const resp = await _fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
@@ -33640,10 +33742,20 @@ BEISPIEL OUTPUT für "EMA 9/21 Cross + RSI > 50":
 
 // ── Chat-State ──
 let _aiChatHistory = [];
+const _AI_CHAT_MAX = 50;  // Memory-Cap: max 50 Messages im DOM + Array
 function aiAppendChatMsg(role, text) {
   _aiChatHistory.push({ role, text });
+  // Memory-Cap: alte Messages am Anfang entfernen wenn ueberschritten
+  if (_aiChatHistory.length > _AI_CHAT_MAX) {
+    const removeN = _aiChatHistory.length - _AI_CHAT_MAX;
+    _aiChatHistory.splice(0, removeN);
+  }
   const box = document.getElementById('aiChatHistory');
   if (!box) return;
+  // DOM-Cap: erste Kinder entfernen wenn ueberschritten
+  while (box.children.length >= _AI_CHAT_MAX) {
+    box.removeChild(box.firstChild);
+  }
   const wrap = document.createElement('div');
   wrap.style.cssText = 'margin-bottom:10px;padding:8px 12px;border-radius:6px;' +
     (role === 'user'
@@ -33859,6 +33971,13 @@ function aiTogglePreview() {
 
 // ── Hauptaktion: Strategie generieren ──
 async function aiGenerateStrategy() {
+  // Doppelklick-Schutz: Wenn schon ein Generate laeuft, abbrechen
+  if (window._aiGenerating) return;
+  window._aiGenerating = true;
+  const _btn0 = document.getElementById('aiGenerateBtn');
+  if (_btn0) _btn0.disabled = true;
+  // Cleanup-Flag bei Function-Exit (via finally weiter unten)
+
   const input = document.getElementById('aiChatInput');
   const userDesc = (input.value || '').trim();
   if (!userDesc && !_aiFetchedContent) { _showErrorToast('Bitte beschreibe die Strategie oder hole zuerst Inhalt von einer URL'); return; }
@@ -33952,6 +34071,7 @@ async function aiGenerateStrategy() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '✨ Generieren';
+    window._aiGenerating = false;
   }
 }
 
@@ -34172,7 +34292,7 @@ function aiRenderOutput(spec, rawReply) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
       <div>
         <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${escName}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${spec.description || ''}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${_escHtml(spec.description || '')}</div>
         ${valBadge}
         <span style="background:var(--bg-tertiary);color:var(--text-muted);padding:3px 9px;border-radius:10px;font-size:11px;margin-left:6px">${spec.defaultTF || '1h'}</span>
       </div>
@@ -34238,7 +34358,7 @@ function aiOpenRefine(spec, backtestResults) {
     <div style="background:rgba(168,85,247,0.08);border-left:3px solid #a855f7;padding:10px 14px;border-radius:5px;margin-bottom:14px">
       <div style="font-size:11px;font-weight:700;color:#a855f7;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Aktuelle Strategie</div>
       <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">${escName}</div>
-      <div style="font-size:12px;color:var(--text-muted)">${spec.description || ''}</div>
+      <div style="font-size:12px;color:var(--text-muted)">${_escHtml(spec.description || '')}</div>
     </div>
     ${statsHtml}
     <label style="display:block;font-weight:600;color:var(--text-primary);margin-bottom:6px;font-size:13px">Was soll geändert werden?</label>
@@ -35261,8 +35381,9 @@ function loadSoundPack() {
 }
 
 function saveSoundPack(pack) {
-  try { localStorage.setItem(SOUND_STORAGE_KEY, JSON.stringify(pack)); }
-  catch (e) { _showErrorToast('Speichern fehlgeschlagen — Sound zu groß? (Limit ~5MB total)'); }
+  if (!_safeSetItem(SOUND_STORAGE_KEY, JSON.stringify(pack))) {
+    _showErrorToast('Speichern fehlgeschlagen — Sound zu groß? (Limit ~5MB total)');
+  }
 }
 
 // Render the upload-slots UI
@@ -36543,6 +36664,25 @@ if ('serviceWorker' in navigator) {
     }
   }
 }
+
+// ── Sauberer Shutdown bei Page-Unload (P3 Final-Polish) ──
+// Stoppt aktive Timer/Recorder/AudioContexte damit Browser sauber freigibt
+window.addEventListener('beforeunload', () => {
+  try {
+    // Analytics-Timer
+    if (typeof _analyticsTimer !== 'undefined' && _analyticsTimer) clearInterval(_analyticsTimer);
+    if (typeof _analyticsAdminTimer !== 'undefined' && _analyticsAdminTimer) clearInterval(_analyticsAdminTimer);
+    // Review-Auto-Refresh
+    if (typeof _reviewAutoRefreshTimer !== 'undefined' && _reviewAutoRefreshTimer) clearInterval(_reviewAutoRefreshTimer);
+    // Aktive Recordings stoppen falls noch laufend
+    if (typeof _tiktokRevealAnimating !== 'undefined' && _tiktokRevealAnimating) {
+      try { _tiktokRevealAbort = true; } catch(e) {}
+    }
+    // Backtest abbrechen wenn aktiv
+    if (typeof backtestAborted !== 'undefined') { try { backtestAborted = true; } catch(e) {} }
+  } catch(e) {}
+});
+
 </script>
 </body>
 </html>

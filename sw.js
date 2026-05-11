@@ -1,10 +1,11 @@
-// FinalBoss Service Worker v1.3.0-beta — NETWORK-FIRST fuer HTML
+// FinalBoss Service Worker v1.4.0-beta — NETWORK-FIRST + Collision-Safe Cache
 // Update-Verhalten: 1x Reload reicht jetzt fuer Updates (vorher 2x).
 // Statisches Asset wie Bilder/Manifest = Cache-First (schnell)
 // HTML/JS-Update = Network-First mit Cache-Fallback (immer aktuell wenn online)
 // COI-Headers fuer SharedArrayBuffer / ffmpeg.wasm
+// FIX in v1.4: Cache-Name nutzt FULL Timestamp damit keine Collisions
 
-const CACHE_NAME = 'finalboss-v1.3.0-' + Date.now().toString().slice(0, 10);
+const CACHE_NAME = 'finalboss-v1.4.0-' + Date.now();
 const ASSETS = ['./', './index.html', './backtest_app.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -27,7 +28,6 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = e.request.url;
 
-  // Niemals API/WebSocket/Non-GET cachen
   if (
     url.includes('binance.com') ||
     url.includes('binance.us') ||
@@ -59,7 +59,6 @@ self.addEventListener('fetch', (e) => {
   );
 
   if (isHTMLorCode) {
-    // NETWORK-FIRST: immer frisch versuchen, Cache nur als Fallback
     e.respondWith(
       fetch(e.request).then(response => {
         if (response && response.status === 200 && response.type === 'basic') {
@@ -76,7 +75,6 @@ self.addEventListener('fetch', (e) => {
       })
     );
   } else {
-    // CACHE-FIRST: schnell aus Cache, im Hintergrund updaten
     e.respondWith(
       caches.match(e.request).then(cached => {
         if (cached) {
