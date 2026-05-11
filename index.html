@@ -1250,7 +1250,10 @@ input[type=number] { -moz-appearance:textfield }
   </div>
   <div class="control-group">
     <label data-i18n="lbl.strategy">Strategie</label>
-    <select id="strategySelect"></select>
+    <div style="display:flex;gap:6px;align-items:center">
+      <select id="strategySelect" style="flex:1;min-width:0"></select>
+      <button type="button" id="strategyDeleteBtn" onclick="aiDeleteCurrentSelected()" title="Diese KI-Strategie löschen" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.40);color:#ef4444;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1;flex-shrink:0;display:none">🗑️</button>
+    </div>
   </div>
   <div class="control-group" id="customDatesGroup" style="display:none">
     <label>Train Start</label>
@@ -1565,11 +1568,215 @@ input[type=number] { -moz-appearance:textfield }
         <div style="display:flex;align-items:center;gap:10px;white-space:nowrap">
           <button id="liveChartBtn" onclick="toggleLiveChart()" style="padding:3px 10px;font-size:11px;font-weight:600;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);border-radius:4px;cursor:pointer;transition:all 0.2s" title="Live-Chart mit Echtzeit-Daten">● LIVE</button>
           <button id="liveReplayBtn" onclick="liveReplayEnterPickMode()" style="padding:3px 10px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;border-radius:4px;cursor:pointer;transition:all 0.2s;margin-left:4px" title="Bar Replay: Klick eine Kerze als Start-Punkt — danach läuft die Zeit kerze für kerze ab">🎬 Bar Replay</button>
-          <select id="liveSymbol" style="padding:3px 6px;font-size:11px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer" onchange="clearBacktestOverlay();if(liveChartActive)startLiveChart()">
-            <option value="BTCUSDT">BTC</option><option value="ETHUSDT">ETH</option><option value="SOLUSDT">SOL</option>
-            <option value="BNBUSDT">BNB</option><option value="XRPUSDT">XRP</option><option value="ADAUSDT">ADA</option>
-            <option value="DOGEUSDT">DOGE</option><option value="AVAXUSDT">AVAX</option><option value="LINKUSDT">LINK</option>
-            <option value="DOTUSDT">DOT</option><option value="SUIUSDT">SUI</option><option value="PEPEUSDT">PEPE</option>
+          <select id="liveSymbol" style="padding:3px 6px;font-size:11px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer;max-height:300px" onchange="clearBacktestOverlay();if(liveChartActive)startLiveChart()">
+<optgroup label="── Top 10 ──">
+        <option value="BTCUSDT">BTC</option>
+        <option value="ETHUSDT">ETH</option>
+        <option value="BNBUSDT">BNB</option>
+        <option value="SOLUSDT">SOL</option>
+        <option value="XRPUSDT">XRP</option>
+        <option value="DOGEUSDT">DOGE</option>
+        <option value="TRXUSDT">TRX</option>
+        <option value="ADAUSDT">ADA</option>
+        <option value="AVAXUSDT">AVAX</option>
+        <option value="LINKUSDT">LINK</option>
+      </optgroup>
+      <optgroup label="── Top 11-30 ──">
+        <option value="TONUSDT">TON</option>
+        <option value="SUIUSDT">SUI</option>
+        <option value="DOTUSDT">DOT</option>
+        <option value="NEARUSDT">NEAR</option>
+        <option value="APTUSDT">APT</option>
+        <option value="UNIUSDT">UNI</option>
+        <option value="ICPUSDT">ICP</option>
+        <option value="RENDERUSDT">RENDER</option>
+        <option value="FILUSDT">FIL</option>
+        <option value="ARBUSDT">ARB</option>
+        <option value="OPUSDT">OP</option>
+        <option value="INJUSDT">INJ</option>
+        <option value="ATOMUSDT">ATOM</option>
+        <option value="LTCUSDT">LTC</option>
+        <option value="TIAUSDT">TIA</option>
+        <option value="HBARUSDT">HBAR</option>
+        <option value="TAOUSDT">TAO</option>
+        <option value="XLMUSDT">XLM</option>
+        <option value="KASUSDT">KAS</option>
+        <option value="BCHUSDT">BCH</option>
+        <option value="ETCUSDT">ETC</option>
+      </optgroup>
+      <optgroup label="── Top 31-60 ──">
+        <option value="POLUSDT">POL</option>
+        <option value="AAVEUSDT">AAVE</option>
+        <option value="RUNEUSDT">RUNE</option>
+        <option value="ALGOUSDT">ALGO</option>
+        <option value="FTMUSDT">FTM</option>
+        <option value="GRTUSDT">GRT</option>
+        <option value="EOSUSDT">EOS</option>
+        <option value="FLOWUSDT">FLOW</option>
+        <option value="MANAUSDT">MANA</option>
+        <option value="AXSUSDT">AXS</option>
+        <option value="SNXUSDT">SNX</option>
+        <option value="MKRUSDT">MKR</option>
+        <option value="LDOUSDT">LDO</option>
+        <option value="QNTUSDT">QNT</option>
+        <option value="VETUSDT">VET</option>
+        <option value="THETAUSDT">THETA</option>
+        <option value="IMXUSDT">IMX</option>
+        <option value="PYTHUSDT">PYTH</option>
+        <option value="WUSDT">W</option>
+        <option value="JTOUSDT">JTO</option>
+        <option value="STXUSDT">STX</option>
+        <option value="EGLDUSDT">EGLD</option>
+        <option value="CFXUSDT">CFX</option>
+        <option value="CAKEUSDT">CAKE</option>
+        <option value="DYDXUSDT">DYDX</option>
+        <option value="1INCHUSDT">1INCH</option>
+        <option value="CRVUSDT">CRV</option>
+        <option value="ZRXUSDT">ZRX</option>
+        <option value="ENSUSDT">ENS</option>
+        <option value="ETHFIUSDT">ETHFI</option>
+        <option value="EIGENUSDT">EIGEN</option>
+        <option value="JUPUSDT">JUP</option>
+        <option value="ONDOUSDT">ONDO</option>
+        <option value="STRKUSDT">STRK</option>
+        <option value="ENAUSDT">ENA</option>
+        <option value="PENDLEUSDT">PENDLE</option>
+        <option value="SEIUSDT">SEI</option>
+        <option value="WLDUSDT">WLD</option>
+      </optgroup>
+      <optgroup label="── Top 61-100 ──">
+        <option value="JASMYUSDT">JASMY</option>
+        <option value="GALAUSDT">GALA</option>
+        <option value="CHZUSDT">CHZ</option>
+        <option value="PEOPLEUSDT">PEOPLE</option>
+        <option value="SUSHIUSDT">SUSHI</option>
+        <option value="ANKRUSDT">ANKR</option>
+        <option value="SKLUSDT">SKL</option>
+        <option value="KAVAUSDT">KAVA</option>
+        <option value="ZECUSDT">ZEC</option>
+        <option value="ARUSDT">AR</option>
+        <option value="ENJUSDT">ENJ</option>
+        <option value="GMTUSDT">GMT</option>
+        <option value="KSMUSDT">KSM</option>
+        <option value="WAVESUSDT">WAVES</option>
+        <option value="BATUSDT">BAT</option>
+        <option value="COMPUSDT">COMP</option>
+        <option value="GMXUSDT">GMX</option>
+        <option value="BALUSDT">BAL</option>
+        <option value="YFIUSDT">YFI</option>
+        <option value="SANDUSDT">SAND</option>
+        <option value="APEUSDT">APE</option>
+        <option value="ILVUSDT">ILV</option>
+        <option value="BEAMXUSDT">BEAM</option>
+        <option value="WAXPUSDT">WAXP</option>
+        <option value="DASHUSDT">DASH</option>
+        <option value="ZILUSDT">ZIL</option>
+        <option value="ROSEUSDT">ROSE</option>
+        <option value="IOTXUSDT">IOTX</option>
+        <option value="ONEUSDT">ONE</option>
+        <option value="HOTUSDT">HOT</option>
+        <option value="ICXUSDT">ICX</option>
+        <option value="ASTRUSDT">ASTR</option>
+        <option value="GLMRUSDT">GLMR</option>
+        <option value="STORJUSDT">STORJ</option>
+        <option value="LRCUSDT">LRC</option>
+        <option value="BANDUSDT">BAND</option>
+        <option value="API3USDT">API3</option>
+        <option value="WOOUSDT">WOO</option>
+        <option value="C98USDT">C98</option>
+        <option value="AXLUSDT">AXL</option>
+        <option value="BNTUSDT">BNT</option>
+        <option value="KNCUSDT">KNC</option>
+        <option value="BICOUSDT">BICO</option>
+        <option value="VANRYUSDT">VANRY</option>
+        <option value="HIGHUSDT">HIGH</option>
+        <option value="GLMUSDT">GLM</option>
+        <option value="OMUSDT">OM</option>
+        <option value="MOVRUSDT">MOVR</option>
+        <option value="DUSKUSDT">DUSK</option>
+        <option value="POWRUSDT">POWR</option>
+        <option value="XTZUSDT">XTZ</option>
+        <option value="NEOUSDT">NEO</option>
+        <option value="DENTUSDT">DENT</option>
+        <option value="ACHUSDT">ACH</option>
+        <option value="HFTUSDT">HFT</option>
+        <option value="GASUSDT">GAS</option>
+        <option value="POLYXUSDT">POLYX</option>
+        <option value="QKCUSDT">QKC</option>
+      </optgroup>
+      <optgroup label="── AI / DePIN ──">
+        <option value="FETUSDT">FET</option>
+        <option value="VIRTUALUSDT">VIRTUAL</option>
+        <option value="RLCUSDT">RLC</option>
+        <option value="NMRUSDT">NMR</option>
+        <option value="IOUSDT">IO</option>
+        <option value="AKTUSDT">AKT</option>
+        <option value="ARKMUSDT">ARKM</option>
+        <option value="IOTAUSDT">IOTA</option>
+        <option value="CKBUSDT">CKB</option>
+        <option value="PHBUSDT">PHB</option>
+        <option value="PHAUSDT">PHA</option>
+      </optgroup>
+      <optgroup label="── Layer 2 / Scaling ──">
+        <option value="MANTAUSDT">MANTA</option>
+        <option value="METISUSDT">METIS</option>
+        <option value="ZKUSDT">ZK</option>
+        <option value="ZROUSDT">ZRO</option>
+        <option value="MNTUSDT">MNT</option>
+      </optgroup>
+      <optgroup label="── NFT / Gaming ──">
+        <option value="BLURUSDT">BLUR</option>
+        <option value="MASKUSDT">MASK</option>
+        <option value="ALICEUSDT">ALICE</option>
+        <option value="TLMUSDT">TLM</option>
+        <option value="BIGTIMEUSDT">BIGTIME</option>
+        <option value="PIXELUSDT">PIXEL</option>
+        <option value="ACEUSDT">ACE</option>
+        <option value="PORTALUSDT">PORTAL</option>
+        <option value="CHESSUSDT">CHESS</option>
+        <option value="MAGICUSDT">MAGIC</option>
+        <option value="LOKAUSDT">LOKA</option>
+        <option value="GHSTUSDT">GHST</option>
+        <option value="NFPUSDT">NFP</option>
+        <option value="HEROUSDT">HERO</option>
+        <option value="SUPERUSDT">SUPER</option>
+        <option value="VOXELUSDT">VOXEL</option>
+        <option value="DARUSDT">DAR</option>
+        <option value="PYRUSDT">PYR</option>
+      </optgroup>
+      <optgroup label="── Privacy ──">
+        <option value="XMRUSDT">XMR</option>
+        <option value="SCRTUSDT">SCRT</option>
+        <option value="MINAUSDT">MINA</option>
+      </optgroup>
+      <optgroup label="── Memecoins ──">
+        <option value="PEPEUSDT">PEPE</option>
+        <option value="SHIBUSDT">SHIB</option>
+        <option value="FLOKIUSDT">FLOKI</option>
+        <option value="WIFUSDT">WIF</option>
+        <option value="BONKUSDT">BONK</option>
+        <option value="BOMEUSDT">BOME</option>
+        <option value="TURBOUSDT">TURBO</option>
+        <option value="NEIROUSDT">NEIRO</option>
+        <option value="MEWUSDT">MEW</option>
+        <option value="MEMEUSDT">MEME</option>
+        <option value="BRETTUSDT">BRETT</option>
+        <option value="NOTUSDT">NOT</option>
+        <option value="DOGSUSDT">DOGS</option>
+        <option value="HMSTRUSDT">HMSTR</option>
+        <option value="PNUTUSDT">PNUT</option>
+        <option value="ACTUSDT">ACT</option>
+        <option value="GOATUSDT">GOAT</option>
+        <option value="POPCATUSDT">POPCAT</option>
+        <option value="MOODENGUSDT">MOODENG</option>
+        <option value="TRUMPUSDT">TRUMP</option>
+        <option value="ORDIUSDT">ORDI</option>
+        <option value="1000SATSUSDT">1000SATS</option>
+        <option value="BANANAS31USDT">BANANAS31</option>
+        <option value="CATIUSDT">CATI</option>
+        <option value="BABYDOGEUSDT">BABYDOGE</option>
+        <option value="LADYSUSDT">LADYS</option>
+      </optgroup>
           </select>
           <select id="liveTF" style="padding:3px 6px;font-size:11px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer" onchange="clearBacktestOverlay();if(liveChartActive)startLiveChart()">
             <option value="1m">1m</option><option value="3m">3m</option><option value="5m">5m</option>
@@ -1591,10 +1798,214 @@ input[type=number] { -moz-appearance:textfield }
           <button onclick="exportChartPNG()" style="padding:4px 10px;font-size:11px;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);border-radius:4px;cursor:pointer" title="Chart als PNG speichern">📷</button>
           <select id="overlaySymbol" onchange="loadOverlayCoin()" style="padding:3px 6px;font-size:11px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--border);border-radius:4px">
             <option value="">+ Overlay</option>
-            <option value="BTCUSDT">BTC</option><option value="ETHUSDT">ETH</option><option value="SOLUSDT">SOL</option>
-            <option value="BNBUSDT">BNB</option><option value="XRPUSDT">XRP</option><option value="ADAUSDT">ADA</option>
-            <option value="DOGEUSDT">DOGE</option><option value="AVAXUSDT">AVAX</option><option value="LINKUSDT">LINK</option>
-            <option value="DOTUSDT">DOT</option>
+<optgroup label="── Top 10 ──">
+        <option value="BTCUSDT">BTC</option>
+        <option value="ETHUSDT">ETH</option>
+        <option value="BNBUSDT">BNB</option>
+        <option value="SOLUSDT">SOL</option>
+        <option value="XRPUSDT">XRP</option>
+        <option value="DOGEUSDT">DOGE</option>
+        <option value="TRXUSDT">TRX</option>
+        <option value="ADAUSDT">ADA</option>
+        <option value="AVAXUSDT">AVAX</option>
+        <option value="LINKUSDT">LINK</option>
+      </optgroup>
+      <optgroup label="── Top 11-30 ──">
+        <option value="TONUSDT">TON</option>
+        <option value="SUIUSDT">SUI</option>
+        <option value="DOTUSDT">DOT</option>
+        <option value="NEARUSDT">NEAR</option>
+        <option value="APTUSDT">APT</option>
+        <option value="UNIUSDT">UNI</option>
+        <option value="ICPUSDT">ICP</option>
+        <option value="RENDERUSDT">RENDER</option>
+        <option value="FILUSDT">FIL</option>
+        <option value="ARBUSDT">ARB</option>
+        <option value="OPUSDT">OP</option>
+        <option value="INJUSDT">INJ</option>
+        <option value="ATOMUSDT">ATOM</option>
+        <option value="LTCUSDT">LTC</option>
+        <option value="TIAUSDT">TIA</option>
+        <option value="HBARUSDT">HBAR</option>
+        <option value="TAOUSDT">TAO</option>
+        <option value="XLMUSDT">XLM</option>
+        <option value="KASUSDT">KAS</option>
+        <option value="BCHUSDT">BCH</option>
+        <option value="ETCUSDT">ETC</option>
+      </optgroup>
+      <optgroup label="── Top 31-60 ──">
+        <option value="POLUSDT">POL</option>
+        <option value="AAVEUSDT">AAVE</option>
+        <option value="RUNEUSDT">RUNE</option>
+        <option value="ALGOUSDT">ALGO</option>
+        <option value="FTMUSDT">FTM</option>
+        <option value="GRTUSDT">GRT</option>
+        <option value="EOSUSDT">EOS</option>
+        <option value="FLOWUSDT">FLOW</option>
+        <option value="MANAUSDT">MANA</option>
+        <option value="AXSUSDT">AXS</option>
+        <option value="SNXUSDT">SNX</option>
+        <option value="MKRUSDT">MKR</option>
+        <option value="LDOUSDT">LDO</option>
+        <option value="QNTUSDT">QNT</option>
+        <option value="VETUSDT">VET</option>
+        <option value="THETAUSDT">THETA</option>
+        <option value="IMXUSDT">IMX</option>
+        <option value="PYTHUSDT">PYTH</option>
+        <option value="WUSDT">W</option>
+        <option value="JTOUSDT">JTO</option>
+        <option value="STXUSDT">STX</option>
+        <option value="EGLDUSDT">EGLD</option>
+        <option value="CFXUSDT">CFX</option>
+        <option value="CAKEUSDT">CAKE</option>
+        <option value="DYDXUSDT">DYDX</option>
+        <option value="1INCHUSDT">1INCH</option>
+        <option value="CRVUSDT">CRV</option>
+        <option value="ZRXUSDT">ZRX</option>
+        <option value="ENSUSDT">ENS</option>
+        <option value="ETHFIUSDT">ETHFI</option>
+        <option value="EIGENUSDT">EIGEN</option>
+        <option value="JUPUSDT">JUP</option>
+        <option value="ONDOUSDT">ONDO</option>
+        <option value="STRKUSDT">STRK</option>
+        <option value="ENAUSDT">ENA</option>
+        <option value="PENDLEUSDT">PENDLE</option>
+        <option value="SEIUSDT">SEI</option>
+        <option value="WLDUSDT">WLD</option>
+      </optgroup>
+      <optgroup label="── Top 61-100 ──">
+        <option value="JASMYUSDT">JASMY</option>
+        <option value="GALAUSDT">GALA</option>
+        <option value="CHZUSDT">CHZ</option>
+        <option value="PEOPLEUSDT">PEOPLE</option>
+        <option value="SUSHIUSDT">SUSHI</option>
+        <option value="ANKRUSDT">ANKR</option>
+        <option value="SKLUSDT">SKL</option>
+        <option value="KAVAUSDT">KAVA</option>
+        <option value="ZECUSDT">ZEC</option>
+        <option value="ARUSDT">AR</option>
+        <option value="ENJUSDT">ENJ</option>
+        <option value="GMTUSDT">GMT</option>
+        <option value="KSMUSDT">KSM</option>
+        <option value="WAVESUSDT">WAVES</option>
+        <option value="BATUSDT">BAT</option>
+        <option value="COMPUSDT">COMP</option>
+        <option value="GMXUSDT">GMX</option>
+        <option value="BALUSDT">BAL</option>
+        <option value="YFIUSDT">YFI</option>
+        <option value="SANDUSDT">SAND</option>
+        <option value="APEUSDT">APE</option>
+        <option value="ILVUSDT">ILV</option>
+        <option value="BEAMXUSDT">BEAM</option>
+        <option value="WAXPUSDT">WAXP</option>
+        <option value="DASHUSDT">DASH</option>
+        <option value="ZILUSDT">ZIL</option>
+        <option value="ROSEUSDT">ROSE</option>
+        <option value="IOTXUSDT">IOTX</option>
+        <option value="ONEUSDT">ONE</option>
+        <option value="HOTUSDT">HOT</option>
+        <option value="ICXUSDT">ICX</option>
+        <option value="ASTRUSDT">ASTR</option>
+        <option value="GLMRUSDT">GLMR</option>
+        <option value="STORJUSDT">STORJ</option>
+        <option value="LRCUSDT">LRC</option>
+        <option value="BANDUSDT">BAND</option>
+        <option value="API3USDT">API3</option>
+        <option value="WOOUSDT">WOO</option>
+        <option value="C98USDT">C98</option>
+        <option value="AXLUSDT">AXL</option>
+        <option value="BNTUSDT">BNT</option>
+        <option value="KNCUSDT">KNC</option>
+        <option value="BICOUSDT">BICO</option>
+        <option value="VANRYUSDT">VANRY</option>
+        <option value="HIGHUSDT">HIGH</option>
+        <option value="GLMUSDT">GLM</option>
+        <option value="OMUSDT">OM</option>
+        <option value="MOVRUSDT">MOVR</option>
+        <option value="DUSKUSDT">DUSK</option>
+        <option value="POWRUSDT">POWR</option>
+        <option value="XTZUSDT">XTZ</option>
+        <option value="NEOUSDT">NEO</option>
+        <option value="DENTUSDT">DENT</option>
+        <option value="ACHUSDT">ACH</option>
+        <option value="HFTUSDT">HFT</option>
+        <option value="GASUSDT">GAS</option>
+        <option value="POLYXUSDT">POLYX</option>
+        <option value="QKCUSDT">QKC</option>
+      </optgroup>
+      <optgroup label="── AI / DePIN ──">
+        <option value="FETUSDT">FET</option>
+        <option value="VIRTUALUSDT">VIRTUAL</option>
+        <option value="RLCUSDT">RLC</option>
+        <option value="NMRUSDT">NMR</option>
+        <option value="IOUSDT">IO</option>
+        <option value="AKTUSDT">AKT</option>
+        <option value="ARKMUSDT">ARKM</option>
+        <option value="IOTAUSDT">IOTA</option>
+        <option value="CKBUSDT">CKB</option>
+        <option value="PHBUSDT">PHB</option>
+        <option value="PHAUSDT">PHA</option>
+      </optgroup>
+      <optgroup label="── Layer 2 / Scaling ──">
+        <option value="MANTAUSDT">MANTA</option>
+        <option value="METISUSDT">METIS</option>
+        <option value="ZKUSDT">ZK</option>
+        <option value="ZROUSDT">ZRO</option>
+        <option value="MNTUSDT">MNT</option>
+      </optgroup>
+      <optgroup label="── NFT / Gaming ──">
+        <option value="BLURUSDT">BLUR</option>
+        <option value="MASKUSDT">MASK</option>
+        <option value="ALICEUSDT">ALICE</option>
+        <option value="TLMUSDT">TLM</option>
+        <option value="BIGTIMEUSDT">BIGTIME</option>
+        <option value="PIXELUSDT">PIXEL</option>
+        <option value="ACEUSDT">ACE</option>
+        <option value="PORTALUSDT">PORTAL</option>
+        <option value="CHESSUSDT">CHESS</option>
+        <option value="MAGICUSDT">MAGIC</option>
+        <option value="LOKAUSDT">LOKA</option>
+        <option value="GHSTUSDT">GHST</option>
+        <option value="NFPUSDT">NFP</option>
+        <option value="HEROUSDT">HERO</option>
+        <option value="SUPERUSDT">SUPER</option>
+        <option value="VOXELUSDT">VOXEL</option>
+        <option value="DARUSDT">DAR</option>
+        <option value="PYRUSDT">PYR</option>
+      </optgroup>
+      <optgroup label="── Privacy ──">
+        <option value="XMRUSDT">XMR</option>
+        <option value="SCRTUSDT">SCRT</option>
+        <option value="MINAUSDT">MINA</option>
+      </optgroup>
+      <optgroup label="── Memecoins ──">
+        <option value="PEPEUSDT">PEPE</option>
+        <option value="SHIBUSDT">SHIB</option>
+        <option value="FLOKIUSDT">FLOKI</option>
+        <option value="WIFUSDT">WIF</option>
+        <option value="BONKUSDT">BONK</option>
+        <option value="BOMEUSDT">BOME</option>
+        <option value="TURBOUSDT">TURBO</option>
+        <option value="NEIROUSDT">NEIRO</option>
+        <option value="MEWUSDT">MEW</option>
+        <option value="MEMEUSDT">MEME</option>
+        <option value="BRETTUSDT">BRETT</option>
+        <option value="NOTUSDT">NOT</option>
+        <option value="DOGSUSDT">DOGS</option>
+        <option value="HMSTRUSDT">HMSTR</option>
+        <option value="PNUTUSDT">PNUT</option>
+        <option value="ACTUSDT">ACT</option>
+        <option value="GOATUSDT">GOAT</option>
+        <option value="POPCATUSDT">POPCAT</option>
+        <option value="MOODENGUSDT">MOODENG</option>
+        <option value="TRUMPUSDT">TRUMP</option>
+        <option value="ORDIUSDT">ORDI</option>
+        <option value="1000SATSUSDT">1000SATS</option>
+        <option value="BANANAS31USDT">BANANAS31</option>
+        <option value="CATIUSDT">CATI</option>
+        <option value="BABYDOGEUSDT">BABYDOGE</option>
+        <option value="LADYSUSDT">LADYS</option>
+      </optgroup>
           </select>
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer">
             <input type="checkbox" id="equityOverlayToggle" onchange="refreshChartWithIndicators()" style="cursor:pointer"> Equity
@@ -3202,6 +3613,76 @@ const Indicators = {
     return { vwap: r, upper, lower };
   },
 
+  // ── Volume Profile / VPVR ──
+  // Liefert für die übergebenen Kerzen ein histogrammartiges Volumen-Profil:
+  //   bins: Array[N] mit Volumen pro Preisbin (vom niedrigsten zum höchsten)
+  //   priceMin/priceMax: Preisrange die abgedeckt wurde
+  //   binSize: Preisgröße eines Bins
+  //   poc: Point of Control (Preis mit höchstem Volumen)
+  //   pocBinIdx: Bin-Index des POC
+  //   vah: Value Area High (oberer Rand der Value Area)
+  //   val: Value Area Low (unterer Rand)
+  //   maxVol, totalVol: für Skalierung
+  volumeProfile(candles, bins = 50, valueAreaPct = 0.70) {
+    if (!candles || candles.length === 0) return null;
+    let priceMin = Infinity, priceMax = -Infinity;
+    for (const c of candles) {
+      if (c.low < priceMin) priceMin = c.low;
+      if (c.high > priceMax) priceMax = c.high;
+    }
+    const range = priceMax - priceMin;
+    if (range <= 0 || !isFinite(range)) return null;
+    const N = Math.max(10, Math.min(200, bins | 0));
+    const binSize = range / N;
+    const volByBin = new Array(N).fill(0);
+    // Volumen verteilen — proportional über die Range jeder Kerze
+    for (const c of candles) {
+      const v = c.volume || 0;
+      if (v <= 0) continue;
+      const lo = c.low, hi = c.high;
+      const cRange = Math.max(hi - lo, binSize * 0.01);
+      let binLo = Math.floor((lo - priceMin) / binSize);
+      let binHi = Math.floor((hi - priceMin) / binSize);
+      if (binLo < 0) binLo = 0;
+      if (binHi >= N) binHi = N - 1;
+      if (binLo === binHi) {
+        volByBin[binLo] += v;
+      } else {
+        // Proportional verteilen
+        const nBins = binHi - binLo + 1;
+        const volPerBin = v / nBins;
+        for (let i = binLo; i <= binHi; i++) volByBin[i] += volPerBin;
+      }
+    }
+    let maxVol = 0, pocBin = 0;
+    for (let i = 0; i < N; i++) {
+      if (volByBin[i] > maxVol) { maxVol = volByBin[i]; pocBin = i; }
+    }
+    const totalVol = volByBin.reduce((s, v) => s + v, 0);
+    const targetVol = totalVol * valueAreaPct;
+    // Value Area expandieren von POC aus
+    let lo = pocBin, hi = pocBin;
+    let cumVol = volByBin[pocBin];
+    while (cumVol < targetVol && (lo > 0 || hi < N - 1)) {
+      const loNext = lo > 0 ? volByBin[lo - 1] : -1;
+      const hiNext = hi < N - 1 ? volByBin[hi + 1] : -1;
+      if (loNext >= hiNext) { lo--; cumVol += Math.max(0, loNext); }
+      else { hi++; cumVol += Math.max(0, hiNext); }
+    }
+    return {
+      bins: volByBin,
+      binSize,
+      priceMin, priceMax,
+      poc: priceMin + (pocBin + 0.5) * binSize,
+      vah: priceMin + (hi + 1) * binSize,
+      val: priceMin + lo * binSize,
+      pocBinIdx: pocBin,
+      maxVol,
+      totalVol,
+      nBins: N
+    };
+  },
+
   // ── Ichimoku ──
   ichimoku(highs, lows, closes, tenkanP=9, kijunP=26, senkouBP=52, displacement=26) {
     const n = closes.length;
@@ -4295,6 +4776,7 @@ const CHART_INDICATORS = {
     tema: { label: 'TEMA', type: 'overlay', color: '#ffa502', params: { period: 21 }, enabled: false },
     hma: { label: 'HMA', type: 'overlay', color: '#00d2d3', params: { period: 21 }, enabled: false },
     pivotPoints: { label: 'Pivot Points', type: 'overlay', color: '#8b949e', params: {}, enabled: false },
+    volumeProfile: { label: 'Volume Profile', type: 'overlay', color: '#a78bfa', params: { bins: 50, lookback: 200 }, enabled: false },
     wma: { label: 'WMA', type: 'overlay', color: '#e0af68', params: { period: 20 }, enabled: false },
     zlema: { label: 'ZLEMA', type: 'overlay', color: '#7dcfff', params: { period: 21 }, enabled: false },
     smma: { label: 'SMMA', type: 'overlay', color: '#bb9af7', params: { period: 20 }, enabled: false },
@@ -4418,6 +4900,12 @@ function computeChartIndicators(candles) {
   }
   if (ov.pivotPoints.enabled) {
     chartIndicatorData.pivotPoints = Indicators.pivotPoints(candles);
+  }
+  if (ov.volumeProfile && ov.volumeProfile.enabled) {
+    const lookback = (ov.volumeProfile.params && ov.volumeProfile.params.lookback) || 200;
+    const bins = (ov.volumeProfile.params && ov.volumeProfile.params.bins) || 50;
+    const slice = candles.length > lookback ? candles.slice(candles.length - lookback) : candles;
+    chartIndicatorData.volumeProfile = Indicators.volumeProfile(slice, bins, 0.70);
   }
   if (ov.wma && ov.wma.enabled) {
     chartIndicatorData.wma = [{ label: `WMA ${ov.wma.params.period}`, color: ov.wma.color, data: Indicators.wma(closes, ov.wma.params.period) }];
@@ -14772,6 +15260,7 @@ function buildIndicatorToggles() {
     tema: 'Triple EMA — noch weniger Lag als DEMA',
     hma: 'Hull MA — sehr reaktionsschneller MA mit minimalem Lag',
     pivotPoints: 'Pivot Points — tägliche Support/Resistance aus Vortages-H/L/C',
+    volumeProfile: 'Volume Profile (VPVR) — horizontale Bars rechts zeigen wo am meisten gehandelt wurde. POC (orange) = stärkster Level, VAH/VAL (lila gestrichelt) = Value Area (70%)',
     wma: 'Weighted MA — gewichtet neuere Preise linear stärker',
     zlema: 'Zero Lag EMA — EMA mit Lag-Kompensation',
     smma: 'Smoothed MA — geglätteter Durchschnitt, langsamer als EMA',
@@ -15316,6 +15805,9 @@ function activateBuilderStrategy() {
           case 'cmf': this._cache[key] = Indicators.cmf(highs, lows, closes, volumes, params.period || 20); break;
           case 'atr': this._cache[key] = Indicators.atr(highs, lows, closes, params.period || 14); break;
           case 'vwap': { const v = Indicators.vwap(this._candles); this._cache[key] = v.vwap; break; }
+          case 'vp_poc': { const vp = Indicators.volumeProfile(this._candles, params.bins || 50); this._cache[key] = vp ? new Array(this._candles.length).fill(vp.poc) : new Array(this._candles.length).fill(NaN); break; }
+          case 'vp_vah': { const vp = Indicators.volumeProfile(this._candles, params.bins || 50); this._cache[key] = vp ? new Array(this._candles.length).fill(vp.vah) : new Array(this._candles.length).fill(NaN); break; }
+          case 'vp_val': { const vp = Indicators.volumeProfile(this._candles, params.bins || 50); this._cache[key] = vp ? new Array(this._candles.length).fill(vp.val) : new Array(this._candles.length).fill(NaN); break; }
           // ── Price Action Patterns ──
           case 'pat_hammer': this._cache[key] = Indicators.patternHammer(this._candles); break;
           case 'pat_engulfing': this._cache[key] = Indicators.patternEngulfing(this._candles); break;
@@ -16779,6 +17271,71 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
       drawLine(chartIndicatorData.vwap.vwap, '#d29922', startIdx, endIdx);
       drawLine(chartIndicatorData.vwap.upper, 'rgba(210,153,34,0.4)', startIdx, endIdx, [2,3]);
       drawLine(chartIndicatorData.vwap.lower, 'rgba(210,153,34,0.4)', startIdx, endIdx, [2,3]);
+    }
+
+    // Volume Profile / VPVR — horizontale Bars am rechten Chart-Rand
+    if (chartIndicatorData.volumeProfile) {
+      const vp = chartIndicatorData.volumeProfile;
+      const chartLeft = pad.left;
+      const chartRight = W - pad.right;
+      const visibleW = chartRight - chartLeft;
+      // Bar-Bereich: rechts ~20% des Charts, von rechts nach links wachsend
+      const barAreaW = Math.min(visibleW * 0.22, 130);
+      const barRight = chartRight;  // Bars enden am rechten Rand
+      const barLeft = barRight - barAreaW;
+      // Hintergrund leicht dunkler für die Bar-Zone
+      ctx.fillStyle = 'rgba(0,0,0,0.10)';
+      ctx.fillRect(barLeft, 0, barAreaW, ctx.canvas.height);
+      // Bars zeichnen
+      for (let i = 0; i < vp.nBins; i++) {
+        const v = vp.bins[i];
+        if (v <= 0) continue;
+        const priceLo = vp.priceMin + i * vp.binSize;
+        const priceHi = priceLo + vp.binSize;
+        const yLo = yScale(priceHi);  // oberer Y-Wert (höherer Preis = kleineres Y)
+        const yHi = yScale(priceLo);
+        const h = Math.max(1, yHi - yLo);
+        const barLen = (v / vp.maxVol) * barAreaW;
+        const isPOC = (i === vp.pocBinIdx);
+        const inVA = (priceLo >= vp.val - vp.binSize * 0.01) && (priceHi <= vp.vah + vp.binSize * 0.01);
+        ctx.fillStyle = isPOC
+          ? 'rgba(245,158,11,0.75)'
+          : (inVA ? 'rgba(167,139,250,0.50)' : 'rgba(167,139,250,0.25)');
+        ctx.fillRect(barRight - barLen, yLo, barLen, h);
+      }
+      // VAH-Linie (oben)
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(167,139,250,0.7)';
+      ctx.lineWidth = 1;
+      const yVAH = yScale(vp.vah);
+      ctx.beginPath();
+      ctx.moveTo(chartLeft, yVAH);
+      ctx.lineTo(barLeft, yVAH);
+      ctx.stroke();
+      // VAL-Linie (unten)
+      const yVAL = yScale(vp.val);
+      ctx.beginPath();
+      ctx.moveTo(chartLeft, yVAL);
+      ctx.lineTo(barLeft, yVAL);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // POC-Linie (durchgezogen, prominent)
+      ctx.strokeStyle = 'rgba(245,158,11,0.9)';
+      ctx.lineWidth = 1.5;
+      const yPOC = yScale(vp.poc);
+      ctx.beginPath();
+      ctx.moveTo(chartLeft, yPOC);
+      ctx.lineTo(barLeft, yPOC);
+      ctx.stroke();
+      // Labels für POC/VAH/VAL
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(245,158,11,1)';
+      ctx.fillText('POC ' + vp.poc.toFixed(vp.poc > 100 ? 1 : 4), barLeft + 4, yPOC - 2);
+      ctx.fillStyle = 'rgba(167,139,250,1)';
+      ctx.font = '9px sans-serif';
+      ctx.fillText('VAH', barLeft + 4, yVAH - 2);
+      ctx.fillText('VAL', barLeft + 4, yVAL + 9);
     }
 
     if (chartIndicatorData.supertrend) {
@@ -32404,7 +32961,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.6.0-beta';
-const APP_BUILD = '2026-05-11 20:15 UTC';
+const APP_BUILD = '2026-05-11 21:55 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -35369,6 +35926,31 @@ async function aiAkademieSend() {
 }
 
 // Aktuell gewählte KI-Strategie löschen (vom Result-Banner aus)
+// Sichtbarkeit des Lösch-Buttons neben strategySelect aktualisieren
+function _updateStrategyDeleteBtn() {
+  const sel = document.getElementById('strategySelect');
+  const btn = document.getElementById('strategyDeleteBtn');
+  if (!sel || !btn) return;
+  const idx = parseInt(sel.value);
+  const strat = STRATEGIES[idx];
+  btn.style.display = (strat && strat._isAiCustom) ? '' : 'none';
+}
+
+// Auto-Bind beim ersten Render + bei jedem change-Event
+(function _bindStratDelBtn() {
+  function init() {
+    const sel = document.getElementById('strategySelect');
+    if (!sel) { setTimeout(init, 500); return; }
+    sel.addEventListener('change', _updateStrategyDeleteBtn);
+    _updateStrategyDeleteBtn();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
 function aiDeleteCurrentSelected() {
   const sel = document.getElementById('strategySelect');
   if (!sel) { _showErrorToast('Keine Strategie ausgewählt'); return; }
@@ -35453,6 +36035,8 @@ function aiInjectIntoStrategies(spec) {
 
 // ── Strategie-Dropdown neu bauen mit OPTGROUPS: KI oben + Standard unten ──
 function aiRebuildStrategyDropdown() {
+  // Auch Sichtbarkeit des Lösch-Buttons aktualisieren (verzögert weil dropdown rebuild erst danach)
+  setTimeout(() => { try { _updateStrategyDeleteBtn(); } catch(e) {} }, 100);
   const sel = document.getElementById('strategySelect');
   if (!sel) return;
   const currentValue = sel.value;
