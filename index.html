@@ -30613,18 +30613,20 @@ function renderAcademy() {
         ${proDetailsHtml}
         <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${simpleInfo.desc}</p>
         ${chartBlockHtml}
-        ${entryReasonHtml}
-        ${indicatorsHtml}
-        <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
-          <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:8px">📖 ${lblHowto}</div>
-          <ol style="margin:0;padding-left:22px;line-height:1.8">
-            ${simpleInfo.steps.map(s => `<li>${s}</li>`).join('')}
-          </ol>
-        </div>
-        ${simpleInfo.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
-          <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${simpleInfo.market}
-        </div>` : ''}
-        ${glossaryHtml}
+        ${_animKey ? '' : `
+          ${entryReasonHtml}
+          ${indicatorsHtml}
+          <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:8px">📖 ${lblHowto}</div>
+            <ol style="margin:0;padding-left:22px;line-height:1.8">
+              ${simpleInfo.steps.map(s => `<li>${s}</li>`).join('')}
+            </ol>
+          </div>
+          ${simpleInfo.market ? `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:4px;font-size:13px">
+            <strong style="color:#f59e0b">💡 ${lblWhen}</strong> ${simpleInfo.market}
+          </div>` : ''}
+          ${glossaryHtml}
+        `}
         <div style="margin-top:14px;padding:10px 12px;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.30);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">${isEn ? 'Got questions about this strategy?' : 'Fragen zu dieser Strategie?'} <span style="color:var(--text-muted)">${isEn ? 'The AI knows all the details and answers in plain language.' : 'Die KI kennt alle Details und antwortet verständlich.'}</span></div>
           <button type="button" onclick="event.preventDefault();event.stopPropagation();aiOpenAkademie('${strat.name.replace(/'/g, "\\'")}')" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">💬 ${isEn ? 'Ask the AI' : 'Frag die KI'}</button>
@@ -33105,7 +33107,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.7.0-beta';
-const APP_BUILD = '2026-05-12 02:05 UTC';
+const APP_BUILD = '2026-05-12 02:20 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -39841,4 +39843,4 @@ window.addEventListener('beforeunload', () => {
     <div id="captionGenStatus" style="display:none;background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.30);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text-primary)">⏳ Generiere Caption...</div>
     <div style="margin-bottom:10px">
       <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Influencer-Handle (optional)</label>
-      <input id="captionGenInfluencer" type="text" placeholder="@dachgeschoss-trader oder leer lassen" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:
+      <input id="captionGenInfluencer" type="text" placeholder="@dachgeschoss-trader oder leer lassen" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-prim
