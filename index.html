@@ -30563,7 +30563,15 @@ function renderAcademy() {
       // durch eine Canvas-Karte mit Static-Preview + Play-Button (inline, kein Modal).
       const _hasAnim = (typeof ACADEMY_ANIM_CONFIGS !== 'undefined') &&
         (/trend.?pullback/i.test(strat.name) ? 'trend-pullback' :
-         /ema.?bounce/i.test(strat.name) ? 'trend-pullback' : null);
+         /ema.?bounce/i.test(strat.name) ? 'trend-pullback' :
+         /breakout|donchian/i.test(strat.name) ? 'breakout' :
+         /macd.?cross/i.test(strat.name) ? 'macd-crossover' :
+         /finalboss.?zonen?|smc.?zone/i.test(strat.name) ? 'finalboss-zonen' :
+         /bollinger.?squeeze|bb.?squeeze|squeeze/i.test(strat.name) ? 'bollinger-squeeze' :
+         /rsi.?mean.?reversion|mean.?reversion|z.?score/i.test(strat.name) ? 'rsi-mean-reversion' :
+         /supertrend/i.test(strat.name) ? 'supertrend' :
+         /ma.?cross|golden.?cross|death.?cross|ema.?cross/i.test(strat.name) ? 'ma-cross' :
+         /volume.?spike|capitulation/i.test(strat.name) ? 'volume-spike' : null);
       const _animKey = _hasAnim || '';
       const _canvasId = 'ak_canvas_' + Math.random().toString(36).slice(2, 10);
       const _animCfg = (_animKey && typeof ACADEMY_ANIM_CONFIGS !== 'undefined') ? ACADEMY_ANIM_CONFIGS[_animKey] : null;
@@ -33109,7 +33117,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.7.0-beta';
-const APP_BUILD = '2026-05-12 02:45 UTC';
+const APP_BUILD = '2026-05-12 03:20 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36703,7 +36711,389 @@ const ACADEMY_ANIM_CONFIGS = {
       market: 'Krypto-Coins mit klarer Swing-Struktur. Major-Coins (BTC, ETH) und liquide Mid-Caps. Nicht in choppy Phasen.'
     },
     tip: 'Die meisten Pullback-Trades scheitern weil zu früh eingestiegen wird — beim ersten EMA-Touch statt nach der Bestätigung. Geduld zahlt sich aus: warte auf die Engulfing-Kerze, sonst wird daraus ein Catching-Knife-Trade.'
+  },
+
+  'breakout': {
+    title: 'Breakout · BTC 1h · Long',
+    subtitle: 'Range-Konsolidierung → Ausbruch → Retest → Continuation',
+    skipEma: true,
+    candles: [
+      {o:42000,h:42150,l:41950,c:42100},{o:42100,h:42250,l:42050,c:42200},
+      {o:42200,h:42350,l:42100,c:42150},{o:42150,h:42280,l:42050,c:42250},
+      {o:42250,h:42400,l:42180,c:42200},{o:42200,h:42350,l:42050,c:42100},
+      {o:42100,h:42250,l:42000,c:42200},{o:42200,h:42400,l:42150,c:42300},
+      {o:42300,h:42420,l:42200,c:42250},{o:42250,h:42380,l:42100,c:42150},
+      {o:42150,h:42300,l:42050,c:42250},{o:42250,h:42400,l:42180,c:42350},
+      {o:42350,h:42450,l:42250,c:42300},{o:42300,h:42420,l:42100,c:42200},
+      {o:42200,h:42400,l:42100,c:42380},{o:42380,h:42900,l:42350,c:42850},
+      {o:42850,h:43000,l:42800,c:42950},{o:42950,h:43050,l:42700,c:42750},
+      {o:42750,h:42800,l:42500,c:42550},{o:42550,h:42650,l:42400,c:42500},
+      {o:42500,h:42850,l:42480,c:42800},{o:42800,h:42950,l:42750,c:42900},
+      {o:42900,h:43100,l:42850,c:43050},{o:43050,h:43300,l:43000,c:43250},
+      {o:43250,h:43450,l:43200,c:43400},{o:43400,h:43600,l:43350,c:43550},
+      {o:43550,h:43750,l:43500,c:43700},{o:43700,h:43900,l:43650,c:43850},
+      {o:43850,h:44050,l:43800,c:44000},{o:44000,h:44250,l:43950,c:44200}
+    ],
+    entryIdx: 20,
+    entryPrice: 42800, slPrice: 42050, tp1Price: 43550, tp2Price: 44300,
+    zone: { fromIdx: 0, toIdx: 14, top: 42450, bottom: 42050 },
+    zoneLabel: 'RANGE-ZONE',
+    zoneColor: '88,166,255',
+    structureLabels: [
+      { idx: 4, price: 42400, text: 'Resistance', color: '#58a6ff' },
+      { idx: 6, price: 42000, text: 'Support', color: '#58a6ff' },
+      { idx: 15, price: 42900, text: 'BREAKOUT', color: '#22c55e' },
+      { idx: 19, price: 42400, text: 'Retest', color: '#fbbf24' }
+    ],
+    checklist: [
+      '(1) Klare Range mit min. 3 Touches an Resistance',
+      '(2) Breakout-Kerze mit grossem Body (> 1.5x ATR)',
+      '(3) Volumen-Spike beim Ausbruch',
+      '(4) Retest haelt ueber alter Resistance',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze nach Retest des Ausbruchs-Levels (alte Resistance = neue Support).',
+      sl: 'Unter dem Retest-Tief oder unter der alten Range-Mitte. Mindestens 0.5% Abstand.',
+      tp: 'TP1 = 1.5x Range-Hoehe ueber Breakout (50%), TP2 = 2x Range-Hoehe (Rest).',
+      market: 'Funktioniert auf liquiden Coins mit klarer Struktur. Vermeide bei niedrigem Volumen oder choppy Maerkten.'
+    },
+    tip: 'Die meisten Breakouts sind Fakeouts. Warte IMMER auf den Retest — wer auf der Breakout-Kerze einsteigt, wird oft ausgestoppt. Volumen-Spike + Retest-Hold ist der einzig zuverlaessige Trigger.'
+  },
+
+  'macd-crossover': {
+    title: 'MACD Crossover · BTC 1h · Long',
+    subtitle: 'Bullishes MACD-Cross nach Konsolidierung → Long-Entry',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43600,l:43350,c:43400},{o:43400,h:43500,l:43200,c:43250},
+      {o:43250,h:43350,l:43050,c:43100},{o:43100,h:43200,l:42900,c:42950},
+      {o:42950,h:43050,l:42750,c:42800},{o:42800,h:42950,l:42700,c:42750},
+      {o:42750,h:42900,l:42650,c:42700},{o:42700,h:42850,l:42600,c:42650},
+      {o:42650,h:42800,l:42550,c:42600},{o:42600,h:42750,l:42500,c:42550},
+      {o:42550,h:42700,l:42450,c:42500},{o:42500,h:42650,l:42400,c:42450},
+      {o:42450,h:42600,l:42400,c:42500},{o:42500,h:42650,l:42450,c:42550},
+      {o:42550,h:42700,l:42500,c:42600},{o:42600,h:42750,l:42550,c:42650},
+      {o:42650,h:42800,l:42600,c:42700},{o:42700,h:42850,l:42650,c:42750},
+      {o:42750,h:42900,l:42700,c:42800},{o:42800,h:42950,l:42750,c:42850},
+      {o:42850,h:43100,l:42800,c:43050},{o:43050,h:43250,l:43000,c:43200},
+      {o:43200,h:43400,l:43150,c:43350},{o:43350,h:43550,l:43300,c:43500},
+      {o:43500,h:43700,l:43450,c:43650},{o:43650,h:43850,l:43600,c:43800},
+      {o:43800,h:44000,l:43750,c:43950},{o:43950,h:44150,l:43900,c:44100},
+      {o:44100,h:44300,l:44050,c:44250},{o:44250,h:44500,l:44200,c:44400}
+    ],
+    entryIdx: 20,
+    entryPrice: 43050, slPrice: 42400, tp1Price: 43950, tp2Price: 44400,
+    zone: { fromIdx: 11, toIdx: 19, top: 42850, bottom: 42400 },
+    zoneLabel: 'KONSOLIDIERUNG',
+    zoneColor: '167,139,250',
+    structureLabels: [
+      { idx: 11, price: 42400, text: 'LL', color: '#ef4444' },
+      { idx: 19, price: 42950, text: 'MACD ↑', color: '#22c55e' },
+      { idx: 23, price: 43500, text: 'Continuation', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klare Konsolidierung nach Abwaertsbewegung',
+      '(2) MACD-Linie kreuzt Signal-Linie nach oben',
+      '(3) MACD-Histogramm wechselt zu positiv',
+      '(4) Preis schliesst ueber vorhergehender Kerze',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der Kerze NACH dem MACD-Cross (Linie ueber Signal, Histogramm positiv).',
+      sl: 'Unter dem letzten Swing-Low der Konsolidierung + 0.3% Buffer.',
+      tp: 'TP1 = Vorheriges Hoch (50% schliessen) · TP2 = Trail bis Gegen-Cross (MACD wieder negativ).',
+      market: 'Funktioniert in Trend-Uebergaengen. Schlecht in chaotischen Maerkten mit haeufigen Cross-Whipsaws.'
+    },
+    tip: 'MACD lagt — kreuzt OFT erst wenn der erste Schub schon vorbei ist. Kombiniere mit Volumen-Bestaetigung oder Trend-Filter (z.B. nur Long wenn Preis > 200 EMA), sonst werden 60% deiner Trades Whipsaws.'
+  },
+
+  'finalboss-zonen': {
+    title: 'FinalBoss Zonen (SMC) · BTC 1h zu 5m · Long',
+    subtitle: '1h Traumsequenz → Fib-Zone → 5m Retest mit BOS-Bestaetigung',
+    skipEma: true,
+    candles: [
+      {o:42000,h:42100,l:41950,c:42050},{o:42050,h:42150,l:42000,c:42100},
+      {o:42100,h:42300,l:42050,c:42250},{o:42250,h:42500,l:42200,c:42450},
+      {o:42450,h:42750,l:42400,c:42700},{o:42700,h:43000,l:42650,c:42950},
+      {o:42950,h:43250,l:42900,c:43200},{o:43200,h:43500,l:43150,c:43450},
+      {o:43450,h:43700,l:43400,c:43650},{o:43650,h:43850,l:43600,c:43800},
+      {o:43800,h:43850,l:43500,c:43550},{o:43550,h:43600,l:43250,c:43300},
+      {o:43300,h:43350,l:43050,c:43100},{o:43100,h:43150,l:42950,c:43000},
+      {o:43000,h:43100,l:42850,c:42900},{o:42900,h:42950,l:42750,c:42800},
+      {o:42800,h:42900,l:42700,c:42850},{o:42850,h:42950,l:42800,c:42900},
+      {o:42900,h:43000,l:42850,c:42950},{o:42950,h:43100,l:42900,c:43050},
+      {o:43050,h:43250,l:43000,c:43200},{o:43200,h:43400,l:43150,c:43350},
+      {o:43350,h:43550,l:43300,c:43500},{o:43500,h:43700,l:43450,c:43650},
+      {o:43650,h:43850,l:43600,c:43800},{o:43800,h:43900,l:43750,c:43850},
+      {o:43850,h:43900,l:43750,c:43800},{o:43800,h:43850,l:43700,c:43750},
+      {o:43750,h:43800,l:43650,c:43700},{o:43700,h:43750,l:43500,c:43550}
+    ],
+    entryIdx: 19,
+    entryPrice: 43050, slPrice: 42700, tp1Price: 43850, tp2Price: 44150,
+    zone: { fromIdx: 14, toIdx: 19, top: 43050, bottom: 42800 },
+    zoneLabel: 'FIB 0.5 - 0.667',
+    zoneColor: '245,158,11',
+    structureLabels: [
+      { idx: 0, price: 41950, text: 'A', color: '#fbbf24' },
+      { idx: 9, price: 43850, text: 'B (HH)', color: '#fbbf24' },
+      { idx: 16, price: 42700, text: 'C (HL)', color: '#fbbf24' },
+      { idx: 19, price: 43050, text: 'BOS Entry', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) 1h-Sequenz mit Hoeherem Tief (Traumsequenz BC/AB > 1.5)',
+      '(2) Korrektur-Tiefe >= 30% der Impuls-Range',
+      '(3) Fib 0.5-0.667 Zone vom B-Punkt definiert',
+      '(4) 5m-Close > Zone-Top + gruene Bestaetigungs-Kerze',
+      '(5) Kein Fib-786-Overshoot, kein CHoCH gegen Richtung'
+    ],
+    setupRules: {
+      entry: '5m-Close ueber Zone-Top + gruene Confirmation-Kerze. Max. 2x Zonenbreite Abstand zum Top.',
+      sl: 'C-Punkt der Sequenz (Pullback-Tief) +- 0.2% Buffer. Mindest-SL-Distanz 0.5%.',
+      tp: 'TP1 = B-Punkt der Sequenz (50% schliessen + SL auf Break-Even) · TP2 = B + 0.618x Impuls-Range.',
+      market: 'Major-Coins mit klarer Multi-Timeframe-Struktur. BTC, ETH, liquide Mid-Caps.'
+    },
+    tip: 'Die Magie ist im 1h-Setup, nicht im 5m-Trigger. Wenn die 1h-Sequenz nicht sauber ist (BC/AB < 1.5, Korrektur < 30%, oder CHoCH gegen Richtung), ueberspring die Zone — egal wie schoen der 5m-Trigger aussieht.'
+  },
+
+  'bollinger-squeeze': {
+    title: 'Bollinger Squeeze · BTC 1h · Long',
+    subtitle: 'BB kontrahiert → Squeeze → Explosive Breakout → Trend',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42650,l:42400,c:42550},{o:42550,h:42700,l:42500,c:42600},
+      {o:42600,h:42650,l:42500,c:42500},{o:42500,h:42620,l:42400,c:42450},
+      {o:42450,h:42600,l:42420,c:42550},{o:42550,h:42700,l:42500,c:42600},
+      {o:42600,h:42650,l:42450,c:42500},{o:42500,h:42600,l:42420,c:42550},
+      {o:42550,h:42700,l:42500,c:42620},{o:42620,h:42700,l:42500,c:42550},
+      {o:42550,h:42600,l:42420,c:42470},{o:42470,h:42600,l:42440,c:42570},
+      {o:42570,h:42650,l:42500,c:42600},{o:42600,h:42700,l:42550,c:42620},
+      {o:42620,h:42700,l:42550,c:42700},{o:42700,h:43100,l:42650,c:43050},
+      {o:43050,h:43150,l:43000,c:43100},{o:43100,h:43150,l:42900,c:42950},
+      {o:42950,h:43000,l:42800,c:42850},{o:42850,h:43050,l:42820,c:43000},
+      {o:43000,h:43200,l:42950,c:43150},{o:43150,h:43300,l:43100,c:43250},
+      {o:43250,h:43450,l:43200,c:43400},{o:43400,h:43600,l:43350,c:43550},
+      {o:43550,h:43750,l:43500,c:43700},{o:43700,h:43900,l:43650,c:43850},
+      {o:43850,h:44100,l:43800,c:44050},{o:44050,h:44250,l:44000,c:44200},
+      {o:44200,h:44400,l:44150,c:44350},{o:44350,h:44600,l:44300,c:44550}
+    ],
+    entryIdx: 20,
+    entryPrice: 43150, slPrice: 42700, tp1Price: 44050, tp2Price: 44500,
+    zone: { fromIdx: 0, toIdx: 14, top: 42700, bottom: 42400 },
+    zoneLabel: 'SQUEEZE-ZONE',
+    zoneColor: '167,139,250',
+    structureLabels: [
+      { idx: 7, price: 42700, text: 'BB Upper', color: '#9ca3af' },
+      { idx: 7, price: 42400, text: 'BB Lower', color: '#9ca3af' },
+      { idx: 15, price: 43100, text: 'BREAKOUT', color: '#22c55e' },
+      { idx: 20, price: 43150, text: 'Entry', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) BB-Width unter Schwellenwert (echter Squeeze)',
+      '(2) min. 10-15 Kerzen mit niedriger Volatilitaet',
+      '(3) Explosive Breakout-Kerze mit grossem Body',
+      '(4) Volumen-Spike beim Breakout (>= 1.5x Average)',
+      '(5) Close-Confirmation ueber alter BB-Oberen'
+    ],
+    setupRules: {
+      entry: 'Close der Bestaetigungs-Kerze NACH Retest der gebrochenen BB-Oberen.',
+      sl: 'Unter dem Squeeze-Tief oder unter alter BB-Mitte. Mind. 0.5% Distanz.',
+      tp: 'TP1 = 2R (50% schliessen) · TP2 = 3R oder gegen-BB-Touch.',
+      market: 'Funktioniert nach laengerer Konsolidierung. Nicht direkt nach News.'
+    },
+    tip: 'Squeeze-Trades scheitern an Volumen-Mangel. Ohne Volumen-Spike beim Breakout ist es meist ein Fake — 60% werden wieder eingefangen.'
+  },
+
+  'rsi-mean-reversion': {
+    title: 'RSI Mean Reversion · BTC 1h · Long',
+    subtitle: 'Oversold (RSI < 30) → Hammer → Bounce zur Mean',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43900,l:43750,c:43800},{o:43800,h:43850,l:43650,c:43700},
+      {o:43700,h:43750,l:43500,c:43550},{o:43550,h:43600,l:43350,c:43400},
+      {o:43400,h:43450,l:43200,c:43250},{o:43250,h:43350,l:43100,c:43150},
+      {o:43150,h:43250,l:43000,c:43050},{o:43050,h:43150,l:42900,c:42950},
+      {o:42950,h:43050,l:42800,c:42850},{o:42850,h:42950,l:42700,c:42750},
+      {o:42750,h:42850,l:42600,c:42650},{o:42650,h:42750,l:42500,c:42550},
+      {o:42550,h:42650,l:42400,c:42450},{o:42450,h:42550,l:42300,c:42350},
+      {o:42350,h:42450,l:42200,c:42250},{o:42250,h:42350,l:42100,c:42150},
+      {o:42150,h:42250,l:41950,c:42000},{o:42000,h:42100,l:41800,c:42050},
+      {o:42050,h:42250,l:42000,c:42200},{o:42200,h:42400,l:42150,c:42350},
+      {o:42350,h:42500,l:42300,c:42450},{o:42450,h:42650,l:42400,c:42600},
+      {o:42600,h:42750,l:42550,c:42700},{o:42700,h:42850,l:42650,c:42800},
+      {o:42800,h:42950,l:42750,c:42900},{o:42900,h:43050,l:42850,c:43000},
+      {o:43000,h:43150,l:42950,c:43100},{o:43100,h:43250,l:43050,c:43200},
+      {o:43200,h:43350,l:43150,c:43300},{o:43300,h:43450,l:43250,c:43400}
+    ],
+    entryIdx: 18,
+    entryPrice: 42200, slPrice: 41800, tp1Price: 43000, tp2Price: 43400,
+    zone: { fromIdx: 16, toIdx: 18, top: 42250, bottom: 41800 },
+    zoneLabel: 'OVERSOLD-ZONE',
+    zoneColor: '88,166,255',
+    structureLabels: [
+      { idx: 0, price: 43850, text: 'HH', color: '#fbbf24' },
+      { idx: 17, price: 41800, text: 'Hammer LL', color: '#ef4444' },
+      { idx: 18, price: 42250, text: 'Reversal', color: '#22c55e' },
+      { idx: 25, price: 43000, text: 'Mean (SMA20)', color: '#fbbf24' }
+    ],
+    checklist: [
+      '(1) Klarer Downtrend mit min. 10 roten Kerzen',
+      '(2) RSI < 30 fuer min. 2-3 Bars',
+      '(3) Hammer/Bullish-Reversal-Kerze',
+      '(4) Bestaetigungs-Kerze gruen + Volumen-Anstieg',
+      '(5) CRV >= 1:1.5'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze NACH Hammer bei RSI < 30.',
+      sl: 'Unter dem Hammer-Tief + 0.3% Buffer.',
+      tp: 'TP1 = SMA20 zurueck (50%) · TP2 = Upper Bollinger oder min. 2R.',
+      market: 'Range/Choppy-Maerkte. NICHT in starken Downtrends — Catching-Knife-Risiko.'
+    },
+    tip: 'RSI < 30 alleine ist KEIN Trade. In starken Downtrends kann RSI tagelang oversold bleiben. Warte IMMER auf die Bullish-Reversal-Kerze als Trigger.'
+  },
+
+  'supertrend': {
+    title: 'Supertrend Flip · BTC 1h · Long',
+    subtitle: 'Supertrend wechselt von rot zu gruen → Long',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43550,l:43350,c:43400},{o:43400,h:43500,l:43250,c:43300},
+      {o:43300,h:43400,l:43100,c:43150},{o:43150,h:43250,l:42950,c:43000},
+      {o:43000,h:43100,l:42850,c:42900},{o:42900,h:43000,l:42750,c:42800},
+      {o:42800,h:42900,l:42650,c:42700},{o:42700,h:42800,l:42550,c:42600},
+      {o:42600,h:42700,l:42500,c:42550},{o:42550,h:42700,l:42450,c:42500},
+      {o:42500,h:42700,l:42450,c:42650},{o:42650,h:42800,l:42600,c:42750},
+      {o:42750,h:42900,l:42700,c:42850},{o:42850,h:43000,l:42800,c:42950},
+      {o:42950,h:43100,l:42900,c:43050},{o:43050,h:43250,l:43000,c:43200},
+      {o:43200,h:43400,l:43150,c:43350},{o:43350,h:43550,l:43300,c:43500},
+      {o:43500,h:43700,l:43450,c:43650},{o:43650,h:43850,l:43600,c:43800},
+      {o:43800,h:44000,l:43750,c:43950},{o:43950,h:44150,l:43900,c:44100},
+      {o:44100,h:44300,l:44050,c:44250},{o:44250,h:44450,l:44200,c:44400},
+      {o:44400,h:44600,l:44350,c:44550},{o:44550,h:44750,l:44500,c:44700},
+      {o:44700,h:44900,l:44650,c:44850},{o:44850,h:45050,l:44800,c:45000},
+      {o:45000,h:45200,l:44950,c:45150},{o:45150,h:45350,l:45100,c:45300}
+    ],
+    entryIdx: 15,
+    entryPrice: 43200, slPrice: 42500, tp1Price: 44600, tp2Price: 45300,
+    zone: { fromIdx: 9, toIdx: 15, top: 43000, bottom: 42450 },
+    zoneLabel: 'FLIP-ZONE',
+    zoneColor: '34,197,94',
+    structureLabels: [
+      { idx: 9, price: 42450, text: 'LL (Flip)', color: '#fbbf24' },
+      { idx: 15, price: 43200, text: 'Supertrend ↑', color: '#22c55e' },
+      { idx: 22, price: 44250, text: 'Trend stark', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Supertrend-Linie flippt klar von rot zu gruen',
+      '(2) Close-Confirmation ueber Supertrend-Level',
+      '(3) ADX > 20 (Trend wirklich da, kein Whipsaw)',
+      '(4) Kein flip-flop in den letzten 5 Kerzen',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der ersten gruenen Supertrend-Kerze (Flip-Bestaetigung).',
+      sl: 'Unter dem Supertrend-Level (= Flip-Tief) + Buffer. Trail mit Supertrend wenn Trade laeuft.',
+      tp: 'TP1 = 2R fix · TP2 = Trail bis Supertrend wieder flippt (Gegen-Signal).',
+      market: 'Stark-trending Maerkte. Bei choppy Markt versagt Supertrend (zu viele Whipsaws).'
+    },
+    tip: 'Supertrend ohne ADX-Filter ist ein Whipsaw-Generator. In Choppy-Phasen flippt der Indikator alle paar Kerzen — du eroeffnest, wirst ausgestoppt, eroeffnest, wirst ausgestoppt. ADX > 20 ist Pflicht.'
+  },
+
+  'ma-cross': {
+    title: 'MA Cross (Golden Cross) · BTC 1h · Long',
+    subtitle: 'EMA 50 kreuzt EMA 200 nach oben → starkes Trend-Signal',
+    candles: [
+      {o:43500,h:43600,l:43400,c:43450},{o:43450,h:43550,l:43300,c:43350},
+      {o:43350,h:43450,l:43200,c:43250},{o:43250,h:43350,l:43100,c:43150},
+      {o:43150,h:43250,l:43000,c:43050},{o:43050,h:43150,l:42900,c:42950},
+      {o:42950,h:43050,l:42850,c:42900},{o:42900,h:43000,l:42800,c:42850},
+      {o:42850,h:42950,l:42750,c:42800},{o:42800,h:42950,l:42700,c:42850},
+      {o:42850,h:43000,l:42800,c:42950},{o:42950,h:43100,l:42900,c:43050},
+      {o:43050,h:43200,l:43000,c:43150},{o:43150,h:43300,l:43100,c:43250},
+      {o:43250,h:43400,l:43200,c:43350},{o:43350,h:43500,l:43300,c:43450},
+      {o:43450,h:43600,l:43400,c:43550},{o:43550,h:43700,l:43500,c:43650},
+      {o:43650,h:43800,l:43600,c:43750},{o:43750,h:43900,l:43700,c:43850},
+      {o:43850,h:44000,l:43800,c:43950},{o:43950,h:44150,l:43900,c:44100},
+      {o:44100,h:44300,l:44050,c:44250},{o:44250,h:44450,l:44200,c:44400},
+      {o:44400,h:44600,l:44350,c:44550},{o:44550,h:44750,l:44500,c:44700},
+      {o:44700,h:44900,l:44650,c:44850},{o:44850,h:45050,l:44800,c:45000},
+      {o:45000,h:45200,l:44950,c:45150},{o:45150,h:45350,l:45100,c:45300}
+    ],
+    entryIdx: 14,
+    entryPrice: 43350, slPrice: 42700, tp1Price: 44650, tp2Price: 45300,
+    emaBase: 42700, emaRange: 1800, emaOsc: 0,
+    emaLabel: 'EMA 50',
+    zone: { fromIdx: 12, toIdx: 16, top: 43400, bottom: 43100 },
+    zoneLabel: 'CROSS-ZONE',
+    zoneColor: '251,191,36',
+    structureLabels: [
+      { idx: 5, price: 42950, text: 'LL', color: '#ef4444' },
+      { idx: 14, price: 43400, text: 'Golden Cross', color: '#fbbf24' },
+      { idx: 22, price: 44250, text: 'Trend Mode', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) EMA 50 kreuzt EMA 200 nach oben (Golden Cross)',
+      '(2) Preis schliesst ueber beiden EMAs',
+      '(3) Volumen-Anstieg in der Cross-Region',
+      '(4) Kein juengster Death Cross in den letzten 30 Kerzen',
+      '(5) Trend-Konfirmation auf hoeherem Timeframe'
+    ],
+    setupRules: {
+      entry: 'Close der Kerze NACH dem EMA-Cross. Bei spaetem Einstieg Pullback zur EMA 50 abwarten.',
+      sl: 'Unter EMA 200 oder letztem Swing-Low. Buffer 0.3%.',
+      tp: 'TP1 = 2R (50%) · TP2 = Trail bis Death Cross (EMA 50 unter EMA 200).',
+      market: 'Funktioniert auf hoeheren Timeframes (4h/1D) besser als auf 1h. Major-Coins bevorzugt.'
+    },
+    tip: 'Golden Cross ist ein LAGGING Indikator — wenn er triggert, ist der erste Schub oft schon vorbei. Bestes Setup: Cross + Pullback zur EMA 50 abwarten, dann erst einsteigen.'
+  },
+
+  'volume-spike': {
+    title: 'Volume Spike · BTC 1h · Long',
+    subtitle: 'Volumen-Capitulation → Hammer → Bounce',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43600,l:43450,c:43500},{o:43500,h:43550,l:43350,c:43400},
+      {o:43400,h:43500,l:43250,c:43300},{o:43300,h:43400,l:43150,c:43200},
+      {o:43200,h:43300,l:43050,c:43100},{o:43100,h:43200,l:42950,c:43000},
+      {o:43000,h:43100,l:42850,c:42900},{o:42900,h:43000,l:42750,c:42800},
+      {o:42800,h:42900,l:42600,c:42700},{o:42700,h:42800,l:42500,c:42600},
+      {o:42600,h:42700,l:42400,c:42500},{o:42500,h:42600,l:42300,c:42400},
+      {o:42400,h:42500,l:42100,c:42200},{o:42200,h:42300,l:41900,c:42000},
+      {o:42000,h:42100,l:41700,c:42050},{o:42050,h:42250,l:42000,c:42200},
+      {o:42200,h:42400,l:42150,c:42350},{o:42350,h:42550,l:42300,c:42500},
+      {o:42500,h:42700,l:42450,c:42650},{o:42650,h:42850,l:42600,c:42800},
+      {o:42800,h:43000,l:42750,c:42950},{o:42950,h:43150,l:42900,c:43100},
+      {o:43100,h:43300,l:43050,c:43250},{o:43250,h:43450,l:43200,c:43400},
+      {o:43400,h:43600,l:43350,c:43550},{o:43550,h:43750,l:43500,c:43700},
+      {o:43700,h:43900,l:43650,c:43850},{o:43850,h:44050,l:43800,c:44000},
+      {o:44000,h:44200,l:43950,c:44150},{o:44150,h:44350,l:44100,c:44300}
+    ],
+    entryIdx: 15,
+    entryPrice: 42200, slPrice: 41700, tp1Price: 43200, tp2Price: 44150,
+    zone: { fromIdx: 13, toIdx: 15, top: 42200, bottom: 41700 },
+    zoneLabel: 'CAPITULATION',
+    zoneColor: '239,68,68',
+    structureLabels: [
+      { idx: 0, price: 43500, text: 'HH', color: '#fbbf24' },
+      { idx: 14, price: 41700, text: 'Vol-Spike LL', color: '#ef4444' },
+      { idx: 15, price: 42200, text: 'Reversal', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Lange Abwaertsbewegung (selling pressure)',
+      '(2) Volumen-Spike >= 3x Average (Capitulation)',
+      '(3) Lange untere Wick (Buyer step-in)',
+      '(4) Bullish-Reversal-Kerze als Confirmation',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Reversal-Kerze NACH Volumen-Spike-Capitulation.',
+      sl: 'Unter dem Capitulation-Wick-Tief + 0.3% Buffer.',
+      tp: 'TP1 = 2R (50%) · TP2 = Vorheriges Hoch / Mean.',
+      market: 'Best in Sell-Climaxes / Capitulation-Events. Schlecht in geordneten Trends.'
+    },
+    tip: 'Volume-Spike ohne lange Wick ist KEIN Capitulation — das ist nur weiter Selling. Der Wick zeigt: Buyers haben die Verkaeufer absorbiert. Ohne Wick: Hands off.'
   }
+
 };
 
 let _academyAnimRAF = null;
