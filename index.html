@@ -941,7 +941,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 15:08 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 15:20 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -1442,9 +1442,30 @@ input[type=number] { -moz-appearance:textfield }
           </div>
           <canvas id="tiktokRevealCanvas" width="540" height="960" style="width:100%;max-width:300px;height:auto;background:#000;border-radius:8px;display:block;margin:0 auto;border:1px solid #333"></canvas>
           <div id="tiktokRevealStatus" style="text-align:center;color:#9ca3af;font-size:12px;margin-top:12px;min-height:18px">Bereit zum Generieren</div>
-          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center">
+          <div id="revealModeIndicator" style="text-align:center;margin-top:10px;padding:6px 10px;background:#0f172a;border:1px solid #1f2937;border-radius:6px;font-size:11px;color:#9ca3af">
+            Modus: <strong style="color:#fbbf24" id="revealModeLabel">📊 Single-Coin Test</strong>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center">
+            <button type="button" id="tiktokRevealMultiBtn" onclick="runMultiCoinReveal()" style="background:#1f2937;border:1px solid #a78bfa;color:#a78bfa;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🌐 Multi-Coin Test (BTC+ETH+SOL)</button>
+            <button type="button" id="tiktokRevealSingleBtn" onclick="switchToSingleCoinReveal()" style="background:#1f2937;border:1px solid #4b5563;color:#9ca3af;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:11px;display:none">↩ Zurück zu Single-Coin</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center">
             <button type="button" id="tiktokRevealPreviewBtn" onclick="tiktokRevealPlay(false)" style="background:#1f2937;border:1px solid #4b5563;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">▶ Vorschau (ohne Recording)</button>
             <button type="button" id="tiktokRevealRecordBtn" onclick="tiktokRevealPlay(true)" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🎥 Aufnehmen + Download</button>
+          </div>
+          <!-- Post-Record Actions (Web-Share + Submit) — shown only after recording -->
+          <div id="revealPostRecordRow" style="display:none;margin-top:14px;padding:12px;background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(251,191,36,0.05));border:1px solid rgba(34,197,94,0.3);border-radius:8px">
+            <div style="font-size:11px;color:#9ca3af;text-align:center;margin-bottom:10px">
+              ✅ <strong style="color:#22c55e">Aufnahme fertig!</strong> Was möchtest du damit machen?
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+              <button type="button" id="revealShareBtn" onclick="shareRevealVideo()" style="background:#1f2937;border:1px solid #3b82f6;color:#60a5fa;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;display:none">📤 Auf TikTok teilen</button>
+              <button type="button" id="revealSubmitBtn" onclick="openSubmitRevealModal()" style="background:#1f2937;border:1px solid #a78bfa;color:#a78bfa;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🚀 An FinalBoss einreichen</button>
+              <button type="button" onclick="redownloadLastReveal()" style="background:#1f2937;border:1px solid #4b5563;color:#9ca3af;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">📥 Nochmal Download</button>
+            </div>
+            <div id="revealShareHint" style="display:none;font-size:10px;color:#6b7280;text-align:center;margin-top:8px;line-height:1.5">
+              💡 Klick "Teilen" → wähle TikTok im Share-Menü → Video wird vorgeladen, du schreibst die Caption.
+            </div>
           </div>
           <details style="margin-top:14px;background:#111;border-radius:6px;padding:0;overflow:hidden">
             <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:#fbbf24;user-select:none">🔊 Custom Sound-Pack (eigene Sounds hochladen)</summary>
@@ -1460,6 +1481,37 @@ input[type=number] { -moz-appearance:textfield }
           <div style="margin-top:12px;padding:10px;background:#111;border-radius:6px;font-size:11px;color:#9ca3af;line-height:1.5">
             <strong style="color:#fbbf24">💡 Tipp:</strong> Output ist <strong>.webm</strong> (1080×1920, 9:16). Direkt zu TikTok hochladbar — TikTok konvertiert automatisch.
             Wenn du dein Original-Video davorschneiden willst: Reveal + Original-Video in CapCut zusammenfügen, fertig.
+          </div>
+        </div>
+      </div>
+      <!-- Submit-Reveal Modal -->
+      <div id="submitRevealModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100000;align-items:center;justify-content:center;padding:20px">
+        <div style="background:#0a0a0a;border:2px solid #a78bfa;border-radius:12px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h2 style="margin:0;color:#a78bfa;font-size:18px">🚀 Reveal an FinalBoss einreichen</h2>
+            <button type="button" onclick="closeSubmitRevealModal()" style="background:none;border:none;color:#9ca3af;font-size:24px;cursor:pointer;padding:0;width:32px;height:32px">×</button>
+          </div>
+          <div style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.30);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:#cbd5e1;line-height:1.6">
+            <strong style="color:#a78bfa">So funktioniert's:</strong><br>
+            Du schickst dein Reveal-Video an FinalBoss. Wenn es cool ist, wird es auf der <a href="https://www.tiktok.com/@finalboss" target="_blank" style="color:#a78bfa">@finalboss TikTok-Page</a> gepostet (mit Credit, falls du Handle angibst). <strong>Du behältst die Rechte am Video.</strong>
+          </div>
+          <div id="submitRevealMeta" style="background:#0f172a;border:1px solid #1f2937;border-radius:6px;padding:10px;margin-bottom:14px;font-size:11px;color:#9ca3af"></div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#9ca3af;margin-bottom:6px">Dein TikTok / Instagram Handle <span style="color:#6b7280">(optional, ohne @)</span></label>
+          <input type="text" id="submitRevealHandle" placeholder="z.B. cryptotrader_max" maxlength="60" style="width:100%;background:#0f172a;border:1px solid #1f2937;color:#fff;padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#9ca3af;margin-bottom:6px">Anmerkung <span style="color:#6b7280">(optional, max. 300 Zeichen)</span></label>
+          <textarea id="submitRevealNote" placeholder="z.B. 'Diese Strategie kommt aus diesem TikTok-Video: <link>' oder 'Bitte auf Instagram crossposten'" maxlength="300" rows="3" style="width:100%;background:#0f172a;border:1px solid #1f2937;color:#fff;padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:12px;resize:vertical;font-family:inherit"></textarea>
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#cbd5e1;margin-bottom:6px;cursor:pointer">
+            <input type="checkbox" id="submitRevealAllowCredit" checked style="margin-top:2px;flex-shrink:0">
+            <span>Im Post @meinhandle erwähnen, wenn FinalBoss es postet</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#cbd5e1;margin-bottom:14px;cursor:pointer">
+            <input type="checkbox" id="submitRevealConsent" style="margin-top:2px;flex-shrink:0">
+            <span>Ich bin damit einverstanden, dass FinalBoss mein Reveal-Video auf TikTok / Instagram / Twitter posten darf. <strong>Das Video enthält keine sensiblen oder privaten Daten von mir.</strong></span>
+          </label>
+          <div id="submitRevealStatus" style="font-size:12px;text-align:center;min-height:16px;margin-bottom:10px;color:#9ca3af"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" onclick="closeSubmitRevealModal()" style="background:#1f2937;border:1px solid #4b5563;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer;font-size:12px">Abbrechen</button>
+            <button type="button" id="submitRevealSendBtn" onclick="submitRevealNow()" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🚀 Senden</button>
           </div>
         </div>
       </div>
@@ -2498,6 +2550,21 @@ input[type=number] { -moz-appearance:textfield }
           </div>
           <div id="strategyInboxList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
           <div id="strategyInboxEmpty" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px">Keine eingereichten Strategien.</div>
+        </div>
+
+        <!-- 🎬 Reveal-Inbox (eingereichte Videos von Usern) -->
+        <div style="background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.30);border-radius:10px;padding:14px 18px;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#a78bfa">🎬 Reveal-Inbox <span id="revealInboxCount" style="background:rgba(167,139,250,0.20);color:#a78bfa;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">0</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Reveals die User eingereicht haben — Videos liegen im Telegram-Chat des Bots.</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button type="button" onclick="revealInboxRefresh()" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">🔄 Aktualisieren</button>
+            </div>
+          </div>
+          <div id="revealInboxList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+          <div id="revealInboxEmpty" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px">Keine eingereichten Reveals.</div>
         </div>
 
         <!-- Header -->
@@ -12083,6 +12150,7 @@ function buildStrategyAssessment(result, stratName) {
         <span style="font-size:18px">${verdictIcon}</span>
         <strong style="color:${verdictColor};font-size:14px;flex:1;min-width:0">FinalBoss-Verdict: ${verdict}</strong>
         <button type="button" onclick="openTikTokRevealModal()" title="Generiere ein 12sec TikTok-Reveal-Video von diesem Backtest" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:6px 12px;border-radius:5px;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;flex-shrink:0">🎬 TikTok-Reveal</button>
+        <button type="button" onclick="openCaptionGenModal()" title="Generiere Caption + Hashtags für TikTok-Post" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;flex-shrink:0">📝 Caption</button>
       </div>
       <div style="color:var(--text-secondary);font-size:11px;margin-bottom:8px">Automatische Analyse der Backtest-Metriken — keine Anlageempfehlung.</div>
       ${findingsHtml}
@@ -32335,8 +32403,8 @@ document.addEventListener('click', (e) => {
 // ═══════════════════════════════════════════════
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
-const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-11 15:08 UTC';
+const APP_VERSION = 'v1.6.0-beta';
+const APP_BUILD = '2026-05-11 20:15 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -33718,7 +33786,10 @@ function reviewToggleAutoRefresh() {
     _reviewAutoRefreshTimer = null;
     if (btn) { btn.textContent = '▶️ Auto-Refresh'; btn.style.background = 'var(--bg-tertiary)'; btn.style.color = 'var(--text-primary)'; }
   } else {
-    _reviewAutoRefreshTimer = setInterval(reviewRefreshInbox, 30000); // alle 30 Sek
+    _reviewAutoRefreshTimer = setInterval(() => {
+      reviewRefreshInbox();
+      if (typeof revealInboxRefresh === 'function') revealInboxRefresh();
+    }, 30000); // alle 30 Sek
     if (btn) { btn.textContent = '⏸ Auto-Refresh AN'; btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)'; btn.style.color = '#fff'; }
     reviewRefreshInbox();
   }
@@ -35597,6 +35668,140 @@ async function submitStrategy() {
 }
 
 // ════════════════════════════════════════════════════════
+// AUTO-CAPTION-GENERATOR fuer TikTok
+// ════════════════════════════════════════════════════════
+let _captionGenCurrentText = '';
+
+function openCaptionGenModal() {
+  if (typeof lastResult === 'undefined' || !lastResult) {
+    _showErrorToast('Erst einen Backtest laufen lassen — dann kann die KI Caption generieren.', 4000);
+    return;
+  }
+  document.getElementById('captionGenModal').style.display = 'flex';
+  document.getElementById('captionGenResult').style.display = 'none';
+  document.getElementById('captionGenButtons').style.display = 'none';
+  document.getElementById('captionGenStatus').style.display = 'none';
+}
+
+function closeCaptionGenModal() {
+  document.getElementById('captionGenModal').style.display = 'none';
+}
+
+async function generateTikTokCaption() {
+  const result = lastResult;
+  if (!result || !result.totalMetrics) {
+    _showErrorToast('Kein Backtest-Result vorhanden'); return;
+  }
+  const cfg = aiLoadConfig();
+  if (!aiHasKey()) {
+    _showErrorToast('KI-Key fehlt — bitte in KI-Builder Settings eintragen'); return;
+  }
+  const m = result.totalMetrics;
+  const stratIdx = parseInt(document.getElementById('strategySelect')?.value || -1);
+  const strategy = stratIdx >= 0 ? STRATEGIES[stratIdx] : null;
+  const stratName = strategy ? strategy.name : 'Unknown';
+  const symbol = document.getElementById('symbolSelect')?.value || 'BTC';
+  const tf = document.getElementById('tfSelect')?.value || '1h';
+  const influencer = (document.getElementById('captionGenInfluencer').value || '').trim();
+  const style = document.getElementById('captionGenStyle').value;
+
+  // Verdict bestimmen (analog buildStrategyAssessment)
+  let verdict = 'Mid';
+  if (m.profitFactor < 1 && (result.trades || []).length >= 5) verdict = 'Rejected';
+  else if ((result.trades || []).length >= 30 && m.profitFactor >= 1.5 && m.totalReturn > result.buyHoldReturn) verdict = 'Approved';
+
+  // Style-spezifischer System-Prompt
+  const styleHints = {
+    hype: 'Schreib emotional, packend, mit Emojis. TikTok-Hype-Stil. Cliffhanger, Spannung.',
+    analytical: 'Schreib sachlich-professionell wie ein Pro-Trader. Zahlen-fokussiert, keine Emojis ausser dezent.',
+    funny: 'Schreib lustig, frech, leicht roastig. Memes-Vibe. Wenn Strategy rejected → harter aber fairer Spott.',
+    educational: 'Schreib edukativ, erklär WARUM die Strategie funktioniert/nicht funktioniert. Mehr Tiefe als Hype.'
+  };
+  const styleHint = styleHints[style] || styleHints.hype;
+
+  const sysPrompt = `Du bist ein Social-Media-Manager fuer einen Krypto-Trading-Reviewer-Account (FinalBoss).
+Du schreibst TikTok-Captions auf Deutsch fuer Videos in denen Trading-Strategien gebacktestet werden.
+
+STIL: ${styleHint}
+
+CAPTION-FORMAT:
+1. Hook in der ersten Zeile (max 80 Zeichen)
+2. 2-3 Zeilen Body mit den wichtigsten Stats
+3. Call-to-Action am Ende (z.B. "Link in Bio", "Folg mir fuer mehr")
+4. Zeile mit 10-12 Hashtags
+
+WICHTIG:
+- TikTok-konform (140-200 Zeichen idealerweise, max 300)
+- Hashtags MUESSEN am Ende stehen, alle in einer Zeile
+- Keine Markdown-Formatierung (kein **bold**, kein # ausser fuer Hashtags)
+- Schweizerdeutsch erlaubt aber Hochdeutsch bevorzugt
+- Antworte AUSSCHLIESSLICH mit dem Caption-Text, KEINE Erklaerung davor oder danach`;
+
+  const userMsg = `Generiere die Caption fuer folgendes Review-Video:
+
+Strategie: ${stratName}
+Coin: ${symbol.replace('USDT', '')}
+Timeframe: ${tf}
+${influencer ? 'Original-Influencer: ' + influencer : ''}
+
+Backtest-Stats:
+- Trades: ${m.nTrades}
+- Win Rate: ${m.winRate.toFixed(1)}%
+- Profit Factor: ${m.profitFactor.toFixed(2)}
+- Return: ${m.totalReturn.toFixed(1)}%
+- Buy & Hold Return: ${result.buyHoldReturn.toFixed(1)}%
+- Max Drawdown: ${result.maxDD.toFixed(1)}%
+- Sharpe: ${m.sharpe.toFixed(2)}
+
+Verdict: ${verdict}
+
+Schreib die Caption.`;
+
+  const btn = document.getElementById('captionGenGenerateBtn');
+  const statusEl = document.getElementById('captionGenStatus');
+  const resultEl = document.getElementById('captionGenResult');
+  const btnsEl = document.getElementById('captionGenButtons');
+  btn.disabled = true; btn.textContent = '⏳ Generiere...';
+  statusEl.style.display = 'block';
+  resultEl.style.display = 'none';
+  btnsEl.style.display = 'none';
+
+  try {
+    const reply = await aiCallLLM(sysPrompt, [{ role: 'user', content: userMsg }]);
+    _captionGenCurrentText = (reply || '').trim();
+    resultEl.textContent = _captionGenCurrentText;
+    resultEl.style.display = 'block';
+    btnsEl.style.display = 'flex';
+    statusEl.style.display = 'none';
+  } catch (e) {
+    statusEl.style.background = 'rgba(239,68,68,0.10)';
+    statusEl.style.borderColor = 'rgba(239,68,68,0.30)';
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = '❌ Fehler: ' + (e.message || String(e));
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Caption generieren';
+  }
+}
+
+function copyCaptionToClipboard() {
+  if (!_captionGenCurrentText) { _showErrorToast('Keine Caption zum Kopieren'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(_captionGenCurrentText).then(() => {
+      _showSuccessToast('📋 Caption in die Zwischenablage kopiert!', 3000);
+    }).catch(e => _showErrorToast('Kopieren fehlgeschlagen: ' + e.message));
+  } else {
+    // Fallback fuer aeltere Browser
+    const ta = document.createElement('textarea');
+    ta.value = _captionGenCurrentText;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); _showSuccessToast('📋 Caption kopiert!', 3000); }
+    catch(e) { _showErrorToast('Kopieren nicht moeglich'); }
+    document.body.removeChild(ta);
+  }
+}
+
+// ════════════════════════════════════════════════════════
 // STRATEGY-INBOX: Admin sieht eingereichte Strategien
 // ════════════════════════════════════════════════════════
 async function strategyInboxRefresh() {
@@ -35734,11 +35939,694 @@ const REVEAL_BRAND = {
   approved: '#22c55e',
   rejected: '#ef4444',
   warning: '#f97316',
+  // ─── v1.5: Extended Templates ───
+  hiddenGem: '#a78bfa',   // purple — surprising winner
+  flash:     '#facc15',   // electric yellow — scalper
+  iceCold:   '#7dd3fc',   // ice blue — not enough data
+  caveat:    '#fb923c',   // warm orange — approved with reservations
   appUrl: 'finalboss-app.github.io'
 };
 
 let _tiktokRevealAnimating = false;
 let _tiktokRevealAbort = false;
+
+// ─── v1.5: Multi-Coin Reveal State ───
+let lastMultiCoinResults = null;       // { btc: result, eth: result, sol: result, strategyName, tf }
+let _revealMultiCoinMode = false;      // false = single, true = multi-coin
+let _multiCoinRunning = false;
+
+// ─── v1.6: Last recorded Reveal (für Share / Submit / Re-Download) ───
+let _lastRevealBlob = null;
+let _lastRevealFileName = null;
+let _lastRevealMeta = null;            // { verdictKey, verdictText, strategyName, symbol, tf, isMulti, stats }
+
+function _showPostRecordRow(visible) {
+  const row = document.getElementById('revealPostRecordRow');
+  if (row) row.style.display = visible ? '' : 'none';
+  // Web-Share-Button nur zeigen wenn Browser canShare mit files unterstützt
+  const shareBtn = document.getElementById('revealShareBtn');
+  const hint = document.getElementById('revealShareHint');
+  if (shareBtn) {
+    let canShare = false;
+    try {
+      if (navigator.canShare && _lastRevealBlob) {
+        const f = new File([_lastRevealBlob], _lastRevealFileName || 'reveal.webm', { type: _lastRevealBlob.type });
+        canShare = navigator.canShare({ files: [f] });
+      }
+    } catch(e) { canShare = false; }
+    shareBtn.style.display = canShare ? '' : 'none';
+    if (hint) hint.style.display = canShare ? '' : 'none';
+  }
+}
+
+async function shareRevealVideo() {
+  if (!_lastRevealBlob || !_lastRevealFileName) {
+    _showErrorToast('Keine Aufnahme zum Teilen vorhanden.', 3000);
+    return;
+  }
+  try {
+    const file = new File([_lastRevealBlob], _lastRevealFileName, { type: _lastRevealBlob.type });
+    if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
+      _showErrorToast('Dein Browser unterstützt File-Sharing nicht. Nutze stattdessen Download.', 4500);
+      return;
+    }
+    const meta = _lastRevealMeta || {};
+    const shareText = (meta.isMulti
+      ? `🎬 FinalBoss Multi-Coin Test: ${meta.strategyName || 'Strategy'} (${meta.verdictText || ''})`
+      : `🎬 FinalBoss Backtest: ${meta.strategyName || 'Strategy'} auf ${meta.symbol || 'BTC'} — ${meta.verdictText || ''}`
+    ) + '\n\nMade with FinalBoss · finalboss-app.github.io';
+    await navigator.share({
+      files: [file],
+      title: 'FinalBoss Reveal',
+      text: shareText
+    });
+    _showSuccessToast('📤 Geteilt! Wähle TikTok im Share-Menü.', 4000);
+  } catch(e) {
+    if (e && e.name === 'AbortError') {
+      // User hat Share-Sheet abgebrochen — kein Fehler
+      return;
+    }
+    console.warn('Share failed:', e);
+    _showErrorToast('Teilen fehlgeschlagen: ' + (e.message || 'unbekannt'), 4000);
+  }
+}
+
+function redownloadLastReveal() {
+  if (!_lastRevealBlob || !_lastRevealFileName) {
+    _showErrorToast('Keine Aufnahme zum Downloaden.', 3000);
+    return;
+  }
+  const url = URL.createObjectURL(_lastRevealBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = _lastRevealFileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  _showSuccessToast('📥 Erneut heruntergeladen.', 3000);
+}
+
+// Submit-Modal Stubs — werden in PATCH-Phase 2 (Submit-an-FinalBoss) gefüllt
+function openSubmitRevealModal() {
+  return _openSubmitRevealModalImpl();
+}
+
+function _openSubmitRevealModalImpl() {
+  if (!_lastRevealBlob || !_lastRevealFileName) {
+    _showErrorToast('Erst ein Reveal aufnehmen — dann kannst du es einreichen.', 4000);
+    return;
+  }
+  const meta = _lastRevealMeta || {};
+  const sizeMB = (_lastRevealBlob.size / 1024 / 1024).toFixed(2);
+  const metaEl = document.getElementById('submitRevealMeta');
+  if (metaEl) {
+    metaEl.innerHTML =
+      '<strong style="color:#fbbf24">Dein Reveal:</strong> ' +
+      (meta.isMulti ? '🌐 Multi-Coin Test' : '📊 ' + (meta.symbol || '?')) +
+      ' · <span style="color:' + (meta.isMulti ? '#a78bfa' : '#fff') + '">' + (meta.strategyName || 'Strategy') + '</span><br>' +
+      '<strong style="color:#fbbf24">Verdict:</strong> ' + (meta.verdictText || '?') + ' · ' +
+      '<strong style="color:#fbbf24">Datei:</strong> ' + _lastRevealFileName + ' (' + sizeMB + ' MB)';
+  }
+  // Reset form
+  document.getElementById('submitRevealHandle').value = localStorage.getItem('fb_user_handle') || '';
+  document.getElementById('submitRevealNote').value = '';
+  document.getElementById('submitRevealAllowCredit').checked = true;
+  document.getElementById('submitRevealConsent').checked = false;
+  document.getElementById('submitRevealStatus').textContent = '';
+  document.getElementById('submitRevealSendBtn').disabled = false;
+  document.getElementById('submitRevealModal').style.display = 'flex';
+}
+
+function closeSubmitRevealModal() {
+  document.getElementById('submitRevealModal').style.display = 'none';
+}
+
+async function submitRevealNow() {
+  if (!_lastRevealBlob || !_lastRevealFileName) {
+    _showErrorToast('Keine Aufnahme zum Einreichen.', 3000);
+    return;
+  }
+  const consent = document.getElementById('submitRevealConsent').checked;
+  if (!consent) {
+    document.getElementById('submitRevealStatus').innerHTML = '<span style="color:#ef4444">✗ Bitte Einverständnis bestätigen (Checkbox unten).</span>';
+    return;
+  }
+  // Worker-URL ist über Settings konfigurierbar; falls leer, blocken
+  const cfg = (typeof reviewGetWorkerCfg === 'function') ? reviewGetWorkerCfg() : null;
+  if (!cfg || !cfg.url) {
+    document.getElementById('submitRevealStatus').innerHTML = '<span style="color:#ef4444">✗ Kein Worker konfiguriert. Bitte App-Admin kontaktieren.</span>';
+    return;
+  }
+  // Max 20 MB
+  if (_lastRevealBlob.size > 20 * 1024 * 1024) {
+    document.getElementById('submitRevealStatus').innerHTML = '<span style="color:#ef4444">✗ Video zu groß (max 20 MB). Erst kürzeren Reveal aufnehmen.</span>';
+    return;
+  }
+
+  const handle = (document.getElementById('submitRevealHandle').value || '').trim().replace(/^@/, '').slice(0, 60);
+  const note = (document.getElementById('submitRevealNote').value || '').trim().slice(0, 300);
+  const allowCredit = document.getElementById('submitRevealAllowCredit').checked;
+  // Persist handle locally for next time
+  if (handle) try { localStorage.setItem('fb_user_handle', handle); } catch(e) {}
+
+  const meta = _lastRevealMeta || {};
+  const sendBtn = document.getElementById('submitRevealSendBtn');
+  const statusEl = document.getElementById('submitRevealStatus');
+  sendBtn.disabled = true;
+  statusEl.innerHTML = '<span style="color:#9ca3af">⏳ Upload läuft...</span>';
+
+  try {
+    const fd = new FormData();
+    fd.append('video', _lastRevealBlob, _lastRevealFileName);
+    fd.append('handle', handle);
+    fd.append('note', note);
+    fd.append('allow_credit', allowCredit ? '1' : '0');
+    fd.append('verdict_key', meta.verdictKey || '');
+    fd.append('verdict_text', meta.verdictText || '');
+    fd.append('strategy_name', meta.strategyName || '');
+    fd.append('symbol', meta.symbol || '');
+    fd.append('tf', meta.tf || '');
+    fd.append('is_multi', meta.isMulti ? '1' : '0');
+    fd.append('stats', JSON.stringify(meta.stats || {}));
+
+    const resp = await fetch(cfg.url + '/reveal-submission', {
+      method: 'POST',
+      body: fd
+    });
+    if (!resp.ok) {
+      let errMsg = 'HTTP ' + resp.status;
+      try { const j = await resp.json(); if (j.error) errMsg = j.error; } catch(e) {}
+      statusEl.innerHTML = '<span style="color:#ef4444">✗ ' + errMsg + '</span>';
+      sendBtn.disabled = false;
+      return;
+    }
+    const data = await resp.json();
+    statusEl.innerHTML = '<span style="color:#22c55e">✓ Erfolgreich eingereicht! ID: ' + (data.id || '?') + '</span>';
+    _showSuccessToast('🚀 Reveal an FinalBoss geschickt!', 4500);
+    setTimeout(closeSubmitRevealModal, 1800);
+  } catch(e) {
+    console.warn('Submit failed:', e);
+    statusEl.innerHTML = '<span style="color:#ef4444">✗ Upload fehlgeschlagen: ' + (e.message || 'unbekannt') + '</span>';
+    sendBtn.disabled = false;
+  }
+}
+
+// ─── Admin: Reveal-Inbox ───
+async function revealInboxRefresh() {
+  const cfg = (typeof reviewGetWorkerCfg === 'function') ? reviewGetWorkerCfg() : null;
+  const listEl = document.getElementById('revealInboxList');
+  const emptyEl = document.getElementById('revealInboxEmpty');
+  const countEl = document.getElementById('revealInboxCount');
+  if (!cfg || !cfg.url || !cfg.key) {
+    if (emptyEl) { emptyEl.style.display = ''; emptyEl.textContent = 'Worker-URL + Admin-Key in Settings konfigurieren.'; }
+    return;
+  }
+  try {
+    const resp = await fetch(cfg.url + '/reveal-submissions', { headers: { 'X-Admin-Key': cfg.key } });
+    if (!resp.ok) {
+      if (emptyEl) emptyEl.textContent = 'Fehler beim Laden (HTTP ' + resp.status + ')';
+      return;
+    }
+    const data = await resp.json();
+    const items = Array.isArray(data.reveals) ? data.reveals : [];
+    if (countEl) countEl.textContent = items.length;
+    if (items.length === 0) {
+      if (emptyEl) { emptyEl.style.display = ''; emptyEl.textContent = 'Keine eingereichten Reveals.'; }
+      if (listEl) listEl.innerHTML = '';
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (listEl) listEl.innerHTML = items.map(_revealInboxItemHtml).join('');
+  } catch(e) {
+    if (emptyEl) emptyEl.textContent = 'Fehler: ' + (e.message || e);
+  }
+}
+
+function _revealInboxItemHtml(it) {
+  const time = it.timestamp ? new Date(it.timestamp).toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' }) : '?';
+  const handle = it.handle ? '@' + _escHtml(it.handle) : '<i style="color:#6b7280">anonym</i>';
+  const verdict = _escHtml(it.verdict_text || it.verdict_key || '?');
+  const strat = _escHtml(it.strategy_name || 'Strategy');
+  const sym = it.is_multi ? '🌐 Multi-Coin' : '📊 ' + _escHtml(it.symbol || '?');
+  const note = it.note ? '<div style="font-size:11px;color:#9ca3af;margin-top:6px;font-style:italic">📝 ' + _escHtml(it.note) + '</div>' : '';
+  const tgLink = it.telegram_message_id ? '<a href="https://t.me/c/' + (it.telegram_chat_id ? String(it.telegram_chat_id).replace(/^-100/, '') : '') + '/' + it.telegram_message_id + '" target="_blank" style="color:#a78bfa;font-size:11px;font-weight:700;text-decoration:none">▶ in Telegram öffnen</a>' : '<span style="color:#ef4444;font-size:11px">✗ kein Telegram-Link</span>';
+  return '<div style="background:rgba(15,23,42,0.6);border:1px solid #1f2937;border-radius:8px;padding:10px 12px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<div style="font-size:12px;font-weight:700;color:#fff">' + sym + ' · ' + strat + '</div>'
+    + '<div style="font-size:11px;color:#a78bfa;font-weight:700">' + verdict + '</div>'
+    + '</div>'
+    + '<div style="font-size:11px;color:#6b7280;margin-top:4px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+    + '<span>' + time + ' · von ' + handle + (it.allow_credit ? '' : ' <span style="color:#f97316">(kein Credit)</span>') + '</span>'
+    + tgLink
+    + '</div>'
+    + note
+    + '<div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">'
+    + '<button type="button" onclick="revealInboxDelete(\'' + _escHtml(it.id) + '\')" style="background:#1f2937;border:1px solid #ef4444;color:#ef4444;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700">🗑 Löschen</button>'
+    + '</div>'
+    + '</div>';
+}
+
+async function revealInboxDelete(id) {
+  if (!confirm('Reveal-Submission wirklich löschen?')) return;
+  const cfg = reviewGetWorkerCfg();
+  if (!cfg.url || !cfg.key) return;
+  try {
+    const resp = await fetch(cfg.url + '/reveal-submission', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': cfg.key },
+      body: JSON.stringify({ id })
+    });
+    if (resp.ok) {
+      _showSuccessToast('🗑 Gelöscht.', 2000);
+      revealInboxRefresh();
+    } else {
+      _showErrorToast('Löschen fehlgeschlagen (HTTP ' + resp.status + ')', 3000);
+    }
+  } catch(e) {
+    _showErrorToast('Fehler: ' + (e.message || e), 3000);
+  }
+}
+
+async function runMultiCoinReveal() {
+  if (_multiCoinRunning) return;
+  if (typeof lastResult === 'undefined' || !lastResult) {
+    _showErrorToast('Erst einen Single-Backtest laufen lassen — dann Multi-Coin testen.', 4000);
+    return;
+  }
+  const stratIdx = parseInt(document.getElementById('strategySelect')?.value || -1);
+  if (stratIdx < 0 || !STRATEGIES[stratIdx]) {
+    _showErrorToast('Keine Strategie ausgewählt.', 3000);
+    return;
+  }
+  const strategy = STRATEGIES[stratIdx];
+  const params = getStrategyParams(stratIdx);
+  const tf = document.getElementById('tfSelect')?.value || '1h';
+  const { trainStart, splitDate, testEnd } = getDateParams();
+  const startBalance = parseFloat(document.getElementById('startBalance')?.value || 10000);
+  const riskPct = parseFloat(document.getElementById('riskPct')?.value || 1);
+
+  _multiCoinRunning = true;
+  const status = document.getElementById('tiktokRevealStatus');
+  const multiBtn = document.getElementById('tiktokRevealMultiBtn');
+  const prevBtn = document.getElementById('tiktokRevealPreviewBtn');
+  const recBtn  = document.getElementById('tiktokRevealRecordBtn');
+  if (multiBtn) { multiBtn.disabled = true; multiBtn.textContent = '⏳ läuft...'; }
+  if (prevBtn) prevBtn.disabled = true;
+  if (recBtn)  recBtn.disabled = true;
+
+  const coins = ['BTC', 'ETH', 'SOL'];
+  const results = {};
+  try {
+    for (let i = 0; i < coins.length; i++) {
+      const sym = coins[i];
+      if (status) status.textContent = `⏳ Multi-Coin Test (${i+1}/${coins.length}): Lade ${sym} ${tf} Daten...`;
+      let candles;
+      try {
+        candles = await fetchCandles(sym, tf, trainStart, testEnd);
+      } catch(e) {
+        console.warn('fetchCandles failed for', sym, e);
+        results[sym] = { error: 'Daten konnten nicht geladen werden' };
+        continue;
+      }
+      if (!candles || candles.length < 100) {
+        results[sym] = { error: 'Zu wenig Daten (' + (candles?.length || 0) + ' Kerzen)' };
+        continue;
+      }
+      if (status) status.textContent = `⏳ Multi-Coin Test (${i+1}/${coins.length}): ${sym} wird gerechnet...`;
+      await new Promise(r => setTimeout(r, 30));
+      try {
+        const r = await runEngine(candles, strategy, params, splitDate, startBalance, riskPct);
+        if (r && Array.isArray(r.trades)) r.trades.forEach(t => { t.symbol = sym; });
+        results[sym] = r;
+      } catch(e) {
+        console.warn('runEngine failed for', sym, e);
+        results[sym] = { error: 'Engine-Fehler: ' + (e.message || 'unbekannt') };
+      }
+    }
+    lastMultiCoinResults = {
+      btc: results.BTC, eth: results.ETH, sol: results.SOL,
+      strategyName: strategy.name, tf,
+      timestamp: Date.now()
+    };
+    _revealMultiCoinMode = true;
+    // UI-Switch
+    const lbl = document.getElementById('revealModeLabel');
+    if (lbl) lbl.innerHTML = '🌐 Multi-Coin: <span style="color:#a78bfa">BTC + ETH + SOL</span>';
+    const singleBtn = document.getElementById('tiktokRevealSingleBtn');
+    if (singleBtn) singleBtn.style.display = '';
+    if (multiBtn) {
+      multiBtn.textContent = '🔁 Multi-Coin Test erneut';
+      multiBtn.disabled = false;
+    }
+    if (status) status.textContent = '✅ Multi-Coin Test fertig — Vorschau zum Anschauen';
+    // Render preview
+    try {
+      const c = document.getElementById('tiktokRevealCanvas');
+      const ctx = c.getContext('2d');
+      const data = _buildMultiCoinRevealData();
+      _renderMultiCoinVerdict(ctx, c.width, c.height, 1.0, data);
+    } catch(e) {
+      console.warn('Multi-coin preview render failed:', e);
+    }
+  } finally {
+    _multiCoinRunning = false;
+    if (prevBtn) prevBtn.disabled = false;
+    if (recBtn)  recBtn.disabled = false;
+    if (multiBtn && multiBtn.textContent.indexOf('läuft') >= 0) {
+      multiBtn.textContent = '🌐 Multi-Coin Test (BTC+ETH+SOL)';
+      multiBtn.disabled = false;
+    }
+  }
+}
+
+function switchToSingleCoinReveal() {
+  _revealMultiCoinMode = false;
+  const lbl = document.getElementById('revealModeLabel');
+  if (lbl) lbl.innerHTML = '📊 Single-Coin Test';
+  const singleBtn = document.getElementById('tiktokRevealSingleBtn');
+  if (singleBtn) singleBtn.style.display = 'none';
+  const status = document.getElementById('tiktokRevealStatus');
+  if (status) status.textContent = 'Single-Coin Modus aktiv — Vorschau bereit';
+  try {
+    const c = document.getElementById('tiktokRevealCanvas');
+    const ctx = c.getContext('2d');
+    const data = _buildRevealData();
+    _renderVerdict(ctx, c.width, c.height, 1.0, data);
+  } catch(e) { console.warn('Single preview failed:', e); }
+}
+
+function _buildMultiCoinRevealData() {
+  const mc = lastMultiCoinResults;
+  if (!mc) return null;
+  const REVEAL_BRAND_LOCAL = REVEAL_BRAND;
+  const coins = [
+    { key: 'btc', label: 'BTC', result: mc.btc },
+    { key: 'eth', label: 'ETH', result: mc.eth },
+    { key: 'sol', label: 'SOL', result: mc.sol }
+  ];
+
+  // Verdict pro Coin berechnen (vereinfacht — wie _buildRevealData aber pro Result)
+  function judge(r) {
+    if (!r || r.error || !r.totalMetrics) {
+      return { key: 'iceCold', text: 'KEINE DATEN', color: REVEAL_BRAND_LOCAL.iceCold, icon: 'ice',
+               error: r?.error || 'Kein Ergebnis', pf: 0, wr: 0, ret: 0, alpha: 0, dd: 0, n: 0 };
+    }
+    const m = r.totalMetrics;
+    const trades = r.trades || [];
+    const eodTrades = trades.filter(t => /end of data|eod/i.test(String(t.exitReason || t.reason || '')));
+    const eodPnl = eodTrades.reduce((s, t) => s + (t.pnlUsd || 0), 0);
+    const totalGross = trades.filter(t => (t.pnlUsd || 0) > 0).reduce((s, t) => s + t.pnlUsd, 0);
+    const eodShare = totalGross > 0 ? eodPnl / totalGross : 0;
+    const dd = Math.abs(r.maxDD || 0);
+    const ddOk = dd < 25, ddRedFlag = dd > 35;
+    let avgDurHrs = 0;
+    const durs = trades.filter(t => t.entryTs && t.exitTs && t.exitTs > t.entryTs).map(t => t.exitTs - t.entryTs);
+    if (durs.length) avgDurHrs = (durs.reduce((s,d)=>s+d,0)/durs.length)/3600000;
+    let singleWin = false;
+    const wins = trades.filter(t => (t.pnlUsd || 0) > 0);
+    if (wins.length) {
+      const tw = wins.reduce((s,t)=>s+t.pnlUsd,0);
+      const big = tw > 0 ? Math.max(...wins.map(t=>t.pnlUsd))/tw : 0;
+      if (big > 0.9 || wins.length === 1) singleWin = true;
+    }
+
+    let key='mid', text='MID', col=REVEAL_BRAND_LOCAL.warning, icon='warning';
+    if (trades.length < 5) { key='iceCold'; text='ICE'; col=REVEAL_BRAND_LOCAL.iceCold; icon='ice'; }
+    else if (m.profitFactor < 1 && trades.length >= 5) { key='rejected'; text='REJECT'; col=REVEAL_BRAND_LOCAL.rejected; icon='x'; }
+    else if (eodShare > 0.5 || singleWin || ddRedFlag) { key='rejected'; text='REJECT'; col=REVEAL_BRAND_LOCAL.rejected; icon='x'; }
+    else if (m.profitFactor >= 2.5 && m.winRate >= 60 && trades.length >= 20 && m.totalReturn > r.buyHoldReturn && ddOk) { key='hiddenGem'; text='GEM'; col=REVEAL_BRAND_LOCAL.hiddenGem; icon='gem'; }
+    else if (avgDurHrs > 0 && avgDurHrs < 4 && trades.length >= 15 && m.profitFactor >= 1.2) { key='flash'; text='FLASH'; col=REVEAL_BRAND_LOCAL.flash; icon='flash'; }
+    else if (trades.length >= 30 && m.profitFactor >= 1.5 && m.totalReturn > r.buyHoldReturn && ddOk) { key='approved'; text='APPROVED'; col=REVEAL_BRAND_LOCAL.approved; icon='check'; }
+    else if (trades.length >= 15 && m.profitFactor >= 1.3 && m.totalReturn > 0 && !ddRedFlag) { key='caveat'; text='CAVEAT'; col=REVEAL_BRAND_LOCAL.caveat; icon='fire'; }
+    else if (trades.length < 10) { key='iceCold'; text='ICE'; col=REVEAL_BRAND_LOCAL.iceCold; icon='ice'; }
+
+    return {
+      key, text, color: col, icon,
+      pf: Math.min(m.profitFactor || 0, 99.99),
+      wr: m.winRate || 0,
+      ret: m.totalReturn || 0,
+      alpha: (m.totalReturn || 0) - (r.buyHoldReturn || 0),
+      dd, n: trades.length,
+      equity: r.equity || []
+    };
+  }
+
+  const judged = coins.map(c => ({ ...c, ...judge(c.result) }));
+
+  // Aggregate
+  const passKeys = new Set(['approved', 'hiddenGem', 'flash', 'caveat']);
+  const failKeys = new Set(['rejected']);
+  const nPass = judged.filter(j => passKeys.has(j.key)).length;
+  const nFail = judged.filter(j => failKeys.has(j.key)).length;
+
+  let aggKey = 'mid', aggText = 'MIXED RESULTS', aggColor = REVEAL_BRAND.warning, aggIcon = 'warning';
+  if (nPass === 3) {
+    aggKey = 'approved'; aggText = 'PASSED ALL 3 COINS'; aggColor = REVEAL_BRAND.approved; aggIcon = 'check';
+  } else if (nPass === 2) {
+    aggKey = 'caveat'; aggText = 'PASSED 2/3 — ROBUST'; aggColor = REVEAL_BRAND.caveat; aggIcon = 'fire';
+  } else if (nFail === 3) {
+    aggKey = 'rejected'; aggText = 'FAILED ON ALL COINS'; aggColor = REVEAL_BRAND.rejected; aggIcon = 'x';
+  } else if (nFail >= 2) {
+    aggKey = 'rejected'; aggText = 'FAILED 2/3 COINS'; aggColor = REVEAL_BRAND.rejected; aggIcon = 'x';
+  } else if (nPass === 1) {
+    aggKey = 'mid'; aggText = 'ONLY 1/3 PASSED'; aggColor = REVEAL_BRAND.warning; aggIcon = 'warning';
+  }
+
+  // Avg alpha
+  const validJudged = judged.filter(j => !j.error && j.n > 0);
+  const avgAlpha = validJudged.length ? validJudged.reduce((s, j) => s + j.alpha, 0) / validJudged.length : 0;
+  const avgPF = validJudged.length ? validJudged.reduce((s, j) => s + j.pf, 0) / validJudged.length : 0;
+
+  return {
+    strategyName: mc.strategyName,
+    tf: mc.tf,
+    coins: judged,
+    nPass, nFail,
+    aggKey, aggText, aggColor, aggIcon,
+    avgAlpha, avgPF,
+    // shadow fields for filename/sound:
+    verdictKey: aggKey,
+    verdictText: aggText,
+    verdictColor: aggColor,
+    verdictIcon: aggIcon,
+    symbol: 'MULTI',
+    recommendation: aggKey === 'approved' ? 'Strategy ist robust über mehrere Coins — Live-Test starten' :
+                    aggKey === 'caveat'   ? 'Auf 2/3 Coins gut — auf dem 3. fehlt etwas' :
+                    aggKey === 'rejected' ? 'Strategy ist nicht universell — anderen Ansatz versuchen' :
+                                            'Strategy fragmentiert — Parameter optimieren'
+  };
+}
+
+// ─── Multi-Coin Verdict Renderer (gleiche Phase-Logik aber andere Komposition) ───
+function _renderMultiCoinVerdict(ctx, W, H, t, data) {
+  if (!data) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    return;
+  }
+  // BG-Gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, REVEAL_BRAND.bgGradient1);
+  grad.addColorStop(1, REVEAL_BRAND.bgGradient2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Header — fades in
+  const headOp = Math.min(1, t * 4);
+  ctx.globalAlpha = headOp;
+  ctx.font = 'bold ' + Math.round(H*0.030) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.primary;
+  ctx.fillText('🌐 MULTI-COIN TEST', W/2, H*0.07);
+  ctx.font = '600 ' + Math.round(H*0.020) + 'px system-ui, sans-serif';
+  ctx.fillStyle = REVEAL_BRAND.textMuted;
+  const stratLine = (data.strategyName || 'Strategy').toUpperCase() + ' · ' + (data.tf || '1h');
+  ctx.fillText(stratLine, W/2, H*0.11);
+
+  // 3 Mini Equity Charts (gestackt vertikal)
+  const chartTop = H * 0.16;
+  const chartH = H * 0.21;     // jeder Chart 21% Höhe
+  const chartGap = H * 0.014;
+  const chartLeft = W * 0.08;
+  const chartW = W * 0.84;
+
+  data.coins.forEach((coin, idx) => {
+    const op = Math.min(1, Math.max(0, (t - 0.05 - idx * 0.05) * 8));
+    if (op <= 0) return;
+    ctx.globalAlpha = op;
+    const y = chartTop + idx * (chartH + chartGap);
+    // Coin-Header bar
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(chartLeft, y, chartW, chartH);
+    ctx.strokeStyle = coin.color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(chartLeft, y, chartW, chartH);
+    // Coin-Label
+    ctx.textAlign = 'left';
+    ctx.font = 'bold ' + Math.round(H*0.024) + 'px system-ui, sans-serif';
+    ctx.fillStyle = coin.color;
+    ctx.fillText(coin.label, chartLeft + W*0.02, y + H*0.022);
+    // Verdict-Pill
+    ctx.textAlign = 'right';
+    ctx.font = 'bold ' + Math.round(H*0.016) + 'px system-ui, sans-serif';
+    const pillTxt = coin.text;
+    const pillTxtW = ctx.measureText(pillTxt).width;
+    const pillX = chartLeft + chartW - W*0.02 - pillTxtW - W*0.025;
+    const pillY = y + H*0.008;
+    const pillH = H*0.026;
+    ctx.fillStyle = coin.color;
+    _roundRect(ctx, pillX, pillY, pillTxtW + W*0.025, pillH, 4);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.fillText(pillTxt, pillX + (pillTxtW + W*0.025)/2, pillY + pillH/2 + H*0.002);
+
+    // Stats line
+    ctx.textAlign = 'left';
+    ctx.font = '600 ' + Math.round(H*0.014) + 'px system-ui, sans-serif';
+    ctx.fillStyle = REVEAL_BRAND.textMuted;
+    let statTxt;
+    if (coin.error) {
+      statTxt = '❌ ' + coin.error;
+    } else {
+      statTxt = `${coin.n}T · PF ${coin.pf.toFixed(2)} · WR ${coin.wr.toFixed(0)}% · Ret ${(coin.ret>=0?'+':'') + coin.ret.toFixed(0)}%`;
+    }
+    ctx.fillText(statTxt, chartLeft + W*0.02, y + H*0.048);
+
+    // Mini Equity Chart
+    const eqTop = y + H*0.058;
+    const eqBottom = y + chartH - H*0.010;
+    const eqLeft = chartLeft + W*0.02;
+    const eqRight = chartLeft + chartW - W*0.02;
+    if (coin.equity && coin.equity.length >= 2) {
+      const vals = coin.equity.map(e => Number(e.bal || e.balance || e.equity || e.b || 0)).filter(v => Number.isFinite(v));
+      if (vals.length >= 2) {
+        const minV = Math.min(...vals);
+        const maxV = Math.max(...vals);
+        const range = maxV - minV || 1;
+        const xs = (i) => eqLeft + (i / (vals.length - 1)) * (eqRight - eqLeft);
+        const ys = (v) => eqBottom - ((v - minV) / range) * (eqBottom - eqTop);
+        // Fill below curve
+        ctx.beginPath();
+        ctx.moveTo(eqLeft, eqBottom);
+        vals.forEach((v, i) => ctx.lineTo(xs(i), ys(v)));
+        ctx.lineTo(eqRight, eqBottom);
+        ctx.closePath();
+        const fillGrad = ctx.createLinearGradient(0, eqTop, 0, eqBottom);
+        fillGrad.addColorStop(0, coin.color + '55');
+        fillGrad.addColorStop(1, coin.color + '00');
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+        // Line
+        ctx.beginPath();
+        vals.forEach((v, i) => { if (i === 0) ctx.moveTo(xs(i), ys(v)); else ctx.lineTo(xs(i), ys(v)); });
+        ctx.strokeStyle = coin.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    } else {
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(H*0.016) + 'px system-ui, sans-serif';
+      ctx.fillStyle = '#374151';
+      ctx.fillText('— keine Equity-Daten —', (eqLeft+eqRight)/2, (eqTop+eqBottom)/2);
+    }
+  });
+
+  // Aggregate verdict block (unten)
+  const aggOp = Math.min(1, Math.max(0, (t - 0.35) * 6));
+  if (aggOp > 0) {
+    ctx.globalAlpha = aggOp;
+    const aggY = H * 0.83;
+    // Icon (small)
+    ctx.save();
+    ctx.translate(W*0.18, aggY);
+    const scale = 0.55;
+    ctx.scale(scale, scale);
+    // Reuse Icon-Logic via mini-helper
+    _drawAggregateIcon(ctx, data.aggIcon, data.aggColor, H);
+    ctx.restore();
+    // Text
+    ctx.textAlign = 'left';
+    ctx.font = 'bold ' + Math.round(H*0.030) + 'px system-ui, sans-serif';
+    ctx.fillStyle = data.aggColor;
+    ctx.fillText(data.aggText, W*0.28, aggY - H*0.005);
+    // Sub: avg alpha + PF
+    ctx.font = '600 ' + Math.round(H*0.016) + 'px system-ui, sans-serif';
+    ctx.fillStyle = REVEAL_BRAND.textMuted;
+    ctx.fillText(`Avg-Alpha vs B&H: ${data.avgAlpha>=0?'+':''}${data.avgAlpha.toFixed(1)}%  ·  Avg-PF: ${data.avgPF.toFixed(2)}`, W*0.28, aggY + H*0.022);
+  }
+
+  // Recommendation footer
+  const recOp = Math.min(1, Math.max(0, (t - 0.55) * 4));
+  if (recOp > 0 && data.recommendation) {
+    ctx.globalAlpha = recOp;
+    ctx.textAlign = 'center';
+    ctx.font = 'italic 600 ' + Math.round(H*0.018) + 'px system-ui, sans-serif';
+    ctx.fillStyle = REVEAL_BRAND.secondary;
+    ctx.fillText('💡 ' + data.recommendation, W/2, H*0.91);
+  }
+  ctx.restore();
+  _drawAppFooter(ctx, W, H, Math.min(1, t * 2));
+}
+
+function _roundRect(ctx, x, y, w, h, r) {
+  if (w < 2 * r) r = w / 2;
+  if (h < 2 * r) r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function _drawAggregateIcon(ctx, icon, color, H) {
+  const r = H*0.075;
+  if (icon === 'check') {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = H*0.012; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-r*0.4, 0); ctx.lineTo(-r*0.07, r*0.32); ctx.lineTo(r*0.47, -r*0.33); ctx.stroke();
+  } else if (icon === 'x') {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = H*0.012; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r*0.37, -r*0.37); ctx.lineTo(r*0.37, r*0.37);
+    ctx.moveTo(r*0.37, -r*0.37); ctx.lineTo(-r*0.37, r*0.37);
+    ctx.stroke();
+  } else if (icon === 'fire') {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.bezierCurveTo(r*0.6, -r*0.6, r*0.9, r*0.2, r*0.5, r*0.7);
+    ctx.bezierCurveTo(r*0.2, r, -r*0.2, r, -r*0.5, r*0.7);
+    ctx.bezierCurveTo(-r*0.9, r*0.2, -r*0.6, -r*0.6, 0, -r);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = REVEAL_BRAND.secondary;
+    ctx.beginPath();
+    ctx.moveTo(0, -r*0.5);
+    ctx.bezierCurveTo(r*0.35, -r*0.2, r*0.4, r*0.3, r*0.2, r*0.55);
+    ctx.bezierCurveTo(0, r*0.7, -r*0.2, r*0.55, -r*0.35, r*0.3);
+    ctx.bezierCurveTo(-r*0.4, 0, -r*0.2, -r*0.3, 0, -r*0.5);
+    ctx.closePath(); ctx.fill();
+  } else {
+    // warning
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r*0.93, r*0.67);
+    ctx.lineTo(-r*0.93, r*0.67);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold ' + Math.round(H*0.075) + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', 0, r*0.05);
+  }
+}
 
 function openTikTokRevealModal() {
   if (typeof lastResult === 'undefined' || !lastResult) {
@@ -35753,12 +36641,30 @@ function openTikTokRevealModal() {
   }
   document.getElementById('tiktokRevealModal').style.display = 'flex';
   document.getElementById('tiktokRevealStatus').textContent = 'Bereit zum Generieren';
+  // v1.6: Wenn vorherige Aufnahme existiert, Post-Record-Row direkt anzeigen
+  if (_lastRevealBlob && _lastRevealFileName) _showPostRecordRow(true);
+  else _showPostRecordRow(false);
   try { renderSoundPackSlots(); } catch(e) { console.warn('Sound-Pack render failed:', e); }
+  // Sync UI to current mode
+  const lbl = document.getElementById('revealModeLabel');
+  const singleBtn = document.getElementById('tiktokRevealSingleBtn');
+  if (_revealMultiCoinMode && lastMultiCoinResults) {
+    if (lbl) lbl.innerHTML = '🌐 Multi-Coin: <span style="color:#a78bfa">BTC + ETH + SOL</span>';
+    if (singleBtn) singleBtn.style.display = '';
+  } else {
+    if (lbl) lbl.innerHTML = '📊 Single-Coin Test';
+    if (singleBtn) singleBtn.style.display = 'none';
+  }
   // Initial-Render: zeig Endbild (Verdict) als Preview
   try {
-    const data = _buildRevealData();
     const ctx = c.getContext('2d');
-    _renderVerdict(ctx, c.width, c.height, 1.0, data);
+    if (_revealMultiCoinMode && lastMultiCoinResults) {
+      const md = _buildMultiCoinRevealData();
+      _renderMultiCoinVerdict(ctx, c.width, c.height, 1.0, md);
+    } else {
+      const data = _buildRevealData();
+      _renderVerdict(ctx, c.width, c.height, 1.0, data);
+    }
   } catch(e) {
     console.warn('Reveal preview failed:', e);
   }
@@ -35777,8 +36683,10 @@ function _buildRevealData() {
   const strategy = stratIdx >= 0 ? STRATEGIES[stratIdx] : null;
   const symbol = document.getElementById('symbolSelect')?.value || 'BTC';
   const tf = document.getElementById('tfSelect')?.value || '1h';
-  // Verdict ableiten — nutze gleiche Logik wie buildStrategyAssessment
-  let verdictKey = 'mid';   // approved | mid | rejected
+
+  // ─── v1.5: Erweiterte Verdict-Logik (7 Templates) ───
+  // Templates: approved | rejected | mid | hiddenGem | flash | iceCold | caveat
+  let verdictKey = 'mid';
   let verdictText = 'NEEDS WORK';
   let verdictColor = REVEAL_BRAND.warning;
   let verdictIcon = 'warning';
@@ -35789,42 +36697,108 @@ function _buildRevealData() {
   const totalGrossProfit = trades.filter(t => (t.pnlUsd || 0) > 0).reduce((s, t) => s + t.pnlUsd, 0);
   const eodShare = totalGrossProfit > 0 ? eodPnl / totalGrossProfit : 0;
 
-  let isRejected = false;
-  if (m.profitFactor < 1 && trades.length >= 5) isRejected = true;
-  if (eodShare > 0.5) isRejected = true;
-  if (trades.length < 10) isRejected = true;
-  // Single-Winner-Check
+  // Avg-Trade-Dauer in Stunden
+  let avgTradeDurHours = 0;
+  try {
+    const durs = trades
+      .filter(t => t && t.entryTs && t.exitTs && t.exitTs > t.entryTs)
+      .map(t => t.exitTs - t.entryTs);
+    if (durs.length > 0) {
+      avgTradeDurHours = (durs.reduce((s, d) => s + d, 0) / durs.length) / 3600000;
+    }
+  } catch(e) { avgTradeDurHours = 0; }
+
+  // Drawdown
+  const maxDD = Math.abs(result.maxDD || 0);
+  const ddOk = maxDD < 25;
+  const ddRedFlag = maxDD > 35;
+
+  // Single-Winner-Check (eine einzelne Spitze trägt alles)
+  let singleWinnerFlag = false;
   const winners = trades.filter(t => (t.pnlUsd || 0) > 0);
   if (winners.length > 0) {
     const totalWin = winners.reduce((s, t) => s + t.pnlUsd, 0);
     const biggestShare = totalWin > 0 ? Math.max(...winners.map(t => t.pnlUsd)) / totalWin : 0;
-    if (biggestShare > 0.9 || winners.length === 1) isRejected = true;
+    if (biggestShare > 0.9 || winners.length === 1) singleWinnerFlag = true;
   }
 
-  let isApproved = false;
-  if (!isRejected && trades.length >= 30 && m.profitFactor >= 1.5 && m.totalReturn > result.buyHoldReturn) {
-    isApproved = true;
-  }
-
-  if (isApproved) {
-    verdictKey = 'approved';
-    verdictText = 'FINALBOSS APPROVED';
-    verdictColor = REVEAL_BRAND.approved;
-    verdictIcon = 'check';
-  } else if (isRejected) {
+  // ─── Priority-Cascade (most specific first) ───
+  if (trades.length < 5) {
+    // 1. ICE COLD — too few trades
+    verdictKey = 'iceCold';
+    verdictText = 'ICE COLD';
+    verdictColor = REVEAL_BRAND.iceCold;
+    verdictIcon = 'ice';
+  } else if (m.profitFactor < 1 && trades.length >= 5) {
+    // 2. REJECTED — loser
     verdictKey = 'rejected';
     verdictText = 'FINALBOSS REJECTED';
     verdictColor = REVEAL_BRAND.rejected;
     verdictIcon = 'x';
+  } else if (eodShare > 0.5 || singleWinnerFlag || ddRedFlag) {
+    // 3. REJECTED — strukturelles Problem
+    verdictKey = 'rejected';
+    verdictText = 'FINALBOSS REJECTED';
+    verdictColor = REVEAL_BRAND.rejected;
+    verdictIcon = 'x';
+  } else if (m.profitFactor >= 2.5 && m.winRate >= 60 &&
+             trades.length >= 20 && m.totalReturn > result.buyHoldReturn && ddOk) {
+    // 4. HIDDEN GEM — surprise winner
+    verdictKey = 'hiddenGem';
+    verdictText = 'HIDDEN GEM';
+    verdictColor = REVEAL_BRAND.hiddenGem;
+    verdictIcon = 'gem';
+  } else if (avgTradeDurHours > 0 && avgTradeDurHours < 4 &&
+             trades.length >= 15 && m.profitFactor >= 1.2) {
+    // 5. FLASH STRATEGY — scalper (avg trade < 4h)
+    verdictKey = 'flash';
+    verdictText = 'FLASH STRATEGY';
+    verdictColor = REVEAL_BRAND.flash;
+    verdictIcon = 'flash';
+  } else if (trades.length >= 30 && m.profitFactor >= 1.5 &&
+             m.totalReturn > result.buyHoldReturn && ddOk) {
+    // 6. APPROVED — solid clean win
+    verdictKey = 'approved';
+    verdictText = 'FINALBOSS APPROVED';
+    verdictColor = REVEAL_BRAND.approved;
+    verdictIcon = 'check';
+  } else if (trades.length >= 15 && m.profitFactor >= 1.3 &&
+             m.totalReturn > 0 && !ddRedFlag) {
+    // 7. APPROVED WITH CAVEATS — works but flagged
+    verdictKey = 'caveat';
+    verdictText = 'APPROVED — MIT VORBEHALT';
+    verdictColor = REVEAL_BRAND.caveat;
+    verdictIcon = 'fire';
+  } else if (trades.length < 10) {
+    // Fallback: not enough trades → ICE COLD
+    verdictKey = 'iceCold';
+    verdictText = 'ICE COLD';
+    verdictColor = REVEAL_BRAND.iceCold;
+    verdictIcon = 'ice';
   }
 
-  // Empfehlung
+  // ─── Recommendation pro Template ───
   let recommendation = '';
-  if (verdictKey === 'rejected' || verdictKey === 'mid') {
+  if (verdictKey === 'iceCold') {
+    recommendation = 'Längeren Backtest-Zeitraum testen (min. 6 Monate)';
+  } else if (verdictKey === 'hiddenGem') {
+    recommendation = 'Walk-Forward Test + Validierung auf 2+ anderen Coins';
+  } else if (verdictKey === 'flash') {
+    recommendation = 'Scalper-Style: Slippage + Fees realistisch einrechnen';
+  } else if (verdictKey === 'caveat') {
+    if (maxDD > 20) recommendation = 'Drawdown reduzieren — Stop-Loss enger oder Position-Size kleiner';
+    else if (eodShare > 0.2) recommendation = 'Take-Profit definieren (z.B. 2R/3R Target)';
+    else if (m.winRate < 45) recommendation = 'WR niedrig — Trend-Filter (EMA) hinzufügen';
+    else recommendation = 'PF solid — mehr Trades sammeln für Bestätigung';
+  } else if (verdictKey === 'rejected' || verdictKey === 'mid') {
     if (m.profitFactor < 1) {
       recommendation = 'Try adding an EMA filter or trend confirmation';
     } else if (eodShare > 0.3) {
       recommendation = 'Define a clear take-profit (e.g. 2x risk)';
+    } else if (singleWinnerFlag) {
+      recommendation = 'Eine einzige Spitze trägt — System ist nicht repetitiv';
+    } else if (ddRedFlag) {
+      recommendation = 'Drawdown zu groß — Risk-Management überarbeiten';
     } else if (trades.length < 30) {
       recommendation = 'Test a longer period for more signal';
     } else if (m.totalReturn < result.buyHoldReturn) {
@@ -35843,6 +36817,8 @@ function _buildRevealData() {
     totalReturn: m.totalReturn,
     buyHoldReturn: result.buyHoldReturn,
     alpha: m.totalReturn - result.buyHoldReturn,
+    maxDD,
+    avgTradeDurHours,
     verdictKey, verdictText, verdictColor, verdictIcon,
     recommendation
   };
@@ -36748,8 +37724,137 @@ function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
     ctx.moveTo(H*0.028, -H*0.028);
     ctx.lineTo(-H*0.028, H*0.028);
     ctx.stroke();
+  } else if (data.verdictIcon === 'gem') {
+    // Diamond/gem with shine — purple Hidden-Gem icon
+    const r = H*0.075;
+    // Glow halo
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r*1.6);
+    grad.addColorStop(0, data.verdictColor + 'cc');
+    grad.addColorStop(1, data.verdictColor + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-r*1.6, -r*1.6, r*3.2, r*3.2);
+    // Diamond shape (kite)
+    ctx.fillStyle = data.verdictColor;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);            // top
+    ctx.lineTo(r*0.95, -r*0.12);  // right shoulder
+    ctx.lineTo(0, r);             // bottom point
+    ctx.lineTo(-r*0.95, -r*0.12); // left shoulder
+    ctx.closePath();
+    ctx.fill();
+    // Inner facet lines (white shine)
+    ctx.strokeStyle = '#ffffffcc';
+    ctx.lineWidth = H*0.005;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.95, -r*0.12);
+    ctx.lineTo(r*0.95, -r*0.12);
+    ctx.moveTo(0, -r);
+    ctx.lineTo(-r*0.45, -r*0.12);
+    ctx.lineTo(0, r);
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r*0.45, -r*0.12);
+    ctx.lineTo(0, r);
+    ctx.stroke();
+    // Sparkle highlight (top-left)
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-r*0.35, -r*0.45, H*0.008, 0, Math.PI*2);
+    ctx.fill();
+  } else if (data.verdictIcon === 'flash') {
+    // Lightning bolt — Flash Strategy
+    const r = H*0.085;
+    // Yellow glow
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r*1.5);
+    grad.addColorStop(0, data.verdictColor + 'aa');
+    grad.addColorStop(1, data.verdictColor + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-r*1.5, -r*1.5, r*3, r*3);
+    // Bolt path
+    ctx.fillStyle = data.verdictColor;
+    ctx.beginPath();
+    ctx.moveTo(r*0.10, -r);
+    ctx.lineTo(-r*0.55, r*0.10);
+    ctx.lineTo(-r*0.10, r*0.10);
+    ctx.lineTo(-r*0.30, r);
+    ctx.lineTo(r*0.60, -r*0.15);
+    ctx.lineTo(r*0.05, -r*0.15);
+    ctx.lineTo(r*0.40, -r);
+    ctx.closePath();
+    ctx.fill();
+    // White inner outline for crispness
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = H*0.003;
+    ctx.stroke();
+  } else if (data.verdictIcon === 'ice') {
+    // Snowflake — Ice Cold
+    const r = H*0.075;
+    // Cool blue glow
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r*1.5);
+    grad.addColorStop(0, data.verdictColor + 'aa');
+    grad.addColorStop(1, data.verdictColor + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-r*1.5, -r*1.5, r*3, r*3);
+    // 6 spokes
+    ctx.strokeStyle = data.verdictColor;
+    ctx.lineWidth = H*0.012;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.stroke();
+      // Branches (Y-shape near tip)
+      const tx = Math.cos(a) * r * 0.55;
+      const ty = Math.sin(a) * r * 0.55;
+      const bL = a + 0.5, bR = a - 0.5;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx + Math.cos(bL) * r * 0.25, ty + Math.sin(bL) * r * 0.25);
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx + Math.cos(bR) * r * 0.25, ty + Math.sin(bR) * r * 0.25);
+      ctx.stroke();
+    }
+    // Center hex dot
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, H*0.012, 0, Math.PI*2);
+    ctx.fill();
+  } else if (data.verdictIcon === 'fire') {
+    // Flame — Approved with Caveats
+    const r = H*0.075;
+    // Warm glow
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r*1.6);
+    grad.addColorStop(0, data.verdictColor + 'aa');
+    grad.addColorStop(1, data.verdictColor + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-r*1.6, -r*1.6, r*3.2, r*3.2);
+    // Flame shape (outer)
+    ctx.fillStyle = data.verdictColor;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.bezierCurveTo(r*0.6, -r*0.6, r*0.9, r*0.2, r*0.5, r*0.7);
+    ctx.bezierCurveTo(r*0.2, r, -r*0.2, r, -r*0.5, r*0.7);
+    ctx.bezierCurveTo(-r*0.9, r*0.2, -r*0.6, -r*0.6, 0, -r);
+    ctx.closePath();
+    ctx.fill();
+    // Inner flame (yellow core)
+    ctx.fillStyle = REVEAL_BRAND.secondary;
+    ctx.beginPath();
+    ctx.moveTo(0, -r*0.5);
+    ctx.bezierCurveTo(r*0.35, -r*0.2, r*0.4, r*0.3, r*0.2, r*0.55);
+    ctx.bezierCurveTo(0, r*0.7, -r*0.2, r*0.55, -r*0.35, r*0.3);
+    ctx.bezierCurveTo(-r*0.4, 0, -r*0.2, -r*0.3, 0, -r*0.5);
+    ctx.closePath();
+    ctx.fill();
+    // White "!" inside to signal caveat
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold ' + Math.round(H*0.045) + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', 0, r*0.15);
   } else {
-    // Orange warning triangle
+    // Orange warning triangle (fallback "mid")
     ctx.fillStyle = data.verdictColor;
     ctx.beginPath();
     ctx.moveTo(0, -H*0.075);
@@ -36803,7 +37908,14 @@ function _renderVerdict(ctx, W, H, t /*0..1*/, data) {
     ctx.textAlign = 'center';
     ctx.font = 'italic 600 ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
     ctx.fillStyle = REVEAL_BRAND.secondary;
-    ctx.fillText('💡 ' + (data.verdictKey === 'rejected' ? 'Improve:' : 'Tip:'), W/2, H*0.84);
+    ctx.fillText('💡 ' + (
+      data.verdictKey === 'rejected' ? 'Improve:' :
+      data.verdictKey === 'iceCold'  ? 'Note:'    :
+      data.verdictKey === 'hiddenGem'? 'Next:'    :
+      data.verdictKey === 'flash'    ? 'Watch:'   :
+      data.verdictKey === 'caveat'   ? 'Caveat:'  :
+      'Tip:'
+    ), W/2, H*0.84);
     ctx.font = '600 ' + Math.round(H*0.022) + 'px system-ui, sans-serif';
     ctx.fillStyle = REVEAL_BRAND.textPrimary;
     _wrapText(ctx, data.recommendation, W/2, H*0.875, W*0.85, H*0.030);
@@ -36919,7 +38031,14 @@ async function _buildOfflineRevealAudio(verdictKey, customCache) {
   if (!playCustom('reveal', 8.5)) {
     _audioRevealCutAt(offCtx, offCtx.destination, 8.5);
   }
-  const verdictSlot = verdictKey === 'approved' ? 'approved' : (verdictKey === 'rejected' ? 'rejected' : 'mid');
+  // ─── v1.5: 7 Templates → mapped auf 3 Sound-Slots ───
+  // approved/hiddenGem/flash → approved (positiv)
+  // rejected → rejected (negativ)
+  // mid/caveat/iceCold → mid (neutral)
+  const verdictSlot =
+    (verdictKey === 'approved' || verdictKey === 'hiddenGem' || verdictKey === 'flash') ? 'approved' :
+    (verdictKey === 'rejected') ? 'rejected' :
+    'mid';
   const verdictFnMap = {
     approved: _audioApprovedChimeAt,
     rejected: _audioRejectedBuzzAt,
@@ -37178,7 +38297,10 @@ async function tiktokRevealPlay(record) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
-  const data = _buildRevealData();
+  // v1.5: Multi-Coin or Single mode?
+  const isMulti = _revealMultiCoinMode && lastMultiCoinResults;
+  const data = isMulti ? _buildMultiCoinRevealData() : _buildRevealData();
+  if (!data) { _showErrorToast('Keine Daten zum Anzeigen.', 3000); _tiktokRevealAnimating = false; return; }
   const status = document.getElementById('tiktokRevealStatus');
   const recBtn = document.getElementById('tiktokRevealRecordBtn');
   const prevBtn = document.getElementById('tiktokRevealPreviewBtn');
@@ -37267,10 +38389,12 @@ async function tiktokRevealPlay(record) {
         _renderCountdown(ctx, W, H, tInDigit, n);
       } else if (elapsed < PHASE3_END) {
         const vt = (elapsed - PHASE2_END) / (PHASE3_END - PHASE2_END);
-        _renderVerdict(ctx, W, H, vt, data);
+        if (isMulti) _renderMultiCoinVerdict(ctx, W, H, vt, data);
+        else _renderVerdict(ctx, W, H, vt, data);
       } else {
         // Done
-        _renderVerdict(ctx, W, H, 1, data);  // hold last frame
+        if (isMulti) _renderMultiCoinVerdict(ctx, W, H, 1, data);
+        else _renderVerdict(ctx, W, H, 1, data);  // hold last frame
         resolve();
         return;
       }
@@ -37289,6 +38413,20 @@ async function tiktokRevealPlay(record) {
     blob = new Blob(chunks, { type: chunks[0]?.type || 'video/webm' });
     const ext = (blob.type || '').includes('mp4') ? 'mp4' : 'webm';
     const fileName = 'finalboss_review_' + (data.symbol || 'BTC') + '_' + (data.verdictKey) + '_' + new Date().toISOString().slice(0,10) + '.' + ext;
+    // ── v1.6: Blob für Share/Submit/Re-Download speichern ──
+    _lastRevealBlob = blob;
+    _lastRevealFileName = fileName;
+    _lastRevealMeta = {
+      verdictKey: data.verdictKey,
+      verdictText: data.verdictText,
+      strategyName: data.strategyName,
+      symbol: data.symbol,
+      tf: data.tf,
+      isMulti: !!isMulti,
+      stats: isMulti ? { nPass: data.nPass, nFail: data.nFail, avgAlpha: data.avgAlpha, avgPF: data.avgPF }
+                     : { nTrades: data.nTrades, winRate: data.winRate, profitFactor: data.profitFactor, totalReturn: data.totalReturn, alpha: data.alpha }
+    };
+    // Auto-Download wie bisher
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = fileName;
@@ -37296,6 +38434,8 @@ async function tiktokRevealPlay(record) {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     status.innerHTML = '✅ Heruntergeladen: <strong style="color:#fbbf24">' + fileName + '</strong>';
     _showSuccessToast('🎬 TikTok-Reveal heruntergeladen!', 4000);
+    // Post-Record-Aktionen anzeigen (Share + Submit + Re-Download)
+    _showPostRecordRow(true);
   } else if (!_tiktokRevealAbort) {
     status.textContent = '✓ Vorschau fertig — klick "Aufnehmen" für Download';
   }
@@ -37459,6 +38599,40 @@ window.addEventListener('beforeunload', () => {
 
 </script>
 
+<!-- ── Auto-Caption-Generator Modal ── -->
+<div id="captionGenModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg-card);border:2px solid #f59e0b;border-radius:12px;padding:24px;max-width:580px;width:100%;max-height:90vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="margin:0;color:#fbbf24;font-size:18px">📝 TikTok-Caption Generator</h2>
+      <button onclick="closeCaptionGenModal()" style="background:none;border:none;color:#9ca3af;font-size:24px;cursor:pointer">×</button>
+    </div>
+    <p style="margin:0 0 14px;font-size:13px;color:var(--text-secondary);line-height:1.6">
+      KI generiert dir basierend auf den Backtest-Stats den fertigen TikTok-Caption-Text plus 10 passende Hashtags. 1 Klick = copy/paste.
+    </p>
+    <div id="captionGenStatus" style="display:none;background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.30);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text-primary)">⏳ Generiere Caption...</div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Influencer-Handle (optional)</label>
+      <input id="captionGenInfluencer" type="text" placeholder="@dachgeschoss-trader oder leer lassen" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Caption-Stil</label>
+      <select id="captionGenStyle" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box">
+        <option value="hype">🔥 Hype/Emotional (TikTok-Standard)</option>
+        <option value="analytical">📊 Analytisch/Sachlich (Pro-Trader-Vibe)</option>
+        <option value="funny">😂 Comedy/Roast (für Rejected-Strategien)</option>
+        <option value="educational">🎓 Edukativ (mit Erklärung)</option>
+      </select>
+    </div>
+    <button id="captionGenGenerateBtn" onclick="generateTikTokCaption()" style="width:100%;background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:11px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;margin-bottom:14px">✨ Caption generieren</button>
+    <div id="captionGenResult" style="display:none;background:var(--bg-tertiary);border-radius:6px;padding:12px;font-size:13px;line-height:1.6;color:var(--text-primary);white-space:pre-wrap;font-family:monospace;border:1px solid var(--border);max-height:300px;overflow-y:auto;margin-bottom:10px"></div>
+    <div id="captionGenButtons" style="display:none;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button onclick="copyCaptionToClipboard()" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">📋 Caption kopieren</button>
+      <button onclick="generateTikTokCaption()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">🔄 Nochmal generieren</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:10px;line-height:1.5">💡 Tipp: Im 'Comedy/Roast'-Stil wird die Caption frecher — gut für klar gescheiterte Influencer-Strategien.</div>
+  </div>
+</div>
+
 <!-- ── Share-Strategy-Modal ── -->
 <div id="shareStrategyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--bg-card);border:2px solid #f59e0b;border-radius:12px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow:auto">
@@ -37481,10 +38655,4 @@ window.addEventListener('beforeunload', () => {
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeShareStrategyModal()" style="background:#374151;border:none;color:#fff;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">Abbrechen</button>
-      <button id="shareStrategySubmitBtn" onclick="submitStrategy()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">📤 Senden</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+      <button id="share
