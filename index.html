@@ -941,7 +941,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 14:51 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 14:59 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -16126,14 +16126,27 @@ function liveReplayActivate(startIdx) {
 function liveReplayStep(delta) {
   if (!liveReplayActive) return;
   const newIdx = Math.max(liveReplayStartIdx, Math.min(_liveReplayOriginalCandles.length - 1, liveReplayIndex + delta));
+  if (newIdx === liveReplayIndex) {
+    // Am Anfang/Ende — Auto-Pause
+    if (newIdx >= _liveReplayOriginalCandles.length - 1 && liveReplayPlaying) liveReplayToggle();
+    return;
+  }
   liveReplayIndex = newIdx;
   liveChartCandles = _liveReplayOriginalCandles.slice(0, newIdx + 1);
   _updateLiveReplayUI();
-  try {
-    chartIndicatorCandles = null;
-    computeChartIndicators(liveChartCandles);
-    drawCandleChart('tradeChart', liveChartCandles, backtestOverlayTrades || [], chartViewStart, chartViewEnd, false, chartYShift);
-  } catch(e) {}
+  // Performance-Optimierung: Indikatoren NICHT bei jedem Step neu berechnen — 
+  // die Funktion drawCandleChart macht das selbst wenn nötig, und chartIndicatorCandles
+  // hält die Cache-Logik. Nur force-recompute bei groesseren Spruengen.
+  if (Math.abs(delta) > 5) {
+    try { chartIndicatorCandles = null; computeChartIndicators(liveChartCandles); } catch(e) {}
+  }
+  // requestAnimationFrame fuer fluessiges Rendering statt synchroner Draw
+  if (window._liveReplayRafId) cancelAnimationFrame(window._liveReplayRafId);
+  window._liveReplayRafId = requestAnimationFrame(() => {
+    try {
+      drawCandleChart('tradeChart', liveChartCandles, backtestOverlayTrades || [], chartViewStart, chartViewEnd, false, chartYShift);
+    } catch(e) {}
+  });
   // Wenn am Ende angekommen: Auto-Pause
   if (newIdx >= _liveReplayOriginalCandles.length - 1 && liveReplayPlaying) {
     liveReplayToggle();
@@ -16282,6 +16295,8 @@ async function startLiveChart() {
 
   // Fallback polling every 10s
   liveChartInterval = setInterval(async () => {
+    if (typeof liveReplayActive !== 'undefined' && liveReplayActive) return;
+    
     if (!liveChartActive || mySession !== _liveSessionId) return;
     try {
       const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=2`;
@@ -16317,6 +16332,8 @@ function connectLiveWs(symbol, tf, sessionId) {
     ws.onmessage = (evt) => {
       if (sessionId !== _liveSessionId) return;  // stale — ignore old-symbol ticks
       if (!liveChartActive || !liveChartCandles) return;
+      // WS-Updates während Bar Replay ignorieren damit Slicing nicht zerschossen wird
+      if (typeof liveReplayActive !== 'undefined' && liveReplayActive) return;
       try {
         const msg = JSON.parse(evt.data);
         if (msg.k) {
@@ -32286,7 +32303,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-11 14:51 UTC';
+const APP_BUILD = '2026-05-11 14:59 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
