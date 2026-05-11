@@ -941,7 +941,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 14:59 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 15:08 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -16112,6 +16112,20 @@ function liveReplayActivate(startIdx) {
   // Cursor zurücksetzen
   const canvas = document.getElementById('tradeChart');
   if (canvas) canvas.style.cursor = '';
+  // LIVE-Button optisch deaktivieren — er bleibt klickbar (für Exit), aber nicht mehr grün
+  const liveBtn = document.getElementById('liveChartBtn');
+  if (liveBtn) {
+    liveBtn.style.color = 'var(--text-muted)';
+    liveBtn.style.background = 'var(--bg-tertiary)';
+    liveBtn.style.borderColor = 'var(--border)';
+    liveBtn.title = 'Zurück zum Live-Chart (Replay beenden)';
+  }
+  // Replay-Button optisch als "aktiv" markieren
+  const replayBtn = document.getElementById('liveReplayBtn');
+  if (replayBtn) {
+    replayBtn.style.boxShadow = '0 0 0 2px #f59e0b, 0 2px 8px rgba(245,158,11,0.4)';
+    replayBtn.title = 'Replay läuft — klick LIVE oder ⏹ Stop zum Beenden';
+  }
   // Counter aktualisieren
   _updateLiveReplayUI();
   // Chart neu zeichnen
@@ -16189,6 +16203,20 @@ function liveReplayExit() {
     // Controls verstecken
     const ctrls = document.getElementById('liveReplayControls');
     if (ctrls) ctrls.style.display = 'none';
+    // LIVE-Button wieder grün falls liveChart noch aktiv ist
+    const liveBtn = document.getElementById('liveChartBtn');
+    if (liveBtn && liveChartActive) {
+      liveBtn.style.color = '#00e676';
+      liveBtn.style.background = 'rgba(0,230,118,0.1)';
+      liveBtn.style.borderColor = '#00e676';
+      liveBtn.title = 'Live-Chart mit Echtzeit-Daten';
+    }
+    // Replay-Button Glow entfernen
+    const replayBtn = document.getElementById('liveReplayBtn');
+    if (replayBtn) {
+      replayBtn.style.boxShadow = '';
+      replayBtn.title = 'Bar Replay: Klick eine Kerze als Start-Punkt — danach läuft die Zeit kerze für kerze ab';
+    }
     // Chart neu zeichnen mit Original-Daten
     try {
       chartIndicatorCandles = null;
@@ -16206,6 +16234,11 @@ function _updateLiveReplayUI() {
 }
 
 function toggleLiveChart() {
+  // Wenn Replay aktiv ist: erst Replay beenden, dann normal toggeln
+  if (typeof liveReplayActive !== 'undefined' && liveReplayActive) {
+    liveReplayExit();
+    return;  // LIVE-Chart bleibt aktiv (war ja eh aktiv waehrend Replay)
+  }
   if (liveChartActive) stopLiveChart();
   else startLiveChart();
 }
@@ -32303,7 +32336,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-11 14:59 UTC';
+const APP_BUILD = '2026-05-11 15:08 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
