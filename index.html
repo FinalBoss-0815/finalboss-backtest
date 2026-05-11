@@ -1324,7 +1324,6 @@ input[type=number] { -moz-appearance:textfield }
 </div>
 <div style="padding:8px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
   <button id="runBtn" onclick="runBacktest()" style="padding:10px 20px;font-weight:600;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.backtest">Backtest starten</button>
-  <button type="button" id="robustnessToggleBtn" onclick="toggleRobustnessMode()" title="Train/Test-Split aktivieren — prüft ob deine Strategie überfittet ist" style="padding:10px 14px;font-weight:600;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.40);border-radius:6px;cursor:pointer;font-size:13px">🛡️ Robustness-Check: <strong>AUS</strong></button>
   <button id="stopBtn" onclick="abortBacktest()" style="display:none;padding:10px 20px;font-weight:600;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.stop">Stop</button>
   <button class="secondary" onclick="runFavStrategies()" style="padding:10px 20px" title="Testet alle Strategien die du im Strategie-Dropdown mit Stern favorisiert hast" data-i18n="btn.favtest">⭐ Favoriten testen</button>
   <button onclick="runCoinScan()" style="padding:10px 20px;font-weight:600;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.coinscan">Coin-Scan</button>
@@ -1566,8 +1565,19 @@ input[type=number] { -moz-appearance:textfield }
       <div class="metrics-row" id="metricsRow"></div>
       <div id="engineRealismInfo" style="display:none"></div>
 
-      <!-- Robustness-Score Banner (nur wenn Toggle AN) -->
-      <div id="robustnessScoreBanner" style="display:none;margin-bottom:16px"></div>
+      <!-- Robustness-Toggle + Score-Block (sichtbar nach Backtest) -->
+      <div id="robustnessBlock" style="display:none;margin-bottom:18px">
+        <!-- Score-Banner (nur wenn Toggle AN) -->
+        <div id="robustnessScoreBanner" style="display:none;margin-bottom:10px"></div>
+        <!-- Toggle-Zeile -->
+        <div id="robustnessToggleRow" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.25);border-radius:8px;padding:10px 14px">
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;flex:1;min-width:200px" id="robustnessToggleHint">
+            🛡️ <strong style="color:#a78bfa">Robustness-Check</strong> ist aktuell <strong style="color:#9ca3af">AUS</strong> — Strategie wird auf allen Daten gezeigt.
+            <a href="#" onclick="event.preventDefault();openRobustnessExplain()" style="color:#a78bfa;text-decoration:underline;font-size:11px">Was ist das?</a>
+          </div>
+          <button type="button" id="robustnessToggleBtn" onclick="toggleRobustnessMode()" style="padding:8px 14px;font-weight:700;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.40);border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0">🛡️ Aktivieren</button>
+        </div>
+      </div>
       <!-- Train vs Test (nur wenn Toggle AN) -->
       <div id="trainTestSection" style="display:none">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -12869,16 +12879,12 @@ function displayResults(result, stratName) {
     renderSplitPanel(result.trainMetrics, 'TRAIN', 'tag-train') +
     renderSplitPanel(result.testMetrics, 'TEST', 'tag-test');
 
-  // v1.7: Robustness-Score Banner — nur wenn Toggle AN
+  // v1.7: Robustness-Block — Toggle-Zeile immer zeigen, Banner nur wenn on
   try {
-    if (typeof _robustCheckIsOn === 'function' && _robustCheckIsOn()) {
-      const banner = document.getElementById('robustnessScoreBanner');
-      if (banner) {
-        banner.style.display = '';
-        _renderRobustnessBanner(result.trainMetrics, result.testMetrics);
-      }
-    }
-  } catch(e) { console.warn('Robustness banner failed:', e); }
+    const block = document.getElementById('robustnessBlock');
+    if (block) block.style.display = '';
+    if (typeof _robustCheckApplyVisibility === 'function') _robustCheckApplyVisibility();
+  } catch(e) { console.warn('Robustness block failed:', e); }
 
   // Equity Chart
   drawEquityChart(result);
@@ -33020,7 +33026,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.6.0-beta';
-const APP_BUILD = '2026-05-11 22:35 UTC';
+const APP_BUILD = '2026-05-11 22:50 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36616,22 +36622,38 @@ function _robustCheckApplyVisibility() {
   const grp = document.getElementById('trainTestSplitGroup');
   const sec = document.getElementById('trainTestSection');
   const banner = document.getElementById('robustnessScoreBanner');
+  const block = document.getElementById('robustnessBlock');
+  const hint = document.getElementById('robustnessToggleHint');
   const btn = document.getElementById('robustnessToggleBtn');
   if (grp) grp.style.display = on ? '' : 'none';
   if (sec) sec.style.display = on ? '' : 'none';
-  // Banner: nur sichtbar wenn on UND bereits gerendert (lastResult existiert)
+  // Block: sichtbar nach erstem Backtest (lastResult existiert)
+  if (block) {
+    block.style.display = (typeof lastResult !== 'undefined' && lastResult) ? '' : 'none';
+  }
+  // Banner: nur sichtbar wenn on UND lastResult vorhanden
   if (banner) {
-    if (on && lastResult && lastResult.trainMetrics && lastResult.testMetrics) {
+    if (on && typeof lastResult !== 'undefined' && lastResult && lastResult.trainMetrics && lastResult.testMetrics) {
       banner.style.display = '';
       _renderRobustnessBanner(lastResult.trainMetrics, lastResult.testMetrics);
     } else {
       banner.style.display = 'none';
     }
   }
+  // Hint-Text
+  if (hint) {
+    if (on) {
+      hint.innerHTML = '🛡️ <strong style="color:#a78bfa">Robustness-Check</strong> ist <strong style="color:#22c55e">AN</strong> — Score + Train/Test-Vergleich unten. <a href="#" onclick="event.preventDefault();openRobustnessExplain()" style="color:#a78bfa;text-decoration:underline;font-size:11px">Was ist das?</a>';
+    } else {
+      hint.innerHTML = '🛡️ <strong style="color:#a78bfa">Robustness-Check</strong> ist <strong style="color:#9ca3af">AUS</strong> — Strategie wird auf allen Daten gezeigt. <a href="#" onclick="event.preventDefault();openRobustnessExplain()" style="color:#a78bfa;text-decoration:underline;font-size:11px">Was ist das?</a>';
+    }
+  }
+  // Button-Label
   if (btn) {
-    btn.innerHTML = '🛡️ Robustness-Check: <strong>' + (on ? 'AN' : 'AUS') + '</strong>';
-    btn.style.background = on ? 'rgba(167,139,250,0.30)' : 'rgba(167,139,250,0.15)';
-    btn.style.borderColor = on ? '#a78bfa' : 'rgba(167,139,250,0.40)';
+    btn.innerHTML = on ? '✕ Deaktivieren' : '🛡️ Aktivieren';
+    btn.style.background = on ? 'rgba(239,68,68,0.12)' : 'rgba(167,139,250,0.15)';
+    btn.style.color = on ? '#ef4444' : '#a78bfa';
+    btn.style.borderColor = on ? 'rgba(239,68,68,0.30)' : 'rgba(167,139,250,0.40)';
   }
 }
 function toggleRobustnessMode() {
