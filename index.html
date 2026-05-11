@@ -941,7 +941,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 03:47 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 04:18 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -1465,6 +1465,7 @@ input[type=number] { -moz-appearance:textfield }
       </div>
       <!-- Metrics -->
       <div class="metrics-row" id="metricsRow"></div>
+      <div id="engineRealismInfo" style="display:none"></div>
 
       <!-- Train vs Test -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -2462,6 +2463,21 @@ input[type=number] { -moz-appearance:textfield }
           </div>
           <div id="reviewInboxList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
           <div id="reviewInboxEmpty" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px">Keine Submissions geladen. Worker-Settings konfigurieren und auf "Aktualisieren" klicken.</div>
+        </div>
+
+        <!-- Strategy-Inbox (eingereichte Strategien von Usern) -->
+        <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.30);border-radius:10px;padding:14px 18px;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#fbbf24">📥 Strategy-Inbox <span id="strategyInboxCount" style="background:rgba(245,158,11,0.20);color:#fbbf24;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px">0</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Strategien die User direkt aus der App eingereicht haben.</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button type="button" onclick="strategyInboxRefresh()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">🔄 Aktualisieren</button>
+            </div>
+          </div>
+          <div id="strategyInboxList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+          <div id="strategyInboxEmpty" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px">Keine eingereichten Strategien.</div>
         </div>
 
         <!-- Header -->
@@ -8704,6 +8720,41 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
   let lastExitBar = -999;     // für Cooldown
   let posMAE = 0, posMFE = 0; // MAE/MFE tracking
 
+  // ── REALISMUS: Dynamic Slippage + Crash-Detection ──
+  // Pre-Compute ATR(14) als Volatilitaet-Indikator fuer dynamische Slippage
+  const _engineHighs = candles.map(c => c.high);
+  const _engineLows = candles.map(c => c.low);
+  const _engineCloses = candles.map(c => c.close);
+  const _engineATR = (typeof Indicators !== 'undefined' && Indicators.atr)
+    ? Indicators.atr(_engineHighs, _engineLows, _engineCloses, 14)
+    : null;
+  // Helper: dynamische Slippage je nach Volatilitaet + Crash-Mode
+  // - Bei hoher Vola (ATR > 2× ATR-Median) → Slippage ×1.5
+  // - Bei "Crash"-Move (|c.open vs prev.close| > 5%) → Slippage ×3
+  function _dynSlippage(idx) {
+    let mult = 1.0;
+    // Crash-Detection: Open-Gap vom Prev-Close
+    if (idx > 0) {
+      const gap = Math.abs(candles[idx].open - candles[idx-1].close) / candles[idx-1].close;
+      if (gap > 0.05) mult *= 3.0;        // ≥5% Gap = Flash-Crash-Mode
+      else if (gap > 0.02) mult *= 1.5;   // ≥2% Gap = Volatile
+    }
+    // ATR-based Vola-Multiplikator (sanft, nur 1.0-1.5x)
+    if (_engineATR && !isNaN(_engineATR[idx]) && idx >= 50) {
+      const atrSlice = _engineATR.slice(Math.max(0, idx-50), idx).filter(v => !isNaN(v));
+      if (atrSlice.length > 10) {
+        const sorted = atrSlice.slice().sort((a,b) => a-b);
+        const median = sorted[Math.floor(sorted.length/2)];
+        const curAtr = _engineATR[idx];
+        if (median > 0 && curAtr > median * 2) mult *= 1.5;
+        else if (median > 0 && curAtr > median * 1.5) mult *= 1.25;
+      }
+    }
+    return totalCostPct * mult;
+  }
+  let totalFundingPaid = 0;  // Aggregierter Funding-Cost ueber alle Trades
+  let totalSlippageCrashCount = 0;  // Anzahl Trades die unter Crash-Mode liefen
+
   for (let i = 0; i < candles.length; i++) {
     // Abort check + UI yield every 2000 candles
     if (i % 2000 === 0 && i > 0) {
@@ -8715,9 +8766,11 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
     // ── Execute pending Next-Bar-Entry ──
     if (pendingSignal && !position) {
       const entryPrice = c.open;  // Entry auf Open der nächsten Kerze
+      const dynCost = _dynSlippage(i);
+      if (dynCost > totalCostPct * 2) totalSlippageCrashCount++;
       const entryWithSlippage = pendingSignal.dir === "long"
-        ? entryPrice * (1 + totalCostPct)   // schlechterer Preis für Long
-        : entryPrice * (1 - totalCostPct);  // schlechterer Preis für Short
+        ? entryPrice * (1 + dynCost)   // schlechterer Preis für Long
+        : entryPrice * (1 - dynCost);  // schlechterer Preis für Short
       const origRiskDist = Math.abs(entryWithSlippage - pendingSignal.sl);
       if (origRiskDist > 0) {
         const riskUsd = balance * (riskPct / 100);
@@ -8810,10 +8863,11 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
       }
 
       if (exitPrice) {
-        // ── Slippage + Gebühren auf Exit ──
+        // ── Slippage + Gebühren auf Exit (dynamisch) ──
+        const dynCostExit = _dynSlippage(i);
         const exitWithCosts = position.dir === "long"
-          ? exitPrice * (1 - totalCostPct)    // schlechterer Exit für Long
-          : exitPrice * (1 + totalCostPct);   // schlechterer Exit für Short
+          ? exitPrice * (1 - dynCostExit)    // schlechterer Exit für Long
+          : exitPrice * (1 + dynCostExit);   // schlechterer Exit für Short
 
         const pnlPct = position.dir === "long"
           ? (exitWithCosts - position.entry) / position.entry * 100
@@ -8830,6 +8884,7 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
         const pnlAfterFunding = pnlUsd - fundingCost;
 
         balance += pnlAfterFunding;
+        totalFundingPaid += fundingCost;
         lastExitBar = i;
 
         trades.push({
@@ -8868,8 +8923,8 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
         } else {
           // Direkter Entry auf Close (wie bisher, aber mit Kosten)
           const entryWithSlippage = signal.dir === "long"
-            ? c.close * (1 + totalCostPct)
-            : c.close * (1 - totalCostPct);
+            ? c.close * (1 + _dynSlippage(i))
+            : c.close * (1 - _dynSlippage(i));
           const riskUsd = balance * (riskPct / 100);
           const origRiskDist = Math.abs(entryWithSlippage - signal.sl);
           if (origRiskDist > 0) {
@@ -8939,7 +8994,7 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
       if (!exitPrice && strategy.shouldExit(candles, i, position, paramValues)) { exitPrice = c.close; exitReason = "Signal Exit"; }
 
       if (exitPrice) {
-        const exitWithCosts = position.dir === "long" ? exitPrice * (1 - totalCostPct) : exitPrice * (1 + totalCostPct);
+        const exitWithCosts = position.dir === "long" ? exitPrice * (1 - _dynSlippage(i)) : exitPrice * (1 + _dynSlippage(i));
         const pnlPct = position.dir === "long" ? (exitWithCosts - position.entry) / position.entry * 100 : (position.entry - exitWithCosts) / position.entry * 100;
         const riskDist = position.origRiskDist || Math.abs(position.entry - position.sl);
         const actualMove = position.dir === "long" ? exitWithCosts - position.entry : position.entry - exitWithCosts;
@@ -8977,8 +9032,8 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
     const lastCandle = candles[candles.length - 1];
     const exitPrice = lastCandle.close;
     const exitWithCosts = position.dir === "long"
-      ? exitPrice * (1 - totalCostPct)
-      : exitPrice * (1 + totalCostPct);
+      ? exitPrice * (1 - _dynSlippage(i))
+      : exitPrice * (1 + _dynSlippage(i));
     const pnlPct = position.dir === "long"
       ? (exitWithCosts - position.entry) / position.entry * 100
       : (position.entry - exitWithCosts) / position.entry * 100;
@@ -9141,6 +9196,8 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
     testMetrics,
     totalMetrics,
     endBalance: balance,
+    totalFundingPaid,
+    totalSlippageCrashCount,
     maxDD,
     buyHoldReturn,
     splitDate
@@ -11627,6 +11684,137 @@ function getStrategyParams(stratIdx) {
   return params;
 }
 
+// ── AUTO-SUBMIT: gute Strategien automatisch zur Admin-Inbox senden ──
+// Datenschutz: User wird beim 1. guten Backtest gefragt ob er teilnehmen will.
+// Dedup: derselbe Strategy-Hash wird nie 2× gesendet.
+
+const AUTO_SUBMIT_FLAG = 'fb_auto_submit_strategies';  // 'yes' | 'no' | null
+const AUTO_SUBMIT_SENT_HASHES = 'fb_auto_submit_sent';  // JSON-Array von Hashes
+
+function _hashStrategy(spec, symbol, tf) {
+  const blob = (spec.name || '') + '|' + (symbol || '') + '|' + (tf || '') + '|' + (spec.enterCode || '').slice(0, 200);
+  let h = 0;
+  for (let i = 0; i < blob.length; i++) {
+    h = ((h << 5) - h) + blob.charCodeAt(i);
+    h = h & h;
+  }
+  return Math.abs(h).toString(36);
+}
+
+function _alreadyAutoSent(hash) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(AUTO_SUBMIT_SENT_HASHES) || '[]');
+    return arr.includes(hash);
+  } catch(e) { return false; }
+}
+
+function _markAutoSent(hash) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(AUTO_SUBMIT_SENT_HASHES) || '[]');
+    arr.push(hash);
+    // Keep only last 500 hashes
+    if (arr.length > 500) arr.splice(0, arr.length - 500);
+    _safeSetItem(AUTO_SUBMIT_SENT_HASHES, JSON.stringify(arr));
+  } catch(e) {}
+}
+
+async function _maybeAutoSubmitStrategy(result, stratName) {
+  if (!result || !result.totalMetrics) return;
+  const m = result.totalMetrics;
+  // Threshold-Check: nur richtig gute Backtests
+  const isGood = (
+    m.nTrades >= 30 &&                    // statistisch belastbar
+    m.winRate >= 50 &&                    // mind. 50% Win-Rate
+    m.profitFactor >= 1.5 &&              // klare positive Edge
+    m.totalReturn > result.buyHoldReturn  // schlaegt Buy-and-Hold
+  );
+  if (!isGood) return;
+
+  // Nur fuer User-eigene Strategien (KI-generiert oder Strategy-Builder) auto-submitten
+  // Built-in Strategien sind ja schon alle in der Akademie, brauchen wir nicht
+  const stratIdx = parseInt(document.getElementById('strategySelect')?.value || -1);
+  const strategy = stratIdx >= 0 ? STRATEGIES[stratIdx] : null;
+  if (!strategy) return;
+  const isAiCustom = strategy._isAiCustom;
+  const isBuilderCustom = strategy._isCustomBuilder;
+  if (!isAiCustom && !isBuilderCustom) return;  // nur User-erstellte Strategien
+
+  // Spec extrahieren (von KI-Strategie) — bei Builder-Strategien ist's anders
+  const spec = strategy._aiSpec || strategy._builderSpec || null;
+  if (!spec || !spec.name || !spec.enterCode) return;
+
+  // Hash + Dedup-Check
+  const symbol = document.getElementById('symbolSelect')?.value || 'BTC';
+  const tf = document.getElementById('tfSelect')?.value || '1h';
+  const hash = _hashStrategy(spec, symbol, tf);
+  if (_alreadyAutoSent(hash)) return;
+
+  // Datenschutz-Check: nur wenn User EXPLIZIT opted-out, abbrechen
+  // Default-Verhalten ist auto-submit (User wurde im Welcome-Disclaimer darueber informiert)
+  const optStatus = localStorage.getItem(AUTO_SUBMIT_FLAG);
+  if (optStatus === 'no') return;
+
+  // Beim allerersten Auto-Submit: einmal Info-Toast zeigen damit User es weiss
+  const firstAutoSubmit = !localStorage.getItem('fb_auto_submit_first_seen');
+  _doAutoSubmit(spec, symbol, tf, hash, m, result, firstAutoSubmit);
+  if (firstAutoSubmit) _safeSetItem('fb_auto_submit_first_seen', '1');
+}
+
+// Auto-Submit aktivieren/deaktivieren (von Settings aus)
+function toggleAutoSubmit() {
+  const cur = localStorage.getItem(AUTO_SUBMIT_FLAG);
+  if (cur === 'no') {
+    localStorage.removeItem(AUTO_SUBMIT_FLAG);
+    _showSuccessToast('✓ Auto-Submit aktiviert. Gute Strategien werden automatisch zur Review eingereicht.', 4500);
+  } else {
+    _safeSetItem(AUTO_SUBMIT_FLAG, 'no');
+    _showInfoToast('Auto-Submit deaktiviert. Strategien werden nicht mehr automatisch gesendet.', 4000);
+  }
+  // UI aktualisieren falls Settings-Modal offen
+  try { aiUpdateBanner(); } catch(e) {}
+}
+
+function isAutoSubmitActive() {
+  return localStorage.getItem(AUTO_SUBMIT_FLAG) !== 'no';
+}
+
+async function _doAutoSubmit(spec, symbol, tf, hash, metrics, result, showFirstTimeInfo) {
+  const cfg = (typeof reviewGetWorkerCfg === 'function') ? reviewGetWorkerCfg() : null;
+  if (!cfg || !cfg.url) return;
+  try {
+    const stats = {
+      nTrades: metrics.nTrades,
+      winRate: metrics.winRate,
+      profitFactor: metrics.profitFactor,
+      totalReturn: metrics.totalReturn,
+      sharpe: metrics.sharpe,
+      maxDD: result.maxDD,
+      symbol, tf,
+      buyHoldReturn: result.buyHoldReturn,
+    };
+    await _fetchWithTimeout(cfg.url + '/strategy-submission', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        spec,
+        submitter_name: 'auto-submit',
+        submitter_handle: '',
+        comment: '🤖 Auto-Submit: ' + symbol + ' ' + tf + ' · ' + metrics.nTrades + ' Trades · WR ' + metrics.winRate.toFixed(1) + '% · PF ' + metrics.profitFactor.toFixed(2),
+        backtest_stats: stats,
+      }),
+    }, 20000);
+    _markAutoSent(hash);
+    // Beim allerersten Auto-Submit ausfuehrlicher Hinweis (Datenschutz-Transparenz)
+    if (showFirstTimeInfo && typeof _showInfoToast === 'function') {
+      _showInfoToast('🌟 FinalBoss hat diese gute Strategie automatisch zur Review erhalten.\n\nDas hilft uns die Akademie zu verbessern. Du kannst das jederzeit in den Settings (KI-Builder → Auto-Submit) abschalten.', 8000);
+    } else if (typeof _showInfoToast === 'function') {
+      _showInfoToast('🌟 Gute Strategie automatisch geteilt', 2500);
+    }
+  } catch(e) {
+    console.warn('Auto-submit failed (silent):', e.message);
+  }
+}
+
 // ── Strategie-Assessment: ehrliche Einschätzung über die getestete Strategie ──
 // Zeigt Warnungen, Risiken und ein Verdict basierend auf den Metriken.
 // Schreibt der User KEINE Strategie-Änderungen vor — bewertet nur was gemessen wurde.
@@ -11888,6 +12076,10 @@ function displayResults(result, stratName) {
   document.getElementById('resultsArea').style.display = 'block';
   document.getElementById('tabBar').style.display = 'flex';
 
+  // ── Auto-Submit: bei guten Strategien automatisch in Admin-Inbox einreichen ──
+  // (Opt-In erforderlich, Dedup ueber Strategy-Hash, nur fuer Custom/AI-Strategien)
+  try { _maybeAutoSubmitStrategy(result, stratName); } catch(e) { console.warn('Auto-submit:', e); }
+
   // Strategie-Assessment-Banner rendern
   try {
     const assessEl = document.getElementById('strategyAssessmentBanner');
@@ -11976,6 +12168,27 @@ function displayResults(result, stratName) {
     </div>`;
   }).join('');
   document.getElementById('metricsRow').innerHTML = metricsHtml;
+
+  // ── Realismus-Info: Funding-Costs + Crash-Detection (Engine v1.4-Polish) ──
+  try {
+    const realismInfoEl = document.getElementById('engineRealismInfo');
+    const fundingPaid = result.totalFundingPaid || 0;
+    const crashCount = result.totalSlippageCrashCount || 0;
+    if (realismInfoEl && (Math.abs(fundingPaid) > 0.01 || crashCount > 0)) {
+      const parts = [];
+      if (Math.abs(fundingPaid) > 0.01) {
+        const sign = fundingPaid >= 0 ? '−' : '+';  // bezahlt = negativ fuer PnL
+        parts.push(`<span style="color:${fundingPaid >= 0 ? '#f97316' : '#22c55e'}">📊 Funding ${sign}$${Math.abs(fundingPaid).toFixed(2)}</span>`);
+      }
+      if (crashCount > 0) {
+        parts.push(`<span style="color:#f97316">⚡ ${crashCount}× Crash-Slippage</span>`);
+      }
+      realismInfoEl.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 12px;margin:-8px 0 12px;display:flex;gap:14px;flex-wrap:wrap">' + parts.join(' · ') + '</div>';
+      realismInfoEl.style.display = 'block';
+    } else if (realismInfoEl) {
+      realismInfoEl.style.display = 'none';
+    }
+  } catch(e) { console.warn('Realism-Info-Display:', e); }
 
   // Split panels
   const splitTips = {
@@ -31884,7 +32097,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-11 03:47 UTC';
+const APP_BUILD = '2026-05-11 04:18 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -32094,6 +32307,7 @@ function showDisclaimer() {
           <li><strong>Paper-Trading ≠ echtes Trading.</strong> Reale Märkte haben Slippage, Ausführungs-Verzögerungen, Liquiditätslücken und emotionale Faktoren die hier nicht simuliert werden.</li>
           <li><strong>Du kannst Geld verlieren.</strong> Krypto-Trading ist hochriskant. Investiere nur was du dir leisten kannst zu verlieren.</li>
           <li><strong>Software-Bugs sind möglich.</strong> Trotz Audit-Tool und Tests können Bugs in der Engine zu falschen Ergebnissen führen. Validiere wichtige Strategien immer mit einem zweiten Tool.</li>
+          <li><strong>Anonymes Strategy-Sharing.</strong> Wenn deine selbstgebauten Strategien sehr gute Backtest-Ergebnisse erzielen (≥30 Trades, ≥50% WR, PF ≥1.5), werden sie anonym an FinalBoss übermittelt damit sie ggf. in der Akademie gefeatured werden können. Keine persönlichen Daten, kein Tracking. In den KI-Builder-Settings deaktivierbar.</li>
         </ul>
       </div>
       <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;cursor:pointer;font-size:13px;line-height:1.5">
@@ -34341,9 +34555,10 @@ function aiRenderOutput(spec, rawReply) {
       <pre style="background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;overflow-x:auto;margin-top:6px;color:#c9d1d9;line-height:1.5">${(rawReply || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c])}</pre>
     </details>
     ${validation.ok ? `
-      <div style="display:flex;gap:10px">
-        <button type="button" onclick="aiAddToStrategies()" style="flex:1;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">✓ Zu meinen Strategien hinzufügen</button>
-        <button type="button" onclick="aiRefineStrategy()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px 14px;border-radius:6px;cursor:pointer;font-size:13px" title="Lass Claude eine Verfeinerung vorschlagen">🔧 Refine</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button type="button" onclick="aiAddToStrategies()" style="flex:1;min-width:140px;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;padding:10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">✓ Zu meinen Strategien hinzufügen</button>
+        <button type="button" onclick="aiRefineStrategy()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:10px 14px;border-radius:6px;cursor:pointer;font-size:13px" title="Lass die KI eine Verfeinerung vorschlagen">🔧 Refine</button>
+        <button type="button" onclick="openShareStrategyModal()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px" title="Strategie an FinalBoss einreichen — wird gereviewt und ggf. in der Akademie gefeatured">📤 Teilen</button>
       </div>
     ` : ''}
     <div style="font-size:11px;color:var(--text-muted);margin-top:10px">⚠️ Generierte Strategien sind ein Startpunkt. Backtest immer kritisch lesen — KI baut auch Quatsch wenn die Beschreibung Quatsch ist.</div>
@@ -34976,6 +35191,206 @@ function aiSyncQuickProviderSelect() {
   if (!sel) return;
   const cfg = aiLoadConfig();
   if (sel.value !== cfg.provider) sel.value = cfg.provider;
+}
+
+// ════════════════════════════════════════════════════════
+// STRATEGY-SHARING: User-Submission → Admin-Inbox
+// ════════════════════════════════════════════════════════
+let _shareStrategyPending = null;
+
+function openShareStrategyModal() {
+  const spec = window._aiPendingSpec;
+  if (!spec) { _showErrorToast('Keine Strategie zum Teilen'); return; }
+  _shareStrategyPending = spec;
+  // Preview
+  const preview = document.getElementById('shareStrategyPreview');
+  if (preview) {
+    const escName = _escHtml(spec.name || '');
+    const escDesc = _escHtml(spec.description || '');
+    let statsHtml = '';
+    // Wenn lastResult passt zur Strategie → Stats mitschicken
+    if (typeof lastResult !== 'undefined' && lastResult && lastResult.totalMetrics) {
+      const m = lastResult.totalMetrics;
+      statsHtml = `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-muted)">📊 Backtest-Stats werden mitgesendet: ${m.nTrades} Trades · WR ${m.winRate.toFixed(1)}% · PF ${m.profitFactor.toFixed(2)} · Return ${m.totalReturn.toFixed(1)}%</div>`;
+    }
+    preview.innerHTML = `<div style="font-weight:700;color:var(--text-primary);margin-bottom:4px">${escName}</div><div style="color:var(--text-secondary)">${escDesc}</div><div style="color:var(--text-muted);font-size:11px;margin-top:4px">TF: ${spec.defaultTF || '1h'} · ${Object.keys(spec.params || {}).length} Parameter</div>${statsHtml}`;
+  }
+  document.getElementById('shareStrategyModal').style.display = 'flex';
+}
+
+function closeShareStrategyModal() {
+  document.getElementById('shareStrategyModal').style.display = 'none';
+  _shareStrategyPending = null;
+}
+
+async function submitStrategy() {
+  if (!_shareStrategyPending) return;
+  const cfg = reviewGetWorkerCfg();
+  if (!cfg.url) {
+    _showErrorToast('Worker-URL nicht konfiguriert. Strategie-Submission braucht den FinalBoss-Worker.', 6000);
+    return;
+  }
+  const btn = document.getElementById('shareStrategySubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sende...';
+  try {
+    const name = (document.getElementById('shareStrategyName').value || '').trim();
+    const handle = (document.getElementById('shareStrategyHandle').value || '').trim();
+    const comment = (document.getElementById('shareStrategyComment').value || '').trim();
+    let stats = null;
+    if (typeof lastResult !== 'undefined' && lastResult && lastResult.totalMetrics) {
+      const m = lastResult.totalMetrics;
+      stats = {
+        nTrades: m.nTrades, winRate: m.winRate, profitFactor: m.profitFactor,
+        totalReturn: m.totalReturn, sharpe: m.sharpe, maxDD: lastResult.maxDD,
+      };
+    }
+    const resp = await _fetchWithTimeout(cfg.url + '/strategy-submission', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        spec: _shareStrategyPending,
+        submitter_name: name,
+        submitter_handle: handle,
+        comment: comment,
+        backtest_stats: stats,
+      }),
+    }, 30000);
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error('HTTP ' + resp.status + ': ' + err.slice(0, 200));
+    }
+    const data = await resp.json();
+    _showSuccessToast('✓ Strategie gesendet — Danke! ID: ' + (data.id || ''), 5000);
+    closeShareStrategyModal();
+  } catch (e) {
+    _showErrorToast('Senden fehlgeschlagen: ' + (e.message || String(e)), 6000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📤 Senden';
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// STRATEGY-INBOX: Admin sieht eingereichte Strategien
+// ════════════════════════════════════════════════════════
+async function strategyInboxRefresh() {
+  const cfg = reviewGetWorkerCfg();
+  const list = document.getElementById('strategyInboxList');
+  const empty = document.getElementById('strategyInboxEmpty');
+  const countBadge = document.getElementById('strategyInboxCount');
+  if (!cfg.url || !cfg.key) {
+    if (list) list.innerHTML = '';
+    if (empty) { empty.style.display = 'block'; empty.textContent = 'Worker-Settings fehlen (URL + Admin-Key).'; }
+    return;
+  }
+  try {
+    const resp = await _fetchWithTimeout(cfg.url + '/strategy-submissions', {
+      headers: { 'X-Admin-Key': cfg.key },
+    }, 15000);
+    if (!resp.ok) {
+      if (resp.status === 401) throw new Error('Admin-Key falsch (401)');
+      throw new Error('HTTP ' + resp.status);
+    }
+    const data = await resp.json();
+    const items = data.strategies || [];
+    if (countBadge) countBadge.textContent = String(items.length);
+    if (items.length === 0) {
+      if (list) list.innerHTML = '';
+      if (empty) { empty.style.display = 'block'; empty.textContent = 'Keine eingereichten Strategien.'; }
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    if (list) {
+      list.innerHTML = items.map(item => {
+        const esc = (s) => _escHtml(s || '');
+        const date = new Date(item.timestamp).toLocaleString();
+        const statsHtml = item.backtest_stats ? `
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+            📊 ${item.backtest_stats.nTrades || 0} Trades · WR ${(item.backtest_stats.winRate || 0).toFixed(1)}% · PF ${(item.backtest_stats.profitFactor || 0).toFixed(2)} · Return ${(item.backtest_stats.totalReturn || 0).toFixed(1)}%
+          </div>` : '';
+        const commentHtml = item.comment ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;padding:6px 8px;background:var(--bg-tertiary);border-radius:4px;font-style:italic">"${esc(item.comment)}"</div>` : '';
+        const handleHtml = item.submitter_handle ? `<span style="color:#fbbf24;margin-left:6px">${esc(item.submitter_handle)}</span>` : '';
+        return `<div style="background:var(--bg-card);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:10px 12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${esc(item.spec && item.spec.name)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(item.submitter_name || 'anonymous')}${handleHtml} · ${date}</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">${esc(item.spec && item.spec.description)}</div>
+              ${statsHtml}
+              ${commentHtml}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" onclick="strategyInboxTest(${JSON.stringify(item).replace(/[<>&"']/g, c => '&#'+c.charCodeAt(0)+';')})" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.30);color:#22c55e;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">▶ Test</button>
+              <button type="button" onclick="strategyInboxDelete('${esc(item.id)}')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.30);color:#ef4444;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🗑️</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  } catch (e) {
+    if (empty) { empty.style.display = 'block'; empty.textContent = 'Fehler: ' + (e.message || String(e)); }
+  }
+}
+
+function strategyInboxTest(itemJsonEntities) {
+  // Re-decode HTML entities
+  const decoded = String(itemJsonEntities).replace(/&#(\d+);/g, (m, code) => String.fromCharCode(parseInt(code, 10)));
+  let item;
+  try { item = JSON.parse(decoded); }
+  catch (e) { _showErrorToast('Strategie-JSON ungueltig: ' + e.message); return; }
+  if (!item || !item.spec) { _showErrorToast('Keine Spec in Submission'); return; }
+  // Spec als KI-Custom-Strategie hinzufuegen (gleicher Flow wie aiAddToStrategies)
+  const spec = item.spec;
+  spec._isAiCustom = true;
+  spec._fromSubmission = true;
+  spec._createdAt = new Date().toISOString();
+  // Name eindeutig
+  let baseName = '📥 ' + spec.name;
+  let n = 1, finalName = baseName;
+  while (STRATEGIES.some(s => s.name === finalName)) { n++; finalName = baseName + ' #' + n; }
+  spec.name = finalName;
+  try {
+    const list = aiLoadCustomStrategies();
+    list.push(spec);
+    aiSaveCustomStrategies(list);
+    aiInjectIntoStrategies(spec);
+    aiRebuildStrategyDropdown();
+    aiRefreshCustomList();
+    // Strategie waehlen
+    const sel = document.getElementById('strategySelect');
+    const idx = STRATEGIES.findIndex(s => s.name === finalName);
+    if (sel && idx >= 0) {
+      sel.value = idx;
+      try { sel.dispatchEvent(new Event('change')); } catch(e) {}
+      try { csUpdateLabel('strategySelect'); } catch(e) {}
+    }
+    // Tab wechseln zu Backtest
+    try { closeFullscreenTab(); } catch(e) {}
+    try { document.querySelector('.tab-btn[data-tab="results"]')?.click(); } catch(e) {}
+    _showSuccessToast('✓ "' + finalName + '" geladen — jetzt Backtest starten', 4000);
+  } catch (e) {
+    _showErrorToast('Strategie konnte nicht geladen werden: ' + e.message);
+  }
+}
+
+async function strategyInboxDelete(id) {
+  if (!id) return;
+  if (!confirm('Diese Strategie-Submission wirklich loeschen?')) return;
+  const cfg = reviewGetWorkerCfg();
+  if (!cfg.url || !cfg.key) { _showErrorToast('Worker-Settings fehlen'); return; }
+  try {
+    const resp = await _fetchWithTimeout(cfg.url + '/strategy-submission', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': cfg.key },
+      body: JSON.stringify({ id }),
+    }, 10000);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    _showSuccessToast('✓ Submission geloescht', 2500);
+    strategyInboxRefresh();
+  } catch (e) {
+    _showErrorToast('Loeschen fehlgeschlagen: ' + (e.message || String(e)));
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -36718,5 +37133,33 @@ window.addEventListener('beforeunload', () => {
 });
 
 </script>
+
+<!-- ── Share-Strategy-Modal ── -->
+<div id="shareStrategyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg-card);border:2px solid #f59e0b;border-radius:12px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="margin:0;color:#fbbf24;font-size:18px">📤 Strategie teilen</h2>
+      <button onclick="closeShareStrategyModal()" style="background:none;border:none;color:#9ca3af;font-size:24px;cursor:pointer">×</button>
+    </div>
+    <p style="margin:0 0 14px;font-size:13px;color:var(--text-secondary);line-height:1.6">
+      Du hast eine gute Strategie gefunden oder gebaut? Schick sie an FinalBoss — wir testen, reviewen und features dich vielleicht im nächsten TikTok-Video.
+    </p>
+    <div id="shareStrategyPreview" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px"></div>
+    <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Dein Name (optional)</label>
+    <input id="shareStrategyName" type="text" placeholder="z.B. Sideways oder dein Handle" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:10px">
+    <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">TikTok/Twitter-Handle (optional, für Credit)</label>
+    <input id="shareStrategyHandle" type="text" placeholder="@deinhandle" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:10px">
+    <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Kommentar (was macht deine Strategie besonders?)</label>
+    <textarea id="shareStrategyComment" rows="3" placeholder="z.B.: Funktioniert gut auf BTC 1h in Range-Markets — habe sie 60 Tage getestet, 40 Trades, PF 1.8" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;margin-bottom:14px"></textarea>
+    <div style="font-size:11px;color:var(--text-muted);padding:8px 10px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:4px;margin-bottom:14px;line-height:1.5">
+      💡 <strong style="color:#fbbf24">Was passiert mit der Strategie:</strong> FinalBoss sieht alle Submissions in der Admin-Inbox. Wenn die Strategie wirklich gut ist, wird sie ggf. in der Akademie gefeatured (mit deinem Credit) oder als Reaction-Video gepostet.
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeShareStrategyModal()" style="background:#374151;border:none;color:#fff;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">Abbrechen</button>
+      <button id="shareStrategySubmitBtn" onclick="submitStrategy()" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">📤 Senden</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
