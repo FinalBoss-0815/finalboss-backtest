@@ -1239,8 +1239,8 @@ input[type=number] { -moz-appearance:textfield }
       <option value="custom">Eigene Daten</option>
     </select>
   </div>
-  <div class="control-group">
-    <label data-i18n="lbl.split">Train / Test Split</label>
+  <div class="control-group" id="trainTestSplitGroup" style="display:none">
+    <label data-i18n="lbl.split">Train / Test Split <span class="info-icon" onclick="event.stopPropagation();openRobustnessExplain()" style="cursor:pointer">i</span></label>
     <select id="splitRatio" onchange="updateDates()">
       <option value="50" selected>50 / 50</option>
       <option value="60">60 / 40</option>
@@ -1324,6 +1324,7 @@ input[type=number] { -moz-appearance:textfield }
 </div>
 <div style="padding:8px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
   <button id="runBtn" onclick="runBacktest()" style="padding:10px 20px;font-weight:600;background:var(--green);color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.backtest">Backtest starten</button>
+  <button type="button" id="robustnessToggleBtn" onclick="toggleRobustnessMode()" title="Train/Test-Split aktivieren — prüft ob deine Strategie überfittet ist" style="padding:10px 14px;font-weight:600;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.40);border-radius:6px;cursor:pointer;font-size:13px">🛡️ Robustness-Check: <strong>AUS</strong></button>
   <button id="stopBtn" onclick="abortBacktest()" style="display:none;padding:10px 20px;font-weight:600;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.stop">Stop</button>
   <button class="secondary" onclick="runFavStrategies()" style="padding:10px 20px" title="Testet alle Strategien die du im Strategie-Dropdown mit Stern favorisiert hast" data-i18n="btn.favtest">⭐ Favoriten testen</button>
   <button onclick="runCoinScan()" style="padding:10px 20px;font-weight:600;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer" data-i18n="btn.coinscan">Coin-Scan</button>
@@ -1487,6 +1488,49 @@ input[type=number] { -moz-appearance:textfield }
           </div>
         </div>
       </div>
+      <!-- Robustness-Erklär-Modal -->
+      <div id="robustnessExplainModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100000;align-items:center;justify-content:center;padding:20px">
+        <div style="background:#0a0a0a;border:2px solid #a78bfa;border-radius:12px;padding:24px;max-width:640px;width:100%;max-height:90vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h2 style="margin:0;color:#a78bfa;font-size:18px">🛡️ Was ist der Robustness-Check?</h2>
+            <button type="button" onclick="closeRobustnessExplain()" style="background:none;border:none;color:#9ca3af;font-size:24px;cursor:pointer;padding:0;width:32px;height:32px">×</button>
+          </div>
+          <div style="font-size:13px;color:#cbd5e1;line-height:1.7">
+            <p style="margin:0 0 12px"><strong style="color:#fbbf24">Kurz gesagt:</strong> Eine Funktion die prüft ob deine Strategie wirklich funktioniert — oder nur zufällig im Backtest gut aussieht.</p>
+
+            <h3 style="margin:14px 0 8px;color:#a78bfa;font-size:14px">📚 Analogie — Mathe-Prüfung</h3>
+            <p style="margin:0 0 12px">Stell dir vor du lernst für eine Prüfung mit 100 alten Aufgaben:</p>
+            <ul style="margin:0 0 12px;padding-left:20px;line-height:1.8">
+              <li><strong style="color:#ef4444">Schlechte Methode:</strong> Du übst alle 100 Aufgaben 20× durch. Du kannst sie auswendig. In der echten Prüfung kommen <em>neue</em> Aufgaben → du fällst durch.</li>
+              <li><strong style="color:#22c55e">Kluge Methode:</strong> 50 Aufgaben zum Üben (= <strong>Train</strong>), 50 in den Tresor (= <strong>Test</strong>). Am Ende den Test mit den unbekannten Aufgaben machen. Wenn da auch gut → wirklich verstanden.</li>
+            </ul>
+
+            <h3 style="margin:14px 0 8px;color:#a78bfa;font-size:14px">📊 Beim Backtest</h3>
+            <p style="margin:0 0 12px">Genau das gleiche Prinzip. Deine Historie (z.B. 2 Jahre) wird in zwei Hälften gespalten:</p>
+            <ul style="margin:0 0 12px;padding-left:20px;line-height:1.8">
+              <li><strong>Train-Phase</strong> (linke Hälfte): Hier "passt" die Strategie. Sieht meist gut aus.</li>
+              <li><strong>Test-Phase</strong> (rechte Hälfte): Ungesehene Daten. Wenn die Strategie <strong style="color:#22c55e">hier auch funktioniert</strong> → echter Edge. Wenn nicht → <strong style="color:#ef4444">Overfit</strong> (Strategie ist nur auf zufälliges Rauschen angepasst).</li>
+            </ul>
+
+            <h3 style="margin:14px 0 8px;color:#a78bfa;font-size:14px">🎯 Was du siehst</h3>
+            <p style="margin:0 0 12px">Wenn du den Check aktivierst, zeigt die App nach dem Backtest:</p>
+            <ul style="margin:0 0 12px;padding-left:20px;line-height:1.8">
+              <li>Einen <strong>Robustness-Score</strong> (0-100) mit Ampel-Farbe</li>
+              <li><strong>Train vs Test</strong> Stats nebeneinander zum Vergleich</li>
+              <li>Eine Diagnose: ROBUST / AKZEPTABEL / WACKLIG / OVERFIT</li>
+            </ul>
+
+            <div style="background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.30);border-radius:8px;padding:10px 14px;margin-top:14px">
+              <strong style="color:#22c55e">💡 Faustregel:</strong> Score ≥ 75 = wahrscheinlich live testbar. Score &lt; 50 = Finger weg, das ist Overfit.
+            </div>
+
+            <p style="margin:14px 0 0;font-size:12px;color:#6b7280">Du kannst die Funktion jederzeit über den Button <strong>🛡️ Robustness-Check</strong> oben an/ausschalten.</p>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+            <button type="button" onclick="closeRobustnessExplain()" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">Verstanden</button>
+          </div>
+        </div>
+      </div>
       <!-- Submit-Reveal Modal -->
       <div id="submitRevealModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100000;align-items:center;justify-content:center;padding:20px">
         <div style="background:#0a0a0a;border:2px solid #a78bfa;border-radius:12px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow:auto">
@@ -1522,12 +1566,16 @@ input[type=number] { -moz-appearance:textfield }
       <div class="metrics-row" id="metricsRow"></div>
       <div id="engineRealismInfo" style="display:none"></div>
 
-      <!-- Train vs Test -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <h3 style="font-size:14px;font-weight:600;margin:0">Train vs Test</h3>
-        <span class="info-icon">i<span class="info-tip" data-i18n-html="tip.split">Die Daten werden in zwei Hälften geteilt. <strong>Train:</strong> Auf diesen Daten wird die Strategie "trainiert" — hier sollte sie gut funktionieren. <strong>Test:</strong> Ungesehene Daten — nur wenn die Strategie hier auch profitabel ist, hat sie einen echten Edge und ist kein Overfit.</span></span>
+      <!-- Robustness-Score Banner (nur wenn Toggle AN) -->
+      <div id="robustnessScoreBanner" style="display:none;margin-bottom:16px"></div>
+      <!-- Train vs Test (nur wenn Toggle AN) -->
+      <div id="trainTestSection" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <h3 style="font-size:14px;font-weight:600;margin:0">Train vs Test</h3>
+          <span class="info-icon" onclick="event.stopPropagation();openRobustnessExplain()" style="cursor:pointer">i<span class="info-tip" data-i18n-html="tip.split">Die Daten werden in zwei Hälften geteilt. <strong>Train:</strong> Auf diesen Daten wird die Strategie "trainiert" — hier sollte sie gut funktionieren. <strong>Test:</strong> Ungesehene Daten — nur wenn die Strategie hier auch profitabel ist, hat sie einen echten Edge und ist kein Overfit. <em>Klick für vollständige Erklärung.</em></span></span>
+        </div>
+        <div class="split-container" id="splitContainer"></div>
       </div>
-      <div class="split-container" id="splitContainer"></div>
 
       <!-- Equity Chart -->
       <div class="chart-container">
@@ -12820,6 +12868,17 @@ function displayResults(result, stratName) {
   document.getElementById('splitContainer').innerHTML =
     renderSplitPanel(result.trainMetrics, 'TRAIN', 'tag-train') +
     renderSplitPanel(result.testMetrics, 'TEST', 'tag-test');
+
+  // v1.7: Robustness-Score Banner — nur wenn Toggle AN
+  try {
+    if (typeof _robustCheckIsOn === 'function' && _robustCheckIsOn()) {
+      const banner = document.getElementById('robustnessScoreBanner');
+      if (banner) {
+        banner.style.display = '';
+        _renderRobustnessBanner(result.trainMetrics, result.testMetrics);
+      }
+    }
+  } catch(e) { console.warn('Robustness banner failed:', e); }
 
   // Equity Chart
   drawEquityChart(result);
@@ -32961,7 +33020,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.6.0-beta';
-const APP_BUILD = '2026-05-11 21:55 UTC';
+const APP_BUILD = '2026-05-11 22:35 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36543,6 +36602,137 @@ let _multiCoinRunning = false;
 let _lastRevealBlob = null;
 let _lastRevealFileName = null;
 let _lastRevealMeta = null;            // { verdictKey, verdictText, strategyName, symbol, tf, isMulti, stats }
+
+// ─── v1.7: Robustness-Check (Train/Test-Toggle) ───
+function _robustCheckIsOn() {
+  return localStorage.getItem('fb_robust_check') === '1';
+}
+function _robustCheckSet(on) {
+  try { localStorage.setItem('fb_robust_check', on ? '1' : '0'); } catch(e) {}
+  _robustCheckApplyVisibility();
+}
+function _robustCheckApplyVisibility() {
+  const on = _robustCheckIsOn();
+  const grp = document.getElementById('trainTestSplitGroup');
+  const sec = document.getElementById('trainTestSection');
+  const banner = document.getElementById('robustnessScoreBanner');
+  const btn = document.getElementById('robustnessToggleBtn');
+  if (grp) grp.style.display = on ? '' : 'none';
+  if (sec) sec.style.display = on ? '' : 'none';
+  // Banner: nur sichtbar wenn on UND bereits gerendert (lastResult existiert)
+  if (banner) {
+    if (on && lastResult && lastResult.trainMetrics && lastResult.testMetrics) {
+      banner.style.display = '';
+      _renderRobustnessBanner(lastResult.trainMetrics, lastResult.testMetrics);
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+  if (btn) {
+    btn.innerHTML = '🛡️ Robustness-Check: <strong>' + (on ? 'AN' : 'AUS') + '</strong>';
+    btn.style.background = on ? 'rgba(167,139,250,0.30)' : 'rgba(167,139,250,0.15)';
+    btn.style.borderColor = on ? '#a78bfa' : 'rgba(167,139,250,0.40)';
+  }
+}
+function toggleRobustnessMode() {
+  const wasOn = _robustCheckIsOn();
+  if (!wasOn && localStorage.getItem('fb_robust_explained') !== '1') {
+    // Erste Aktivierung → Modal zeigen
+    openRobustnessExplain(/*onClose*/() => {
+      _robustCheckSet(true);
+      try { localStorage.setItem('fb_robust_explained', '1'); } catch(e) {}
+    });
+  } else {
+    _robustCheckSet(!wasOn);
+    if (!wasOn) _showSuccessToast('🛡️ Robustness-Check aktiviert — Train/Test wird nun angezeigt.', 3500);
+    else _showInfoToast('🛡️ Robustness-Check deaktiviert.', 2500);
+  }
+}
+let _robustnessOnCloseCb = null;
+function openRobustnessExplain(onClose) {
+  _robustnessOnCloseCb = onClose || null;
+  const m = document.getElementById('robustnessExplainModal');
+  if (m) m.style.display = 'flex';
+}
+function closeRobustnessExplain() {
+  const m = document.getElementById('robustnessExplainModal');
+  if (m) m.style.display = 'none';
+  if (typeof _robustnessOnCloseCb === 'function') {
+    try { _robustnessOnCloseCb(); } catch(e) {}
+    _robustnessOnCloseCb = null;
+  }
+}
+
+// Score: 0-100, mit Grade + Color + Reasons
+function _computeRobustnessScore(trainM, testM) {
+  if (!trainM || !testM || (trainM.nTrades || 0) < 2 || (testM.nTrades || 0) < 2) {
+    return { score: null, grade: 'N/A', color: '#6b7280', summary: 'Zu wenig Trades in einer der Phasen — keine Aussage möglich.', reasons: [] };
+  }
+  const reasons = [];
+  let score = 100;
+  const trainPF = Math.min(trainM.profitFactor || 0, 10);
+  const testPF  = Math.min(testM.profitFactor || 0, 10);
+  if (trainPF < 1) { score -= 30; reasons.push('Train-Phase verliert (PF ' + trainPF.toFixed(2) + ')'); }
+  if (testPF < 1)  { score -= 40; reasons.push('Test-Phase verliert (PF ' + testPF.toFixed(2) + ') — Overfit oder kein Edge'); }
+  if (trainPF >= 1 && testPF >= 1) {
+    const ratio = testPF / trainPF;
+    if (ratio < 0.5)      { score -= 30; reasons.push('Test-PF deutlich schlechter als Train (' + (ratio*100).toFixed(0) + '%) — Overfit-Verdacht'); }
+    else if (ratio < 0.7) { score -= 15; reasons.push('Test-PF schwächer als Train (' + (ratio*100).toFixed(0) + '%) — leichter Overfit-Hinweis'); }
+    else if (ratio > 1.5) { score -= 10; reasons.push('Test deutlich besser als Train — verdächtig (Zufall?)'); }
+  }
+  // Smoking-Gun: Train war stark, Test tankt -> klares Overfit
+  if (trainPF >= 1.5 && testPF < 1.0) { score -= 20; reasons.push('Smoking-Gun: Train PF ' + trainPF.toFixed(2) + ' → Test PF ' + testPF.toFixed(2) + ' (klassisches Overfit)'); }
+  const wrDiff = Math.abs((trainM.winRate || 0) - (testM.winRate || 0));
+  if (wrDiff > 25) { score -= 18; reasons.push('Win-Rate driftet extrem (Δ ' + wrDiff.toFixed(0) + '%)'); }
+  else if (wrDiff > 15) { score -= 10; reasons.push('Win-Rate driftet (Δ ' + wrDiff.toFixed(0) + '%)'); }
+  const minTrades = Math.min(trainM.nTrades, testM.nTrades);
+  if (minTrades < 10)      { score -= 20; reasons.push('Sehr wenig Trades pro Phase (' + minTrades + ') — Aussage unsicher'); }
+  else if (minTrades < 20) { score -= 10; reasons.push('Wenig Trades pro Phase (' + minTrades + ')'); }
+  score = Math.max(0, Math.min(100, score));
+  let grade, color, summary;
+  if (score >= 75)      { grade = 'ROBUST';     color = '#22c55e'; summary = 'Strategie funktioniert in beiden Phasen — wahrscheinlich echter Edge.'; }
+  else if (score >= 50) { grade = 'AKZEPTABEL'; color = '#f59e0b'; summary = 'Edge sichtbar, aber Test-Phase schwächer — vor Live mehr Daten prüfen.'; }
+  else if (score >= 25) { grade = 'WACKLIG';    color = '#f97316'; summary = 'Strategie ist instabil zwischen Phasen — riskant für Live.'; }
+  else                  { grade = 'OVERFIT';    color = '#ef4444'; summary = 'Strategie versagt im Test — vermutlich nur historisches Rauschen.'; }
+  return { score, grade, color, summary, reasons };
+}
+
+function _renderRobustnessBanner(trainM, testM) {
+  const banner = document.getElementById('robustnessScoreBanner');
+  if (!banner) return;
+  const r = _computeRobustnessScore(trainM, testM);
+  if (r.score === null) {
+    banner.innerHTML = '<div style="background:rgba(107,114,128,0.10);border:1px solid rgba(107,114,128,0.30);border-radius:10px;padding:14px 18px;color:var(--text-muted);font-size:13px"><strong>🛡️ Robustness-Score: N/A</strong> — ' + r.summary + '</div>';
+    return;
+  }
+  const reasonsHtml = r.reasons.length > 0
+    ? '<ul style="margin:6px 0 0;padding-left:20px;font-size:11px;color:var(--text-muted);line-height:1.7">' + r.reasons.map(x => '<li>' + x + '</li>').join('') + '</ul>'
+    : '';
+  banner.innerHTML =
+    '<div style="background:linear-gradient(135deg,' + r.color + '22,' + r.color + '08);border:2px solid ' + r.color + ';border-radius:10px;padding:14px 18px">'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+    +   '<div style="font-size:36px;font-weight:900;color:' + r.color + ';line-height:1">' + r.score + '</div>'
+    +   '<div style="flex:1;min-width:200px">'
+    +     '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +       '<span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">🛡️ Robustness-Score</span>'
+    +       '<span style="background:' + r.color + ';color:#000;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:800;letter-spacing:0.5px">' + r.grade + '</span>'
+    +       '<span class="info-icon" onclick="event.stopPropagation();openRobustnessExplain()" style="cursor:pointer">i</span>'
+    +     '</div>'
+    +     '<div style="font-size:13px;color:var(--text-primary);margin-top:4px;line-height:1.5">' + r.summary + '</div>'
+    +     reasonsHtml
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+// Initial-Visibility nach DOM-Load
+(function _initRobustness() {
+  function init() {
+    try { _robustCheckApplyVisibility(); } catch(e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else setTimeout(init, 100);
+})();
 
 function _showPostRecordRow(visible) {
   const row = document.getElementById('revealPostRecordRow');
