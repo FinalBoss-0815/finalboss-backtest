@@ -30567,7 +30567,12 @@ function renderAcademy() {
         <div style="margin-top:14px;padding:10px 12px;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(99,102,241,0.10));border:1px solid rgba(168,85,247,0.30);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">${isEn ? 'Got questions about this strategy?' : 'Fragen zu dieser Strategie?'} <span style="color:var(--text-muted)">${isEn ? 'The AI knows all the details and answers in plain language.' : 'Die KI kennt alle Details und antwortet verständlich.'}</span></div>
           <button type="button" onclick="event.preventDefault();event.stopPropagation();aiOpenAkademie('${strat.name.replace(/'/g, "\\'")}')" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">💬 ${isEn ? 'Ask the AI' : 'Frag die KI'}</button>
-        </div>`;
+        </div>
+        ${(typeof ACADEMY_ANIM_CONFIGS !== 'undefined' && /trend.?pullback|ema.?bounce/i.test(strat.name)) ? `
+        <div style="margin-top:10px;padding:10px 12px;background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(251,191,36,0.05));border:1px solid rgba(245,158,11,0.30);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">🎬 ${isEn ? 'Setup in motion — see how the trade unfolds from setup to TP.' : 'Setup in Bewegung — sieh wie der Trade vom Setup bis zum TP abläuft.'}</div>
+          <button type="button" onclick="event.preventDefault();event.stopPropagation();openAcademyAnimModal('trend-pullback')" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🎬 ${isEn ? 'Play setup animation' : 'Setup-Animation abspielen'}</button>
+        </div>` : ''}`;
     } else {
       // Fallback fuer Strategien ohne simple-Daten (sollte aktuell keine geben — alle 71 sind drin)
       const di = detailedInfo || simpleInfo;
@@ -33032,8 +33037,8 @@ document.addEventListener('click', (e) => {
 // ═══════════════════════════════════════════════
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
-const APP_VERSION = 'v1.6.0-beta';
-const APP_BUILD = '2026-05-11 23:15 UTC';
+const APP_VERSION = 'v1.7.0-beta';
+const APP_BUILD = '2026-05-12 00:25 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -39452,10 +39457,4 @@ window.addEventListener('beforeunload', () => {
     <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">TikTok/Twitter-Handle (optional, für Credit)</label>
     <input id="shareStrategyHandle" type="text" placeholder="@deinhandle" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:10px">
     <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Kommentar (was macht deine Strategie besonders?)</label>
-    <textarea id="shareStrategyComment" rows="3" placeholder="z.B.: Funktioniert gut auf BTC 1h in Range-Markets — habe sie 60 Tage getestet, 40 Trades, PF 1.8" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;margin-bottom:14px"></textarea>
-    <div style="font-size:11px;color:var(--text-muted);padding:8px 10px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:4px;margin-bottom:14px;line-height:1.5">
-      💡 <strong style="color:#fbbf24">Was passiert mit der Strategie:</strong> FinalBoss sieht alle Submissions in der Admin-Inbox. Wenn die Strategie wirklich gut ist, wird sie ggf. in der Akademie gefeatured (mit deinem Credit) oder als Reaction-Video gepostet.
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button onclick="closeShareStrategyModal()" style="background:#374151;border:none;color:#fff;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px">Abbrechen</button>
-      <button id="share
+    <textarea id="shareStrategyComment" rows="3" placeholder="z.B.: Funktioniert gut auf BTC 1h in Range-Markets — habe
