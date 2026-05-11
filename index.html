@@ -1487,6 +1487,20 @@ input[type=number] { -moz-appearance:textfield }
           </div>
         </div>
       </div>
+      <!-- Academy-Animation Modal -->
+      <div id="academyAnimModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:100001;align-items:center;justify-content:center;padding:20px">
+        <div style="background:#0a0a0a;border:2px solid #f59e0b;border-radius:12px;padding:18px;max-width:780px;width:100%;max-height:95vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <h2 id="academyAnimTitle" style="margin:0;color:#fbbf24;font-size:18px">🎬 Setup-Animation</h2>
+            <div style="display:flex;gap:8px">
+              <button type="button" id="academyAnimReplayBtn" onclick="academyAnimReplay()" style="background:#1f2937;border:1px solid #4b5563;color:#fff;padding:7px 12px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px">↺ Replay</button>
+              <button type="button" onclick="closeAcademyAnimModal()" style="background:#1f2937;border:1px solid #4b5563;color:#9ca3af;padding:7px 12px;border-radius:5px;cursor:pointer;font-size:14px">×</button>
+            </div>
+          </div>
+          <canvas id="academyAnimCanvas" width="720" height="540" style="width:100%;background:#0a0a0a;border-radius:8px;display:block;border:1px solid #1f2937"></canvas>
+          <div id="academyAnimStatus" style="text-align:center;color:#9ca3af;font-size:11px;margin-top:8px;min-height:14px"></div>
+        </div>
+      </div>
       <!-- Robustness-Erklär-Modal -->
       <div id="robustnessExplainModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100000;align-items:center;justify-content:center;padding:20px">
         <div style="background:#0a0a0a;border:2px solid #a78bfa;border-radius:12px;padding:24px;max-width:640px;width:100%;max-height:90vh;overflow:auto">
@@ -30545,13 +30559,32 @@ function renderAcademy() {
         console.warn('Akademie-SVG-Fehler bei', strat.name, svgErr);
         svgSafe = `<svg viewBox="0 0 560 240" width="100%"><rect width="560" height="240" fill="#0d1117"/><text x="280" y="120" fill="#8b949e" font-size="11" text-anchor="middle">Chart-Render-Fehler — Strategie wird trotzdem angezeigt</text></svg>`;
       }
+      // v1.7: Wenn die Strategie eine Animation-Config hat, ersetzen wir die SVG-Skizze
+      // durch eine Canvas-Karte mit Static-Preview + Play-Button (inline, kein Modal).
+      const _hasAnim = (typeof ACADEMY_ANIM_CONFIGS !== 'undefined') &&
+        (/trend.?pullback/i.test(strat.name) ? 'trend-pullback' :
+         /ema.?bounce/i.test(strat.name) ? 'trend-pullback' : null);
+      const _animKey = _hasAnim || '';
+      const _canvasId = 'ak_canvas_' + Math.random().toString(36).slice(2, 10);
+      const chartBlockHtml = _animKey ? `
+        <div style="background:#0a0a0a;border:1px solid #1f2937;border-radius:8px;overflow:hidden;margin-bottom:10px">
+          <div style="position:relative">
+            <canvas id="${_canvasId}" width="720" height="540" data-academy-anim="${_animKey}" style="width:100%;display:block;background:#0a0a0a"></canvas>
+            <div style="position:absolute;top:8px;right:10px;font-size:9px;color:#6b7280;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:3px">${isEn ? 'Schematic example · BTC 1h' : 'Schematisches Beispiel · BTC 1h'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <button type="button" onclick="event.preventDefault();event.stopPropagation();playAcademyInlineAnim('${_canvasId}','${_animKey}')" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🎬 ${isEn ? 'Play animation' : 'Animation abspielen'}</button>
+          <span style="align-self:center;font-size:11px;color:#6b7280;line-height:1.4">${isEn ? '19 sec · setup unfolds from trend → trigger → trade' : '19 Sek · vom Trend zum Trigger zum Trade'}</span>
+        </div>` :
+        `<div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
+          ${svgSafe}
+        </div>`;
       bodyHtml = `
         ${proDetailsHtml}
         <p style="margin:0 0 12px;color:var(--text-primary);font-size:14px">${simpleInfo.desc}</p>
-        <div style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:8px">
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${lblExample}</div>
-          ${svgSafe}
-        </div>
+        ${chartBlockHtml}
         ${entryReasonHtml}
         ${indicatorsHtml}
         <div style="background:rgba(34,197,94,0.08);border-left:3px solid #22c55e;padding:12px 14px;border-radius:4px;margin-bottom:12px">
@@ -30568,11 +30601,7 @@ function renderAcademy() {
           <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">${isEn ? 'Got questions about this strategy?' : 'Fragen zu dieser Strategie?'} <span style="color:var(--text-muted)">${isEn ? 'The AI knows all the details and answers in plain language.' : 'Die KI kennt alle Details und antwortet verständlich.'}</span></div>
           <button type="button" onclick="event.preventDefault();event.stopPropagation();aiOpenAkademie('${strat.name.replace(/'/g, "\\'")}')" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">💬 ${isEn ? 'Ask the AI' : 'Frag die KI'}</button>
         </div>
-        ${(typeof ACADEMY_ANIM_CONFIGS !== 'undefined' && /trend.?pullback|ema.?bounce/i.test(strat.name)) ? `
-        <div style="margin-top:10px;padding:10px 12px;background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(251,191,36,0.05));border:1px solid rgba(245,158,11,0.30);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--text-secondary);line-height:1.4">🎬 ${isEn ? 'Setup in motion — see how the trade unfolds from setup to TP.' : 'Setup in Bewegung — sieh wie der Trade vom Setup bis zum TP abläuft.'}</div>
-          <button type="button" onclick="event.preventDefault();event.stopPropagation();openAcademyAnimModal('trend-pullback')" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🎬 ${isEn ? 'Play setup animation' : 'Setup-Animation abspielen'}</button>
-        </div>` : ''}`;
+`;
     } else {
       // Fallback fuer Strategien ohne simple-Daten (sollte aktuell keine geben — alle 71 sind drin)
       const di = detailedInfo || simpleInfo;
@@ -30640,6 +30669,16 @@ function renderAcademy() {
     container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted)">${isEn ? 'No matching strategies' : 'Keine passenden Strategien'}</div>`;
   } else {
     container.innerHTML = html;
+    // v1.7: Static-Charts in allen academy-canvases rendern (nach DOM-Insert)
+    try {
+      const canvases = container.querySelectorAll('canvas[data-academy-anim]');
+      canvases.forEach(cv => {
+        const key = cv.getAttribute('data-academy-anim');
+        if (key && typeof renderAcademyStaticChart === 'function') {
+          renderAcademyStaticChart(cv.id, key);
+        }
+      });
+    } catch(e) { console.warn('academy canvas init:', e); }
     // Vorher offene Strategien wieder aufklappen + Scroll-Position wiederherstellen
     if (_openStrats.size > 0) {
       _openStrats.forEach(name => {
@@ -33038,7 +33077,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.7.0-beta';
-const APP_BUILD = '2026-05-12 00:25 UTC';
+const APP_BUILD = '2026-05-12 01:30 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -36585,6 +36624,353 @@ async function strategyInboxDelete(id) {
 }
 
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// ACADEMY-ANIMATION: Setup-Aufbau Schritt für Schritt (Canvas)
+// ════════════════════════════════════════════════════════
+
+const ACADEMY_ANIM_CONFIGS = {
+  'trend-pullback': {
+    title: 'Trend-Pullback · BTC 1h · Long',
+    subtitle: 'Uptrend → Pullback auf 50 EMA → Bullish Engulfing → Long',
+    candles: [
+      {o:41600,h:41700,l:41500,c:41700},{o:41700,h:41900,l:41650,c:41850},
+      {o:41850,h:42000,l:41800,c:41950},{o:41950,h:42100,l:41900,c:42050},
+      {o:42050,h:42150,l:41950,c:42000},{o:42000,h:42200,l:41950,c:42150},
+      {o:42150,h:42400,l:42100,c:42350},{o:42350,h:42550,l:42300,c:42500},
+      {o:42500,h:42700,l:42450,c:42600},{o:42600,h:42700,l:42500,c:42550},
+      {o:42550,h:42850,l:42500,c:42800},{o:42800,h:43000,l:42750,c:42950},
+      {o:42950,h:43200,l:42900,c:43150},{o:43150,h:43400,l:43100,c:43350},
+      {o:43350,h:43550,l:43250,c:43450},{o:43450,h:43500,l:43200,c:43250},
+      {o:43250,h:43300,l:43050,c:43100},{o:43100,h:43150,l:42850,c:42900},
+      {o:42900,h:42950,l:42700,c:42750},{o:42750,h:42800,l:42500,c:42550},
+      {o:42550,h:42600,l:42300,c:42350},{o:42350,h:42450,l:42150,c:42200},
+      {o:42200,h:42250,l:42050,c:42100},{o:42100,h:42250,l:42050,c:42200},
+      {o:42200,h:42500,l:42150,c:42450},{o:42450,h:42700,l:42400,c:42650},
+      {o:42650,h:42900,l:42600,c:42850},{o:42850,h:43150,l:42800,c:43100},
+      {o:43100,h:43400,l:43050,c:43350},{o:43350,h:43850,l:43250,c:43750}
+    ],
+    entryIdx: 24,
+    pullbackZone: { fromIdx: 18, toIdx: 24, top: 42500, bottom: 42050 },
+    entryPrice: 42450, slPrice: 41900, tp1Price: 43350, tp2Price: 43800,
+    structureLabels: [
+      { idx: 0, price: 41500, text: 'LL0', color: '#fbbf24' },
+      { idx: 14, price: 43550, text: 'HH', color: '#fbbf24' },
+      { idx: 22, price: 42050, text: 'HL', color: '#fbbf24' }
+    ],
+    checklist: [
+      '(1) Klarer Uptrend (HH+HL)',
+      '(2) Pullback auf 50 EMA',
+      '(3) Hoeherer Tief (HL)',
+      '(4) Bullish Engulfing',
+      '(5) CRV >= 1:2'
+    ]
+  }
+};
+
+let _academyAnimRAF = null;
+let _academyAnimStart = 0;
+let _academyAnimCfg = null;
+let _academyAnimCanvasId = 'academyAnimCanvas';
+
+function openAcademyAnimModal(configKey) {
+  const cfg = ACADEMY_ANIM_CONFIGS[configKey];
+  if (!cfg) { if (typeof _showErrorToast === 'function') _showErrorToast('Animation-Config fehlt: ' + configKey, 3000); return; }
+  _academyAnimCfg = cfg;
+  _academyAnimCanvasId = 'academyAnimCanvas';
+  document.getElementById('academyAnimModal').style.display = 'flex';
+  document.getElementById('academyAnimTitle').textContent = '🎬 ' + (cfg.title || 'Setup-Animation');
+  academyAnimReplay();
+}
+
+function closeAcademyAnimModal() {
+  document.getElementById('academyAnimModal').style.display = 'none';
+  if (_academyAnimRAF) { cancelAnimationFrame(_academyAnimRAF); _academyAnimRAF = null; }
+}
+
+function academyAnimReplay() {
+  if (!_academyAnimCfg) return;
+  if (_academyAnimRAF) cancelAnimationFrame(_academyAnimRAF);
+  _academyAnimStart = performance.now();
+  const status = document.getElementById('academyAnimStatus');
+  if (status) status.textContent = '▶ Animation läuft...';
+  const canvas = document.getElementById(_academyAnimCanvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const DUR_MS = 19000;
+  function frame(now) {
+    const elapsed = now - _academyAnimStart;
+    const t = Math.min(1, elapsed / DUR_MS);
+    _drawAcademyAnimFrame(ctx, W, H, _academyAnimCfg, t);
+    if (t < 1) {
+      _academyAnimRAF = requestAnimationFrame(frame);
+    } else {
+      _academyAnimRAF = null;
+      if (status) status.textContent = '✓ Fertig — Klick Replay zum nochmal abspielen.';
+    }
+  }
+  _academyAnimRAF = requestAnimationFrame(frame);
+}
+
+// Render a single static frame at t=1 (for static preview inline in card)
+function renderAcademyStaticChart(canvasId, configKey) {
+  const cfg = ACADEMY_ANIM_CONFIGS[configKey];
+  if (!cfg) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  _drawAcademyAnimFrame(ctx, canvas.width, canvas.height, cfg, 1.0);
+}
+
+// Play the animation in the inline card canvas (no modal)
+function playAcademyInlineAnim(canvasId, configKey) {
+  const cfg = ACADEMY_ANIM_CONFIGS[configKey];
+  if (!cfg) return;
+  _academyAnimCfg = cfg;
+  _academyAnimCanvasId = canvasId;
+  if (_academyAnimRAF) cancelAnimationFrame(_academyAnimRAF);
+  _academyAnimStart = performance.now();
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const DUR_MS = 19000;
+  function frame(now) {
+    const t = Math.min(1, (now - _academyAnimStart) / DUR_MS);
+    _drawAcademyAnimFrame(ctx, W, H, cfg, t);
+    if (t < 1) _academyAnimRAF = requestAnimationFrame(frame);
+    else _academyAnimRAF = null;
+  }
+  _academyAnimRAF = requestAnimationFrame(frame);
+}
+
+function _drawAcademyAnimFrame(ctx, W, H, cfg, t) {
+  const pad = { top: 70, right: 130, bottom: 100, left: 50 };
+  const chartH = H - pad.top - pad.bottom;
+  const chartW = W - pad.left - pad.right;
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0a0a0a');
+  grad.addColorStop(1, '#1a1408');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  const candles = cfg.candles;
+  let pMin = Infinity, pMax = -Infinity;
+  for (const c of candles) { if (c.l < pMin) pMin = c.l; if (c.h > pMax) pMax = c.h; }
+  const pad2 = (pMax - pMin) * 0.12;
+  pMin -= pad2; pMax += pad2;
+  const yScale = (p) => pad.top + (pMax - p) / (pMax - pMin) * chartH;
+  const xScale = (i) => pad.left + (i / (candles.length - 1)) * chartW;
+  const candleW = Math.max(6, chartW / candles.length * 0.7);
+
+  const phase = (s, e) => Math.max(0, Math.min(1, (t - s) / (e - s)));
+
+  const titleOp = Math.min(1, t * 14);
+  if (titleOp > 0) {
+    ctx.globalAlpha = titleOp;
+    ctx.font = 'bold 17px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#fbbf24';
+    ctx.textAlign = 'left';
+    ctx.fillText('📈 ' + cfg.title, pad.left, 30);
+    ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(cfg.subtitle || '', pad.left, 50);
+    ctx.globalAlpha = 1;
+  }
+
+  if (cfg.pullbackZone && t >= 0.55) {
+    const op = phase(0.55, 0.62);
+    ctx.fillStyle = 'rgba(245,158,11,' + (0.06 * op) + ')';
+    const x1 = xScale(cfg.pullbackZone.fromIdx);
+    const x2 = xScale(cfg.pullbackZone.toIdx);
+    const yT = yScale(cfg.pullbackZone.top);
+    const yB = yScale(cfg.pullbackZone.bottom);
+    ctx.fillRect(x1, yT, x2 - x1, yB - yT);
+    ctx.strokeStyle = 'rgba(245,158,11,' + (0.4 * op) + ')';
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(x1, yT, x2 - x1, yB - yT);
+    ctx.setLineDash([]);
+    if (op > 0.5) {
+      ctx.font = 'bold 10px ui-sans-serif';
+      ctx.fillStyle = 'rgba(245,158,11,' + op + ')';
+      ctx.textAlign = 'center';
+      ctx.fillText('PULLBACK-ZONE', (x1 + x2) / 2, yT - 6);
+    }
+  }
+
+  let nVisible = 0;
+  if (t < 0.30) nVisible = Math.floor(phase(0.08, 0.30) * 15);
+  else if (t < 0.55) nVisible = 15 + Math.floor(phase(0.30, 0.55) * 8);
+  else if (t < 0.65) nVisible = 23 + Math.floor(phase(0.55, 0.65) * 2);
+  else if (t < 0.90) nVisible = 25 + Math.floor(phase(0.65, 0.90) * 5);
+  else nVisible = candles.length;
+  nVisible = Math.min(candles.length, nVisible);
+
+  const engulfFlash = (t >= 0.60 && t < 0.66) ? (1 - Math.abs(t - 0.63) / 0.03) : 0;
+
+  for (let i = 0; i < nVisible; i++) {
+    const c = candles[i];
+    const x = xScale(i);
+    const isGreen = c.c >= c.o;
+    const color = isGreen ? '#22c55e' : '#ef4444';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x, yScale(c.h));
+    ctx.lineTo(x, yScale(c.l));
+    ctx.stroke();
+    const yTop = yScale(Math.max(c.o, c.c));
+    const yBot = yScale(Math.min(c.o, c.c));
+    const h = Math.max(1, yBot - yTop);
+    if (i === cfg.entryIdx && engulfFlash > 0) {
+      ctx.fillStyle = 'rgba(251,191,36,' + (0.4 * engulfFlash) + ')';
+      ctx.fillRect(x - candleW/2 - 2, yTop - 2, candleW + 4, h + 4);
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(x - candleW/2, yTop, candleW, h);
+  }
+
+  if (t >= 0.30) {
+    const emaOp = phase(0.30, 0.36);
+    ctx.strokeStyle = 'rgba(251,146,60,' + emaOp + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const emaPoints = candles.map((c, i) => {
+      const t01 = i / (candles.length - 1);
+      const emaVal = 41600 + 750 * Math.sqrt(t01) + 50 * Math.sin(t01 * Math.PI);
+      return { x: xScale(i), y: yScale(emaVal) };
+    });
+    const emaMaxI = Math.min(emaPoints.length, Math.max(2, Math.floor(emaOp * emaPoints.length)));
+    for (let i = 0; i < emaMaxI; i++) {
+      if (i === 0) ctx.moveTo(emaPoints[i].x, emaPoints[i].y);
+      else ctx.lineTo(emaPoints[i].x, emaPoints[i].y);
+    }
+    ctx.stroke();
+    if (emaOp > 0.7 && emaMaxI > 3) {
+      ctx.font = 'bold 10px ui-sans-serif';
+      ctx.fillStyle = 'rgba(251,146,60,' + emaOp + ')';
+      ctx.textAlign = 'left';
+      ctx.fillText('50 EMA', emaPoints[3].x, emaPoints[3].y - 6);
+    }
+  }
+
+  if (cfg.structureLabels && t >= 0.40) {
+    cfg.structureLabels.forEach((lbl, k) => {
+      const showAt = 0.40 + k * 0.05;
+      if (t < showAt) return;
+      const op = phase(showAt, showAt + 0.05);
+      ctx.globalAlpha = op;
+      ctx.font = 'bold 11px ui-sans-serif';
+      ctx.fillStyle = lbl.color;
+      ctx.textAlign = 'center';
+      ctx.fillText(lbl.text, xScale(lbl.idx), yScale(lbl.price) - 8);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  if (t >= 0.65) {
+    const op = phase(0.65, 0.70);
+    const pulseT = Math.max(0, (t - 0.65) * 5);
+    const pulseR = 8 + Math.sin(pulseT * Math.PI * 2) * 2;
+    ctx.strokeStyle = 'rgba(34,197,94,' + op + ')';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(xScale(cfg.entryIdx), yScale(cfg.entryPrice), pulseR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(34,197,94,' + op + ')';
+    ctx.beginPath();
+    ctx.arc(xScale(cfg.entryIdx), yScale(cfg.entryPrice), 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const drawLevelLine = (price, color, label, op, dashed) => {
+    if (op <= 0) return;
+    ctx.globalAlpha = op;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    if (dashed) ctx.setLineDash(dashed);
+    const y = yScale(price);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const boxW = 100, boxH = 18;
+    ctx.fillStyle = color;
+    _roundRectCtx(ctx, W - pad.right + 4, y - boxH/2, boxW, boxH, 3);
+    ctx.fill();
+    ctx.font = 'bold 11px ui-monospace, monospace';
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, W - pad.right + 4 + boxW/2, y + 4);
+    ctx.globalAlpha = 1;
+  };
+  if (t >= 0.70) drawLevelLine(cfg.entryPrice, '#22c55e', 'Entry $' + cfg.entryPrice.toLocaleString(), phase(0.70, 0.74), [6,3]);
+  if (t >= 0.72) drawLevelLine(cfg.slPrice,    '#ef4444', 'SL $'    + cfg.slPrice.toLocaleString(),    phase(0.72, 0.76), [4,4]);
+  if (t >= 0.74) drawLevelLine(cfg.tp1Price,   '#58a6ff', 'TP1 $'   + cfg.tp1Price.toLocaleString(),   phase(0.74, 0.78), [3,5]);
+  if (t >= 0.76) drawLevelLine(cfg.tp2Price,   '#a78bfa', 'TP2 $'   + cfg.tp2Price.toLocaleString(),   phase(0.76, 0.80), [3,5]);
+
+  if (t >= 0.78) {
+    const op = phase(0.78, 0.82);
+    ctx.globalAlpha = op;
+    ctx.font = 'bold 9px ui-sans-serif';
+    ctx.textAlign = 'left';
+    const xR = xScale(cfg.entryIdx) + 8;
+    ctx.fillStyle = '#ef4444'; ctx.fillText('1R', xR, yScale(cfg.slPrice) - 4);
+    ctx.fillStyle = '#58a6ff'; ctx.fillText('+2R', xR, yScale(cfg.tp1Price) + 12);
+    ctx.fillStyle = '#a78bfa'; ctx.fillText('+3R', xR, yScale(cfg.tp2Price) + 12);
+    ctx.globalAlpha = 1;
+  }
+
+  if (t >= 0.83 && t < 0.88) {
+    const fop = 1 - Math.abs(t - 0.855) / 0.025;
+    ctx.fillStyle = 'rgba(88,166,255,' + (fop * 0.5) + ')';
+    ctx.fillRect(pad.left, yScale(cfg.tp1Price) - 8, chartW, 16);
+  }
+  if (t >= 0.88 && t < 0.93) {
+    const fop = 1 - Math.abs(t - 0.905) / 0.025;
+    ctx.fillStyle = 'rgba(167,139,250,' + (fop * 0.5) + ')';
+    ctx.fillRect(pad.left, yScale(cfg.tp2Price) - 8, chartW, 16);
+  }
+
+  if (t >= 0.90 && cfg.checklist) {
+    const op = phase(0.90, 1.0);
+    ctx.globalAlpha = op;
+    const yChk = H - 75;
+    ctx.fillStyle = 'rgba(34,197,94,0.10)';
+    ctx.strokeStyle = 'rgba(34,197,94,0.5)';
+    ctx.lineWidth = 1;
+    _roundRectCtx(ctx, pad.left, yChk - 10, W - pad.left - pad.right, 65, 6);
+    ctx.fill(); ctx.stroke();
+    ctx.font = 'bold 11px ui-sans-serif';
+    ctx.fillStyle = '#fbbf24';
+    ctx.textAlign = 'left';
+    ctx.fillText('Setup-Checklist (alle erfuellt → Trade):', pad.left + 10, yChk + 6);
+    ctx.font = '10px ui-sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    cfg.checklist.forEach((line, i) => {
+      const colWidth = (W - pad.left - pad.right - 20) / 2;
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      ctx.fillText(line, pad.left + 10 + col * colWidth, yChk + 24 + row * 14);
+    });
+    ctx.globalAlpha = 1;
+  }
+}
+
+function _roundRectCtx(ctx, x, y, w, h, r) {
+  if (w < 2 * r) r = w / 2;
+  if (h < 2 * r) r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ════════════════════════════════════════════════════════
 // TIKTOK-REVEAL GENERATOR — Canvas-Animation + WebM-Export
 // Phase 1: Standalone-Reveal (12sec). User stitcht in CapCut.
 // ════════════════════════════════════════════════════════
@@ -39451,10 +39837,4 @@ window.addEventListener('beforeunload', () => {
     <p style="margin:0 0 14px;font-size:13px;color:var(--text-secondary);line-height:1.6">
       Du hast eine gute Strategie gefunden oder gebaut? Schick sie an FinalBoss — wir testen, reviewen und features dich vielleicht im nächsten TikTok-Video.
     </p>
-    <div id="shareStrategyPreview" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px"></div>
-    <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Dein Name (optional)</label>
-    <input id="shareStrategyName" type="text" placeholder="z.B. Sideways oder dein Handle" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:10px">
-    <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">TikTok/Twitter-Handle (optional, für Credit)</label>
-    <input id="shareStrategyHandle" type="text" placeholder="@deinhandle" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:9px 12px;border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:10px">
-    <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Kommentar (was macht deine Strategie besonders?)</label>
-    <textarea id="shareStrategyComment" rows="3" placeholder="z.B.: Funktioniert gut auf BTC 1h in Range-Markets — habe
+    <div id="shareStrategyPreview" style="background:var(--bg-tertiary);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-s
