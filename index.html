@@ -941,7 +941,7 @@ input[type=number] { -moz-appearance:textfield }
 
 <!-- ══════════════════════════ HEADER ══════════════════════════ -->
 <div class="header">
-  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 04:18 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
+  <h1><span>FinalBoss</span> Backtest Engine <span id="appVersionBadge" onclick="showVersionInfo()" role="button" aria-label="Version-Info anzeigen" title="Klick für Versions-Details + Reload-Check" style="font-size:11px;font-weight:600;color:#000;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:1px solid rgba(245,158,11,0.6);padding:3px 10px;border-radius:10px;margin-left:6px;vertical-align:middle;cursor:pointer;display:inline-block">v1.3.0-beta</span> <span style="font-size:10px;color:var(--text-muted);margin-left:4px;vertical-align:middle">build 2026-05-11 10:32 UTC</span> <span id="adminAnalyticsWidget" style="display:none;font-size:11px;color:#fbbf24;margin-left:10px;vertical-align:middle;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);padding:3px 9px;border-radius:10px;font-weight:600">👥 <span id="analyticsOnline">–</span> online · <span id="analyticsTotal">–</span> total</span></h1>
   <div class="header-right">
     <button id="langToggle" onclick="toggleLang()" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;margin-right:6px" title="Sprache / Language">DE</button>
     <button id="helpBtn" onclick="showAboutModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Hilfe / About">ℹ️</button>
@@ -14487,6 +14487,10 @@ function replaySeek(val) {
   replayDraw();
 }
 
+// Anzahl Kerzen die beim Replay-Start als Kontext sichtbar sein sollen
+// (Standard wie bei TradingView Bar-Replay — User sieht sofort die Marktlage statt leerem Chart)
+const REPLAY_CONTEXT_CANDLES = 30;
+
 function replayReset() {
   if (replayPlaying) {
     replayPlaying = false;
@@ -14494,15 +14498,22 @@ function replayReset() {
     replayTimer = null;
     document.getElementById('replayPlayBtn').textContent = '▶';
   }
-  replayIndex = 0;
   replayMaxIndex = currentCandles ? currentCandles.length : 0;
+  // Pre-Load: 30 Kontext-Kerzen damit User sofort weiss wo er ist
+  const ctx = Math.min(REPLAY_CONTEXT_CANDLES, Math.max(0, replayMaxIndex - 1));
+  replayIndex = ctx;
   replayViewStart = 0;
   replayViewEnd = 1;
   replayYShift = 0;
   replayYZoom = 1.0;
   replayManualView = false;
-  document.getElementById('replaySlider').value = 0;
-  document.getElementById('replayCounter').textContent = '0 / ' + replayMaxIndex;
+  const slider = document.getElementById('replaySlider');
+  if (slider) {
+    slider.min = ctx;  // Slider kann nicht VOR den Kontext zurueck
+    slider.max = replayMaxIndex;
+    slider.value = ctx;
+  }
+  document.getElementById('replayCounter').textContent = ctx + ' / ' + replayMaxIndex;
   document.getElementById('replayOHLC').style.display = 'none';
   // Show coin + timeframe
   const rctEl = document.getElementById('replayCoinTF');
@@ -14513,7 +14524,12 @@ function replayReset() {
   }
   // Clear replay canvas
   const rc = document.getElementById('replayChart');
-  if (rc) { const ctx = rc.getContext('2d'); ctx.clearRect(0, 0, rc.width, rc.height); }
+  if (rc) { const c2d = rc.getContext('2d'); c2d.clearRect(0, 0, rc.width, rc.height); }
+  // Sofort die Kontext-Kerzen zeichnen damit User direkt was sieht
+  if (currentCandles && currentCandles.length > 2 && ctx > 0) {
+    try { replayDraw(); } catch(e) {}
+    try { replayUpdateUI(); } catch(e) {}
+  }
 }
 
 function replayUpdateUI() {
@@ -32097,7 +32113,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.3.0-beta';
-const APP_BUILD = '2026-05-11 04:18 UTC';
+const APP_BUILD = '2026-05-11 10:32 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -32684,8 +32700,71 @@ function reviewBlobToBase64(blob) {
 }
 
 // ── Gemini Direct: ganzes Video → Gemini API (Audio + Bild nativ, ohne ffmpeg/Whisper) ──
-async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
+// Video-Hash via SubtleCrypto SHA-256 → eindeutiger Key fuer Caching
+async function _hashVideoFile(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    const arr = Array.from(new Uint8Array(hash));
+    return arr.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+  } catch(e) {
+    // Fallback: nicht-kryptografischer Hash falls SubtleCrypto fehlt
+    return 'fallback_' + file.size + '_' + file.name.slice(0, 20).replace(/[^a-z0-9]/gi, '');
+  }
+}
+
+function _loadCachedStrategy(videoHash) {
+  try {
+    const all = JSON.parse(localStorage.getItem('fb_review_cache') || '{}');
+    const entry = all[videoHash];
+    if (entry && entry.spec && entry.spec.enterCode) return entry;
+    return null;
+  } catch(e) { return null; }
+}
+
+function _saveCachedStrategy(videoHash, spec, rawReply, transcript) {
+  try {
+    const all = JSON.parse(localStorage.getItem('fb_review_cache') || '{}');
+    all[videoHash] = {
+      spec, rawReply, transcript,
+      cached_at: Date.now(),
+    };
+    // Max 30 Eintraege behalten (LRU-style: aelteste entfernen)
+    const keys = Object.keys(all);
+    if (keys.length > 30) {
+      keys.sort((a, b) => (all[a].cached_at || 0) - (all[b].cached_at || 0));
+      while (Object.keys(all).length > 30) delete all[keys.shift()];
+    }
+    _safeSetItem('fb_review_cache', JSON.stringify(all));
+  } catch(e) { console.warn('Review-Cache-Save failed:', e); }
+}
+
+function reviewClearVideoCache() {
+  if (!confirm('Cache aller bisher extrahierten Strategien loeschen? Beim naechsten Upload wird das Video neu analysiert.')) return;
+  try {
+    localStorage.removeItem('fb_review_cache');
+    _showSuccessToast('✓ Review-Cache geloescht', 3000);
+  } catch(e) {}
+}
+
+async function reviewExtractStrategyGeminiDirect(file, _retryAttempt, _forceFresh) {
   const attempt = _retryAttempt || 0;
+
+  // ── DETERMINISTIK: Video-Hash-Cache ──
+  // Gleiches Video → gleiche extrahierte Strategie (kein erneuter Gemini-Call)
+  if (attempt === 0 && !_forceFresh) {
+    reviewSetProgress('gemini-direct', 'running', '🔍 Pruefe ob Video schon analysiert wurde...');
+    const vHash = await _hashVideoFile(file);
+    const cached = _loadCachedStrategy(vHash);
+    if (cached) {
+      reviewSetProgress('gemini-direct', 'done', '✓ Strategie aus Cache geladen (deterministisch, gleiches Video → gleiche Strategie). Wenn falsch: "Re-Extrahieren" klicken.');
+      console.log('[GeminiDirect] Cache-Hit fuer Video-Hash', vHash, ':', cached.spec.name);
+      _reviewState._lastVideoHash = vHash;
+      return { spec: cached.spec, rawReply: cached.rawReply || '', transcript: cached.transcript || '' };
+    }
+    _reviewState._lastVideoHash = vHash;
+  }
+
   if (attempt === 0) {
     reviewSetProgress('gemini-direct', 'running', '🎬 Video wird an Gemini geschickt (Audio + Bild nativ)...');
   } else {
@@ -32727,7 +32806,7 @@ async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
         { text: userText }
       ]
     }],
-    generationConfig: { temperature: 0.15, maxOutputTokens: 32768 }
+    generationConfig: { temperature: 0.05, maxOutputTokens: 32768, seed: 42 }
   };
   reviewSetProgress('gemini-direct', 'running', '🧠 Gemini analysiert Video (kann 20-60 Sek dauern)...');
   const resp = await _fetchWithTimeout(url, {
@@ -32785,6 +32864,15 @@ async function reviewExtractStrategyGeminiDirect(file, _retryAttempt) {
     }
   }
   reviewSetProgress('gemini-direct', 'done', '🧠 Gemini-Analyse fertig: "' + parsed.name + '"' + (attempt > 0 ? ' (nach ' + attempt + ' Retry)' : ''));
+
+  // ── Cache speichern fuer Reproduzierbarkeit beim naechsten Upload ──
+  try {
+    if (_reviewState._lastVideoHash) {
+      _saveCachedStrategy(_reviewState._lastVideoHash, parsed, text, '');
+      console.log('[GeminiDirect] Strategie gecached fuer Video-Hash', _reviewState._lastVideoHash);
+    }
+  } catch(e) { console.warn('Cache save:', e); }
+
   return { spec: parsed, rawReply: text, transcript: '' };
 }
 
@@ -33009,6 +33097,20 @@ async function reviewProcessFile(file) {
 }
 
 // ── Backtest-Trigger (lädt Strategie in STRATEGIES + wechselt zum Backtest-Tab) ──
+function reviewReExtract() {
+  if (!_reviewState.file) { _showErrorToast('Kein Video geladen'); return; }
+  // Cache-Eintrag fuer dieses Video loeschen damit Re-Extract neue Gemini-Anfrage macht
+  try {
+    if (_reviewState._lastVideoHash) {
+      const all = JSON.parse(localStorage.getItem('fb_review_cache') || '{}');
+      delete all[_reviewState._lastVideoHash];
+      _safeSetItem('fb_review_cache', JSON.stringify(all));
+    }
+  } catch(e) {}
+  _showInfoToast('🔄 Erneute Analyse...', 2500);
+  reviewProcessFile(_reviewState.file);
+}
+
 function reviewBacktestStrategy() {
   if (!_reviewState.strategy) { _showErrorToast('Keine Strategie zum Backtesten'); return; }
   const spec = _reviewState.strategy;
