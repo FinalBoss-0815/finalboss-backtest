@@ -9111,6 +9111,405 @@ const STRATEGIES = [
       // SL/TP wird von der Engine verwaltet
       return false;
     }
+  },
+
+  // ── Trendlinien-Bruch + Retest ──
+  {
+    name: "Trendlinien-Bruch + Retest",
+    defaultTF: "1h",
+    params: {
+      lookback: { label: "LinReg Period", value: 30, min: 10, max: 100 },
+      retestTolPct: { label: "Retest Toleranz %", value: 0.3, min: 0.1, max: 1.5, step: 0.1 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+      // Linear regression as trendline proxy
+      this._lr = new Array(closes.length).fill(NaN);
+      for (let i = params.lookback - 1; i < closes.length; i++) {
+        let sx=0,sy=0,sxx=0,sxy=0;
+        for (let k=0;k<params.lookback;k++){ const x=k, y=closes[i-params.lookback+1+k]; sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
+        const n=params.lookback, denom=n*sxx-sx*sx;
+        if (denom===0) continue;
+        const m=(n*sxy-sx*sy)/denom, b=(sy-m*sx)/n;
+        this._lr[i] = m*(params.lookback-1)+b;
+      }
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.lookback + 2 || isNaN(this._lr[i]) || isNaN(this._atr[i])) return null;
+      const c = candles[i], prev = candles[i-1], prev2 = candles[i-2];
+      const lr = this._lr[i], lrPrev2 = this._lr[i-2];
+      // Long: prev2 closed below trendline (downtrend), prev broke above, current retest holds
+      const tol = c.close * params.retestTolPct/100;
+      if (prev2.close < lrPrev2 && prev.close > this._lr[i-1] && Math.abs(c.low - lr) < tol && c.close > c.open) {
+        return { dir: "long", sl: c.close - params.slMult*this._atr[i] };
+      }
+      if (prev2.close > lrPrev2 && prev.close < this._lr[i-1] && Math.abs(c.high - lr) < tol && c.close < c.open) {
+        return { dir: "short", sl: c.close + params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.dir === "long" ? position.entryPrice + params.tpR*r : position.entryPrice - params.tpR*r;
+      if (position.dir === "long" && candles[i].high >= target) return true;
+      if (position.dir === "short" && candles[i].low <= target) return true;
+      return false;
+    }
+  },
+
+  // ── Trend-Kanal Bounce ──
+  {
+    name: "Trend-Kanal Bounce",
+    defaultTF: "1h",
+    params: {
+      lookback: { label: "Channel Period", value: 30, min: 10, max: 100 },
+      bandStd: { label: "Band StdDev", value: 1.5, min: 0.5, max: 3.0, step: 0.1 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+      this._mid = new Array(closes.length).fill(NaN);
+      this._up = new Array(closes.length).fill(NaN);
+      this._lo = new Array(closes.length).fill(NaN);
+      for (let i = params.lookback - 1; i < closes.length; i++) {
+        let sx=0,sy=0,sxx=0,sxy=0;
+        for (let k=0;k<params.lookback;k++){ const x=k, y=closes[i-params.lookback+1+k]; sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
+        const n=params.lookback, denom=n*sxx-sx*sx;
+        if (denom===0) continue;
+        const m=(n*sxy-sx*sy)/denom, b=(sy-m*sx)/n;
+        const fit = m*(params.lookback-1)+b;
+        let sse=0;
+        for (let k=0;k<params.lookback;k++){ const x=k, y=closes[i-params.lookback+1+k]; const yhat=m*x+b; sse+=(y-yhat)*(y-yhat); }
+        const std = Math.sqrt(sse/n);
+        this._mid[i] = fit;
+        this._up[i] = fit + params.bandStd*std;
+        this._lo[i] = fit - params.bandStd*std;
+      }
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.lookback + 1 || isNaN(this._lo[i])) return null;
+      const c = candles[i];
+      // Long: price touches lower channel + bullish close
+      if (c.low <= this._lo[i] && c.close > c.open && c.close > this._lo[i]) {
+        return { dir: "long", sl: c.low - params.slMult*this._atr[i] };
+      }
+      if (c.high >= this._up[i] && c.close < c.open && c.close < this._up[i]) {
+        return { dir: "short", sl: c.high + params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      if (position.dir === "long" && candles[i].high >= this._mid[i]) return true;
+      if (position.dir === "short" && candles[i].low <= this._mid[i]) return true;
+      return false;
+    }
+  },
+
+  // ── Head & Shoulders Reversal (Academy-Pattern, kein Auto-Entry) ──
+  {
+    name: "Head & Shoulders Reversal",
+    defaultTF: "4h",
+    params: {
+      lookback: { label: "Look-Back", value: 50, min: 20, max: 100 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+    },
+    shouldEnter(candles, i, params) {
+      // Akademie-Pattern: visuelle Erkennung — Auto-Trade nicht zuverlaessig
+      return null;
+    },
+    shouldExit() { return false; }
+  },
+
+  // ── Double Bottom Reversal ──
+  {
+    name: "Double Bottom",
+    defaultTF: "1h",
+    params: {
+      lookback: { label: "Look-Back", value: 30, min: 15, max: 60 },
+      tolPct: { label: "Bottom Toleranz %", value: 0.5, min: 0.1, max: 2.0, step: 0.1 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.lookback + 5 || isNaN(this._atr[i])) return null;
+      // Find two recent local lows within tolerance
+      const window = candles.slice(i - params.lookback, i + 1);
+      let lows = [];
+      for (let k = 2; k < window.length - 2; k++) {
+        if (window[k].low < window[k-1].low && window[k].low < window[k-2].low &&
+            window[k].low < window[k+1].low && window[k].low < window[k+2].low) {
+          lows.push({ idx: k, low: window[k].low });
+        }
+      }
+      if (lows.length < 2) return null;
+      const last = lows[lows.length-1], prev = lows[lows.length-2];
+      const tol = last.low * params.tolPct/100;
+      if (Math.abs(last.low - prev.low) > tol) return null;
+      // Neckline = highest high between the two bottoms
+      let neckline = -Infinity;
+      for (let k = prev.idx; k <= last.idx; k++) if (window[k].high > neckline) neckline = window[k].high;
+      // Entry on break above neckline
+      if (candles[i].close > neckline) {
+        return { dir: "long", sl: last.low - params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.entryPrice + params.tpR*r;
+      if (candles[i].high >= target) return true;
+      return false;
+    }
+  },
+
+  // ── Triangle Breakout (Academy-Pattern) ──
+  {
+    name: "Triangle Breakout",
+    defaultTF: "1h",
+    params: {
+      lookback: { label: "Look-Back", value: 25, min: 10, max: 60 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+    },
+    shouldEnter(candles, i, params) { return null; },
+    shouldExit() { return false; }
+  },
+
+  // ── Flag Continuation ──
+  {
+    name: "Flag Continuation",
+    defaultTF: "1h",
+    params: {
+      impulseLen: { label: "Impulse-Laenge", value: 5, min: 3, max: 15 },
+      impulsePct: { label: "Impulse Min %", value: 3.0, min: 1.0, max: 10.0, step: 0.5 },
+      flagLen: { label: "Flag-Laenge", value: 5, min: 3, max: 15 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.impulseLen + params.flagLen + 1) return null;
+      const flagStart = i - params.flagLen;
+      const impulseStart = flagStart - params.impulseLen;
+      const impulseGain = (candles[flagStart].close - candles[impulseStart].close) / candles[impulseStart].close * 100;
+      // Bullish flag: impulse up + flag (small range consolidation) + breakout up
+      if (impulseGain > params.impulsePct) {
+        let flagHi = -Infinity, flagLo = Infinity;
+        for (let k = flagStart; k <= flagStart + params.flagLen; k++) {
+          if (candles[k].high > flagHi) flagHi = candles[k].high;
+          if (candles[k].low < flagLo) flagLo = candles[k].low;
+        }
+        const flagRange = (flagHi - flagLo) / candles[flagStart].close * 100;
+        if (flagRange < impulseGain * 0.5 && candles[i].close > flagHi) {
+          return { dir: "long", sl: flagLo - params.slMult*this._atr[i] };
+        }
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.entryPrice + params.tpR*r;
+      if (candles[i].high >= target) return true;
+      return false;
+    }
+  },
+
+  // ── BOS / CHoCH Market Structure ──
+  {
+    name: "BOS / CHoCH Market Structure",
+    defaultTF: "1h",
+    params: {
+      pivotLookback: { label: "Pivot Look-Back", value: 5, min: 2, max: 15 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+      // Track swing highs and lows
+      this._swingHigh = new Array(closes.length).fill(NaN);
+      this._swingLow = new Array(closes.length).fill(NaN);
+      const L = params.pivotLookback;
+      for (let i = L; i < closes.length - L; i++) {
+        let isHigh = true, isLow = true;
+        for (let k = 1; k <= L; k++) {
+          if (candles[i].high <= candles[i-k].high || candles[i].high <= candles[i+k].high) isHigh = false;
+          if (candles[i].low >= candles[i-k].low || candles[i].low >= candles[i+k].low) isLow = false;
+        }
+        if (isHigh) this._swingHigh[i] = candles[i].high;
+        if (isLow) this._swingLow[i] = candles[i].low;
+      }
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.pivotLookback * 4) return null;
+      // Last swing high
+      let lastHigh = NaN, lastHighIdx = -1;
+      for (let k = i - 1; k >= Math.max(0, i - 40); k--) {
+        if (!isNaN(this._swingHigh[k])) { lastHigh = this._swingHigh[k]; lastHighIdx = k; break; }
+      }
+      if (isNaN(lastHigh)) return null;
+      // BOS bullish: close above last swing high
+      if (candles[i].close > lastHigh && candles[i-1].close <= lastHigh) {
+        return { dir: "long", sl: candles[i].close - params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.entryPrice + params.tpR*r;
+      if (position.dir === "long" && candles[i].high >= target) return true;
+      if (position.dir === "short" && candles[i].low <= target) return true;
+      return false;
+    }
+  },
+
+  // ── Bullish RSI Divergence ──
+  {
+    name: "Bullish RSI Divergence",
+    defaultTF: "1h",
+    params: {
+      rsiPeriod: { label: "RSI Period", value: 14, min: 5, max: 30 },
+      lookback: { label: "Divergence Look-Back", value: 25, min: 10, max: 60 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._rsi = Indicators.rsi(closes, params.rsiPeriod);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.lookback + 2 || isNaN(this._rsi[i]) || isNaN(this._atr[i])) return null;
+      // Find previous low in window
+      let prevLowIdx = -1, prevLow = Infinity, prevRsi = NaN;
+      for (let k = i - params.lookback; k < i - 3; k++) {
+        if (candles[k].low < prevLow) { prevLow = candles[k].low; prevLowIdx = k; prevRsi = this._rsi[k]; }
+      }
+      if (prevLowIdx < 0) return null;
+      // Current low (last 3 bars min)
+      let curLow = Math.min(candles[i].low, candles[i-1].low, candles[i-2].low);
+      let curRsi = Math.min(this._rsi[i], this._rsi[i-1], this._rsi[i-2]);
+      // Divergence: price LL, RSI HL
+      if (curLow < prevLow && curRsi > prevRsi && this._rsi[i] < 40 && candles[i].close > candles[i].open) {
+        return { dir: "long", sl: curLow - params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.entryPrice + params.tpR*r;
+      if (candles[i].high >= target) return true;
+      return false;
+    }
+  },
+
+  // ── TD Sequential 9 (DeMark) ──
+  {
+    name: "TD Sequential 9",
+    defaultTF: "4h",
+    params: {
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+      // TD-Setup: 9 consecutive closes < close[i-4] (buy setup) or > close[i-4] (sell setup)
+      this._buyCount = new Array(closes.length).fill(0);
+      for (let i = 4; i < closes.length; i++) {
+        this._buyCount[i] = closes[i] < closes[i-4] ? (this._buyCount[i-1] + 1) : 0;
+      }
+    },
+    shouldEnter(candles, i, params) {
+      if (i < 10 || isNaN(this._atr[i])) return null;
+      // TD-Setup 9 complete = buy signal
+      if (this._buyCount[i] === 9) {
+        return { dir: "long", sl: candles[i].low - params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.entryPrice + params.tpR*r;
+      if (candles[i].high >= target) return true;
+      return false;
+    }
+  },
+
+  // ── Anchored VWAP from Event ──
+  {
+    name: "Anchored VWAP",
+    defaultTF: "1h",
+    params: {
+      anchorLookback: { label: "Anchor (Bars zurueck)", value: 50, min: 20, max: 200 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.0, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+      // Compute Anchored VWAP starting at the bar with highest volume in lookback window
+      this._avwap = new Array(closes.length).fill(NaN);
+      for (let i = params.anchorLookback; i < closes.length; i++) {
+        // Find anchor: highest-volume bar in last N bars
+        let anchorIdx = i - params.anchorLookback, maxV = -1;
+        for (let k = i - params.anchorLookback; k <= i - params.anchorLookback + 5; k++) {
+          if ((candles[k].volume || 1) > maxV) { maxV = candles[k].volume || 1; anchorIdx = k; }
+        }
+        let cumPV = 0, cumV = 0;
+        for (let k = anchorIdx; k <= i; k++) {
+          const tp = (candles[k].high + candles[k].low + candles[k].close)/3;
+          const v = candles[k].volume || 1;
+          cumPV += tp * v;
+          cumV += v;
+        }
+        this._avwap[i] = cumV > 0 ? cumPV / cumV : NaN;
+      }
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.anchorLookback + 1 || isNaN(this._avwap[i]) || isNaN(this._atr[i])) return null;
+      const c = candles[i], prev = candles[i-1];
+      // Long: pullback to AVWAP + bullish close
+      if (prev.low <= this._avwap[i-1] && c.close > this._avwap[i] && c.close > c.open) {
+        return { dir: "long", sl: prev.low - params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      const target = position.entryPrice + params.tpR*r;
+      if (candles[i].high >= target) return true;
+      return false;
+    }
   }
 ];
 
@@ -10570,6 +10969,232 @@ const STRATEGY_INFO_EN = {
 // Wird im Akademie-"Einfach"-Modus statt STRATEGY_INFO genutzt.
 // ═══════════════════════════════════════════════════════════════
 const STRATEGY_INFO_SIMPLE = {
+  "Trendlinien-Bruch + Retest": {
+    desc: "Du zeichnest eine schraege Trendlinie ueber die Hochs (Downtrend) oder Tiefs (Uptrend) — der Trade kommt wenn die Linie sauber gebrochen UND danach von der anderen Seite getestet wird.",
+    indicators: [
+      "Linear Regression Channel (Lookback 30) — Linie folgt der Trend-Schraege automatisch.",
+      "ATR(14) fuer Stopp-Loss-Distanz."
+    ],
+    steps: [
+      "Lege Linear Regression auf den Chart (Lookback 30 Bars) — das ersetzt die manuelle Trendlinie.",
+      "Identifiziere den vorherigen Trend (Preis war unter der Linie = Downtrend, ueber der Linie = Uptrend).",
+      "Bruch-Kerze: Preis schliesst auf der anderen Seite der Linie (z.B. nach oben durch).",
+      "Warte auf den Retest: naechste 1-3 Kerzen kommen zurueck zur Linie (Toleranz +/-0.3%).",
+      "Einstieg: bullish Bestaetigungs-Kerze beim Retest (gruen, schliesst ueber der Linie).",
+      "SL: 1.5x ATR unter dem Retest-Tief. TP: 2R fix."
+    ],
+    glossary: [
+      "Trendlinie = schraege Linie die mehrere Hochs (downtrend) oder Tiefs (uptrend) verbindet.",
+      "Linear Regression = mathematische Best-Fit-Linie durch die letzten X Kerzen — perfekter Trendlinien-Ersatz.",
+      "Retest = nachdem eine Linie gebrochen wird, kommt der Preis oft nochmal zurueck und testet sie von der anderen Seite.",
+      "R = Risiko = Abstand Einstieg zu Stopp. 2R-TP = doppelt so weit weg wie der Stopp."
+    ],
+    market: "Trendmaerkte mit klaren Trendlinien. NICHT in choppy Sideways-Phasen — da gibts keine sauberen Linien zum Brechen."
+  },
+  "Trend-Kanal Bounce": {
+    desc: "Ein Trend laeuft oft in einem Parallelkanal — zwei parallele Linien. Du kaufst wenn der Preis am unteren Kanal-Rand abprallt und verkaufst wenn er den oberen erreicht.",
+    indicators: [
+      "Linear Regression Channel mit Std-Bands (1.5σ) — drei Linien: Mitte + Oberkanal + Unterkanal.",
+      "ATR(14) fuer Stopp-Loss-Distanz."
+    ],
+    steps: [
+      "Lege Linear Regression Channel auf den Chart (Period 30, StdDev 1.5).",
+      "Identifiziere den Trend: Mittellinie geht aufwaerts = Uptrend, abwaerts = Downtrend.",
+      "Long-Trigger (im Uptrend): Preis-Tief beruehrt unteren Kanal, gruene Reversal-Kerze schliesst zurueck im Kanal.",
+      "Short-Trigger (im Downtrend): Preis-Hoch beruehrt oberen Kanal, rote Reversal-Kerze schliesst zurueck im Kanal.",
+      "SL: 1.5x ATR jenseits des Kanal-Wicks.",
+      "TP: Mittellinie (Kanal-Mitte) — wenn erreicht, schliessen oder bis Gegenkanal trailen."
+    ],
+    glossary: [
+      "Trend-Kanal = zwei parallele Linien die einen Trend einrahmen — eine ueber den Hochs, eine unter den Tiefs.",
+      "StdDev = Standardabweichung. 1.5σ-Band = enthaelt etwa 87% der Preise in einem stabilen Trend.",
+      "Bounce = Abpraller. Wenn der Preis am Rand des Kanals dreht statt durchzubrechen.",
+      "Reversal-Kerze = Bestaetigung dass der Bounce echt ist: gruene Kerze nach Touch von unten, rote nach Touch von oben."
+    ],
+    market: "Funktioniert in klar definierten Trends. In Ranges nutze Bollinger-Reversion stattdessen, in starken Impulsen ohne Pullbacks ueberhaupt nicht."
+  },
+  "Head & Shoulders Reversal": {
+    desc: "Die beruehmteste Umkehrformation der Welt: drei Hochs in spezifischer Form — zwei kleine \"Schultern\" links und rechts und ein hoeherer \"Kopf\" in der Mitte. Bricht der Hals (Neckline), dreht der Trend.",
+    indicators: [
+      "Visueller Pattern — keine speziellen Indikatoren noetig.",
+      "Volume zur Bestaetigung: rechts-Schulter mit niedrigerem Volume als links = ideal.",
+      "ATR(14) fuer Stopp-Loss-Distanz."
+    ],
+    steps: [
+      "Identifiziere im Uptrend drei klare Hochs: Linke-Schulter < Kopf > Rechte-Schulter. Schultern ungefaehr gleich hoch.",
+      "Zeichne die Neckline durch die zwei Tiefpunkte zwischen den Schultern (oft leicht schraege Linie).",
+      "Warte bis die rechte Schulter komplett ausgebildet ist (Volume idealerweise niedriger als bei der linken).",
+      "Bruch-Trigger: Close UNTER der Neckline (am besten mit Volume-Spike).",
+      "Einstieg: bei Close-Bestaetigung der Neckline-Bruch-Kerze oder beim Retest der Neckline von unten.",
+      "SL: ueber der rechten Schulter + 0.5 ATR. TP: Distanz Kopf-zu-Neckline projiziert nach unten."
+    ],
+    glossary: [
+      "Neckline = die Linie die die zwei Tiefpunkte zwischen den Schultern verbindet — der \"Hals\" des Patterns.",
+      "Linke Schulter = erstes Hoch im Uptrend. Kopf = hoeheres mittleres Hoch. Rechte Schulter = drittes Hoch, ungefaehr gleich hoch wie linke.",
+      "Inverse H&S = das Spiegelbild: am Tief eines Downtrends, mit Tiefs statt Hochs. Long-Setup statt Short.",
+      "Measured Move = die Distanz Kopf-bis-Neckline wird ab dem Bruch nach unten projiziert = Mindest-Kursziel."
+    ],
+    market: "Funktioniert am Top von langen Trends. JEDER Trader kennt das Muster — deshalb spielt es sich oft selbst (selffulfilling). Achtung: viele False-Breaks ohne Volume-Bestaetigung."
+  },
+  "Double Bottom": {
+    desc: "Der Preis testet zweimal das gleiche Tief, kommt aber beim zweiten Mal nicht weiter runter. Bricht er dann das Hoch zwischen den beiden Tiefs, ist die Umkehr offiziell.",
+    indicators: [
+      "Visueller Pattern — keine Indikatoren noetig.",
+      "Volume: zweites Tief mit weniger Volume als erstes = staerkere Bestaetigung.",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Identifiziere ein klares Tief nach einem Downtrend (Tief 1).",
+      "Warte auf den Pullback nach oben (Zwischen-Hoch), dann zweiten Test des Tiefs (Tief 2).",
+      "Tief 2 sollte sehr nah an Tief 1 sein (innerhalb 0.5% — nicht tiefer brechen).",
+      "Neckline = das Zwischen-Hoch zwischen beiden Tiefs.",
+      "Entry: Close ueber der Neckline (mit Volume-Bestaetigung idealerweise).",
+      "SL: unter Tief 2 + 0.5 ATR. TP: Distanz Tief-zu-Neckline projiziert nach oben."
+    ],
+    glossary: [
+      "Double Bottom = Doppel-Tief: \"W\"-Formation. Doppel-Hoch (Double Top) ist das Spiegelbild als \"M\".",
+      "Neckline = das Zwischen-Hoch das beide Tiefs trennt — wird zum Trigger-Level fuer den Bruch.",
+      "False Break = wenn das zweite Tief das erste durchbricht — dann ist das Pattern UNGUELTIG."
+    ],
+    market: "Funktioniert nach laengeren Abwaerts-Phasen an Major-Support-Levels. Bestes Setup: Tief 2 an einer wichtigen historischen Support-Zone."
+  },
+  "Triangle Breakout": {
+    desc: "Drei Formen: aufsteigendes Dreieck (bullish) hat gleiche Hochs + steigende Tiefs, absteigendes ist umgekehrt, symmetrisches Dreieck zieht sich von beiden Seiten zusammen. Beim Bruch der Linien geht's los.",
+    indicators: [
+      "Visueller Pattern — zwei Trendlinien zeichnen.",
+      "Volume nimmt im Dreieck typischerweise ab, beim Breakout sollte es explodieren.",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Identifiziere im Chart eine Konsolidierung mit min. 5 Beruehrungen (2 obere + 3 untere oder umgekehrt).",
+      "Zeichne obere Trendlinie ueber die Hochs, untere ueber die Tiefs.",
+      "Dreieck-Typ erkennen: Ascending (oben flach, unten steigt), Descending (umgekehrt), Symmetrical (beide konvergieren).",
+      "Warte auf den Breakout — Close ueber/unter einer der Linien.",
+      "Volume-Bestaetigung: Breakout-Kerze sollte 1.5x oder mehr Durchschnitts-Volume haben.",
+      "Entry: Close-Bestaetigung der Breakout-Kerze oder Retest der gebrochenen Linie.",
+      "SL: jenseits der Dreieck-Mitte. TP: Hoehe des Dreiecks ab Breakout-Punkt projiziert."
+    ],
+    glossary: [
+      "Ascending Triangle = bullish bias: flache Resistance + steigende Tiefs. Breakout meist nach oben.",
+      "Descending Triangle = bearish bias: flacher Support + fallende Hochs. Breakout meist nach unten.",
+      "Symmetrical Triangle = neutral: beide Linien konvergieren. Breakout-Richtung folgt dem groesseren Trend.",
+      "Convergence = Konvergenz. Die Linien laufen zusammen je naeher das Apex (Spitze) kommt."
+    ],
+    market: "Klassisches Continuation-Pattern in Trends. In Ranges oft nur Konsolidierung ohne klare Richtung. Bestes Setup: Dreieck in Richtung des vorhergehenden Trends."
+  },
+  "Flag Continuation": {
+    desc: "Nach einem starken Aufwaerts-Impuls (\"Flaggenstange\") konsolidiert der Preis in einem kleinen Parallel-Kanal (\"Flagge\"). Bricht die Flagge aus, geht der Trend weiter — meist genauso weit wie die Flaggenstange.",
+    indicators: [
+      "Visueller Pattern — Flaggenstange + Flagge identifizieren.",
+      "Volume: hoch waehrend Flaggenstange, niedrig waehrend Flagge, Spike beim Breakout.",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Identifiziere die Flaggenstange: starker Move in 3-7 Kerzen, min. 3% Bewegung.",
+      "Erkenne die Flagge: 3-7 Kerzen Konsolidierung in kleinerer Range, leicht gegen den Trend geneigt.",
+      "Flagge muss klar kleiner sein als die Stange (Range < 50% der Flaggenstange).",
+      "Entry-Trigger: Close ueber dem Flag-Hoch (bei Bullish-Flag).",
+      "Volume-Bestaetigung: Breakout-Kerze mit klar erhoehtem Volume.",
+      "SL: unter dem Flag-Tief + 0.5 ATR. TP: Flaggenstange-Hoehe ueber dem Breakout-Punkt."
+    ],
+    glossary: [
+      "Flaggenstange = der initiale starke Move bevor die Flagge konsolidiert.",
+      "Flagge = die Konsolidierungs-Phase: klein, eng, leicht gegen den Trend geneigt.",
+      "Pennant = aehnlich wie Flag aber mit konvergierenden Linien statt parallel.",
+      "Measured Move = Flaggenstange-Distanz ab Breakout-Punkt = klassisches Mindest-Ziel."
+    ],
+    market: "Bestes Continuation-Pattern in starken Trends. Vermeide in Sideways-Maerkten — da ist jeder kleine Move eine \"Flagge\" die ins Nichts laeuft."
+  },
+  "BOS / CHoCH Market Structure": {
+    desc: "Smart Money Concept: jeder Trend besteht aus Higher-Highs/Higher-Lows (bullish) oder Lower-Lows/Lower-Highs (bearish). BOS = Break of Structure (Trend laeuft weiter), CHoCH = Change of Character (Trend dreht).",
+    indicators: [
+      "Swing-Hoch/Tief-Marker (Pivot Lookback 5).",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Identifiziere die letzte Marktstruktur: Uptrend (HH+HL) oder Downtrend (LL+LH).",
+      "Markiere die letzten Swing-Hochs und Swing-Tiefs (5-Bar-Pivot).",
+      "BOS bullish: Im Uptrend bricht der Preis das letzte Swing-Hoch — Trend-Continuation.",
+      "CHoCH bullish: Im Downtrend bricht der Preis das letzte Swing-Hoch — Trend-Wechsel.",
+      "Entry: Close-Bestaetigung des Bruchs (kein nur-Wick-Bruch).",
+      "Optimaler Entry: zurueck-Retest der gebrochenen Struktur (was vorher Resistance war ist jetzt Support).",
+      "SL: unter dem letzten Higher-Low (BOS) oder unter dem CHoCH-Tief. TP: 2R oder naechstes Major-Structure-Level."
+    ],
+    glossary: [
+      "BOS (Break of Structure) = Bruch der Markt-Struktur in Trend-Richtung. Bestaetigt den Trend.",
+      "CHoCH (Change of Character) = Bruch gegen die Markt-Struktur. Erstes Warnsignal fuer Trend-Wechsel.",
+      "Swing High/Low = lokale Hoch/Tief-Punkte die mind. 5 Bars links + 5 Bars rechts kleiner/groesser sind.",
+      "Internal vs External Structure = SMC unterscheidet feine (Internal) und grobe (External) Structure-Levels."
+    ],
+    market: "Funktioniert auf jedem Timeframe. SMC-Trader nutzen meist 4h+1h-Kombination: 4h fuer Bias, 1h fuer Entry-Trigger."
+  },
+  "Bullish RSI Divergence": {
+    desc: "Der Preis macht ein neues Tief — aber der RSI macht ein hoeheres Tief. Das ist die Divergenz: der Trend laeuft optisch noch runter, aber die Kraft dahinter laesst nach. Klassisches Reversal-Setup.",
+    indicators: [
+      "RSI(14) als Sub-Panel.",
+      "ATR(14) fuer Stopp-Loss-Distanz."
+    ],
+    steps: [
+      "Identifiziere zwei Tiefs auf dem Preis: Tief 2 muss UNTER Tief 1 sein (Lower Low).",
+      "Vergleiche die RSI-Werte an beiden Punkten: RSI bei Tief 2 muss UEBER RSI bei Tief 1 sein (Higher Low).",
+      "Optional Verstaerker: RSI bei Tief 1 sollte deutlich oversold sein (<30), bei Tief 2 leicht hoeher (z.B. 35-40).",
+      "Bullish Reaktions-Kerze als Trigger (gruen mit klarem Body).",
+      "Entry: Close der Bestaetigungs-Kerze.",
+      "SL: unter Tief 2 + 0.5 ATR. TP: 2R oder vorheriges Pivot-Hoch."
+    ],
+    glossary: [
+      "Divergenz = Auseinanderlaufen. Preis und Indikator zeigen verschiedene Geschichten.",
+      "Bullish Divergence = Preis macht LL, RSI macht HL = Trend verliert Abwaerts-Kraft.",
+      "Bearish Divergence = Preis macht HH, RSI macht LH = Trend verliert Aufwaerts-Kraft.",
+      "Hidden Divergence = Preis macht HL, RSI macht LL = Trend-Continuation-Signal (umgekehrt zur Regular-Divergence)."
+    ],
+    market: "Divergenzen funktionieren am besten an Major-Support/Resistance-Levels — nicht mitten im Trend. Geduldig auf das Setup warten — Divergenzen sind selten aber stark."
+  },
+  "TD Sequential 9": {
+    desc: "Tom DeMarks Klassiker: zaehlt 9 aufeinanderfolgende Kerzen mit Close < Close-vor-4-Bars (Buy-Setup). Nach 9 ist der Downtrend oft erschoepft = Counter-Trend-Long-Trigger.",
+    indicators: [
+      "TD Sequential Bar-Counter (zaehlt automatisch).",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Beobachte die Kerzen: zaehle hoch wenn aktueller Close < Close vor 4 Bars (Bar-Count 1).",
+      "Naechste Kerze: Close < Close vor 4 Bars = Count 2. Sonst zurueck auf 0.",
+      "Bar 9 erreicht: Setup komplett (Klassisches DeMark-Signal).",
+      "Optional: warten auf Perfected Setup (Bar 8 oder 9 hat Low unter Low von Bar 6 + Bar 7) = staerker.",
+      "Entry: bullish Bestaetigungs-Kerze nach Bar 9 (oder Close ueber High von Bar 9).",
+      "SL: unter Tief des Bar 9. TP: 2R oder naechstes Resistance-Level."
+    ],
+    glossary: [
+      "TD Sequential = Time-and-Direction-Indikator von Tom DeMark. Zwei Phasen: Setup (9 Bars) + Countdown (13 Bars).",
+      "Setup-Bar = einzelne Kerze die die Bedingung erfuellt (Close < Close-4).",
+      "Perfected Setup = Bar 8/9 hat extreme Tiefs unter Bar 6/7 = staerker.",
+      "Countdown Phase = kommt NACH Setup. Andere Logik, andere Bedingungen."
+    ],
+    market: "DeMark-Strategie wirkt auf allen Timeframes. Hoehere Timeframes (4h/Daily) liefern weniger aber qualitativ bessere Signale. Funktioniert besonders an Major-Support."
+  },
+  "Anchored VWAP": {
+    desc: "Ein VWAP der von einem spezifischen Event aus berechnet wird (z.B. Halving, Earnings, lokales Top). Trader nutzen ihn als Magnet — Preis kehrt typischerweise zum Anchored VWAP zurueck.",
+    indicators: [
+      "Anchored VWAP (Anchor: hoechstes-Volumen-Bar in Lookback).",
+      "Volume-Bars zur Anchor-Identifikation.",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Identifiziere einen klaren Anchor-Punkt: Earnings-Release, ATH, Crash-Tief, Halving etc.",
+      "Auf dem Chart Anchored VWAP ab diesem Punkt zeichnen lassen (TradingView: Tool \"Anchored VWAP\").",
+      "Long-Setup: Preis ueber Anchored VWAP + Pullback zur Linie + bullish Reaktions-Kerze.",
+      "Short-Setup: spiegelbildlich — Preis unter VWAP, Test von unten, bearish Rejection.",
+      "Entry: Close der Bestaetigungs-Kerze beim Touch des AVWAP.",
+      "SL: 1.5x ATR jenseits des Wicks. TP: 2R oder vorheriges Pivot."
+    ],
+    glossary: [
+      "Anchored VWAP = VWAP der ab einem spezifischen Datum/Bar gerechnet wird statt ab Tages-Open.",
+      "Anchor-Punkt = das Event ab dem gerechnet wird (z.B. Crash, ATH, News-Release).",
+      "VWAP = Volume-Weighted Average Price. Beruecksichtigt Volumen — institutionelle Trader nutzen es als Referenz.",
+      "Magnet-Effekt = Preise kehren oft zum AVWAP zurueck weil dort grosse Orders ausgefuehrt wurden."
+    ],
+    market: "Funktioniert besonders gut nach grossen Events: Earnings, Halvings, FOMC-Sitzungen, Crash-Tiefs. Auf Crypto: Halving als Anchor ist ein Klassiker."
+  },
   "Z-Score Mean Reversion": {
     desc: "Wenn der Preis sehr weit vom Durchschnitt wegläuft, wettet diese Strategie darauf dass er zurückkommt — wie ein gespanntes Gummiband das zurückspringt.",
     indicators: [
@@ -22435,6 +23060,16 @@ window.addEventListener('DOMContentLoaded', () => {
 // Mappt jede Strategie auf eine Schema-Kategorie (fuer SVG-Beispiel + Filter)
 const ACADEMY_SCHEMAS = {
   'Z-Score Mean Reversion': 'channel-reversion',
+  'Trendlinien-Bruch + Retest': 'breakout',
+  'Trend-Kanal Bounce': 'channel-reversion',
+  'Head & Shoulders Reversal': 'pattern',
+  'Double Bottom': 'pattern',
+  'Triangle Breakout': 'breakout',
+  'Flag Continuation': 'breakout',
+  'BOS / CHoCH Market Structure': 'smc',
+  'Bullish RSI Divergence': 'oscillator-reversal',
+  'TD Sequential 9': 'oscillator-reversal',
+  'Anchored VWAP': 'channel-reversion',
   'Trend-Pullback': 'trend-pullback',
   'Donchian-Breakout + ADX': 'breakout',
   'Bollinger Reversion': 'channel-reversion',
@@ -30588,6 +31223,16 @@ function renderAcademy() {
       const _hasAnim = (typeof ACADEMY_ANIM_CONFIGS !== 'undefined') &&
         (/trend.?pullback/i.test(strat.name) ? 'trend-pullback' :
          /ema.?bounce/i.test(strat.name) ? 'trend-pullback' :
+         /trendlini.+bruch|trendline.?break|trend.?break/i.test(strat.name) ? 'trendline-break-retest' :
+         /trend.?kanal|trend.?channel|channel.?bounce/i.test(strat.name) ? 'trend-channel-bounce' :
+         /head.+shoulder|kopf.+schulter/i.test(strat.name) ? 'head-shoulders' :
+         /double.?bottom|doppel.?tief|w.?formation/i.test(strat.name) ? 'double-bottom' :
+         /triangle.?breakout|dreieck/i.test(strat.name) ? 'triangle-breakout' :
+         /flag.?continu|fortsetzungs.?flag|wimpel|pennant/i.test(strat.name) ? 'flag-continuation' :
+         /\bbos\b|choch|break.?of.?structure|change.?of.?character|market.?structure/i.test(strat.name) ? 'bos-choch' :
+         /rsi.?divergence|bullish.?rsi.?diverg|rsi.?diverg/i.test(strat.name) ? 'rsi-divergence' :
+         /td.?sequential|td.?9|demark.?9|demark.?sequen/i.test(strat.name) ? 'td-sequential-9' :
+         /anchored.?vwap|\bavwap\b/i.test(strat.name) ? 'anchored-vwap' :
          /donchian.?mean|donchian.?revers/i.test(strat.name) ? 'donchian-mean-reversion' :
          /ttm.?squeeze|squeeze.?momentum/i.test(strat.name) ? 'ttm-squeeze' :
          /bb.?bandwidth.?squeeze/i.test(strat.name) ? 'bb-bandwidth-squeeze' :
@@ -33226,7 +33871,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-13 00:30 UTC';
+const APP_BUILD = '2026-05-13 02:15 UTC';
 
 // Header-Badge dynamisch setzen (verhindert hardcoded Stale-Werte)
 (function _initVersionBadge() {
@@ -40655,6 +41300,542 @@ const ACADEMY_ANIM_CONFIGS = {
       market: 'MTF-Setup ist konservativ — viele Bedingungen muessen passen. Aber wenn sie alle passen, sind die Trades stark.'
     },
     tip: 'Multi-Timeframe-Confluence = der heilige Gral fuer konservative Trader. Setup-Frequency niedrig (~3-5 pro Monat) aber Hit-Rate sehr hoch. Geduld ist die einzige Voraussetzung.'
+  },
+
+  'trendline-break-retest': {
+    title: 'Trendlinien-Bruch + Retest · BTC 1h · Long',
+    subtitle: 'Schraege Downtrend-Linie gebrochen → Retest → Long',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43900,l:43750,c:43850},{o:43850,h:43900,l:43680,c:43720},
+      {o:43720,h:43780,l:43560,c:43600},{o:43600,h:43660,l:43450,c:43500},
+      {o:43500,h:43560,l:43350,c:43400},{o:43400,h:43460,l:43250,c:43300},
+      {o:43300,h:43360,l:43150,c:43200},{o:43200,h:43260,l:43050,c:43100},
+      {o:43100,h:43160,l:42950,c:43000},{o:43000,h:43060,l:42850,c:42900},
+      {o:42900,h:42960,l:42750,c:42800},{o:42800,h:42860,l:42650,c:42700},
+      {o:42700,h:42760,l:42600,c:42680},{o:42680,h:42800,l:42620,c:42760},
+      {o:42760,h:43050,l:42720,c:43000},{o:43000,h:43150,l:42950,c:43100},
+      {o:43100,h:43180,l:42960,c:43000},{o:43000,h:43090,l:42940,c:43070},
+      {o:43070,h:43250,l:43040,c:43200},{o:43200,h:43400,l:43150,c:43350},
+      {o:43350,h:43550,l:43300,c:43500},{o:43500,h:43700,l:43450,c:43650},
+      {o:43650,h:43850,l:43600,c:43800},{o:43800,h:44000,l:43750,c:43950},
+      {o:43950,h:44150,l:43900,c:44100},{o:44100,h:44300,l:44050,c:44250},
+      {o:44250,h:44450,l:44200,c:44400},{o:44400,h:44600,l:44350,c:44550},
+      {o:44550,h:44750,l:44500,c:44700},{o:44700,h:44900,l:44650,c:44850}
+    ],
+    entryIdx: 17,
+    entryPrice: 43070, slPrice: 42600, tp1Price: 44020, tp2Price: 44950,
+    indicators: {
+      multipleMAs: [
+        { values: [43850,43730,43610,43490,43370,43250,43130,43010,42890,42770,42700,42700,42730,42780,42850,42940,43040,43150,43270,43400,43540,43690,43850,44020,44200,44390,44590,44800,45020,45250], color: '#fbbf24', label: 'Trendlinie (LinReg)', dashed: [4,3] }
+      ]
+    },
+    zone: { fromIdx: 16, toIdx: 18, top: 43100, bottom: 42940 },
+    zoneLabel: 'RETEST',
+    zoneColor: '251,191,36',
+    structureLabels: [
+      { idx: 14, price: 43050, text: 'BREAK', color: '#22c55e' },
+      { idx: 17, price: 43070, text: 'RETEST hold', color: '#22c55e' },
+      { idx: 25, price: 44250, text: 'Trend Up', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Downtrend (mind. 3 Touches an der Linie)',
+      '(2) Bruch-Kerze schliesst klar UEBER der Trendlinie',
+      '(3) Retest: Preis kommt zurueck zur Linie (Toleranz 0.3%)',
+      '(4) Bullish Bestaetigungs-Kerze beim Retest',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze beim Retest der gebrochenen Trendlinie (von oben kommend).',
+      sl: '1.5x ATR unter dem Retest-Tief.',
+      tp: 'TP1 = 2R fix · TP2 = naechstes Major-Resistance-Level.',
+      market: 'Trendmaerkte mit klaren Trendlinien. In Choppy-Phasen gibt es keine sauberen Linien.'
+    },
+    tip: 'Trendlinien-Bruch ohne Retest = 60% Fakeout-Risiko. Mit Retest + Hold steigt die Quote auf ~70%. Geduld zahlt sich aus: warte auf den Retest, sonst wirst du oft ausgestoppt.'
+  },
+
+  'trend-channel-bounce': {
+    title: 'Trend-Kanal Bounce · BTC 1h · Long',
+    subtitle: 'Aufsteigender Parallel-Kanal → Bounce am unteren Rand',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42580,l:42450,c:42550},{o:42550,h:42650,l:42520,c:42620},
+      {o:42620,h:42720,l:42580,c:42680},{o:42680,h:42780,l:42640,c:42750},
+      {o:42750,h:42820,l:42620,c:42660},{o:42660,h:42760,l:42600,c:42720},
+      {o:42720,h:42820,l:42680,c:42790},{o:42790,h:42890,l:42750,c:42860},
+      {o:42860,h:42960,l:42820,c:42930},{o:42930,h:43000,l:42850,c:42890},
+      {o:42890,h:42960,l:42800,c:42830},{o:42830,h:42920,l:42780,c:42880},
+      {o:42880,h:42980,l:42840,c:42940},{o:42940,h:43040,l:42900,c:43010},
+      {o:43010,h:43080,l:42930,c:42960},{o:42960,h:43030,l:42870,c:42900},
+      {o:42900,h:43080,l:42870,c:43050},{o:43050,h:43180,l:43020,c:43150},
+      {o:43150,h:43260,l:43120,c:43230},{o:43230,h:43340,l:43200,c:43310},
+      {o:43310,h:43420,l:43280,c:43390},{o:43390,h:43500,l:43360,c:43470},
+      {o:43470,h:43580,l:43440,c:43550},{o:43550,h:43660,l:43520,c:43630},
+      {o:43630,h:43740,l:43600,c:43710},{o:43710,h:43820,l:43680,c:43790},
+      {o:43790,h:43900,l:43760,c:43870},{o:43870,h:43980,l:43840,c:43950},
+      {o:43950,h:44060,l:43920,c:44030},{o:44030,h:44140,l:44000,c:44110}
+    ],
+    entryIdx: 16,
+    entryPrice: 42900, slPrice: 42650, tp1Price: 43500, tp2Price: 44050,
+    indicators: {
+      bollinger: {
+        upper: [42700,42770,42840,42910,42980,43050,43120,43190,43260,43330,43400,43470,43540,43610,43680,43750,43820,43890,43960,44030,44100,44170,44240,44310,44380,44450,44520,44590,44660,44730],
+        mid:   [42500,42570,42640,42710,42780,42850,42920,42990,43060,43130,43200,43270,43340,43410,43480,43550,43620,43690,43760,43830,43900,43970,44040,44110,44180,44250,44320,44390,44460,44530],
+        lower: [42300,42370,42440,42510,42580,42650,42720,42790,42860,42930,43000,43070,43140,43210,43280,43350,43420,43490,43560,43630,43700,43770,43840,43910,43980,44050,44120,44190,44260,44330]
+      }
+    },
+    zone: { fromIdx: 14, toIdx: 16, top: 42960, bottom: 42870 },
+    zoneLabel: 'CHANNEL BOUNCE',
+    zoneColor: '88,166,255',
+    structureLabels: [
+      { idx: 15, price: 42870, text: 'Touch Lower', color: '#58a6ff' },
+      { idx: 16, price: 42900, text: 'Bounce', color: '#22c55e' },
+      { idx: 23, price: 43630, text: 'Channel Mid TP', color: '#fbbf24' }
+    ],
+    checklist: [
+      '(1) Klarer aufsteigender Kanal (min. 3 Touches an beiden Linien)',
+      '(2) Preis-Tief beruehrt unteren Kanal-Rand',
+      '(3) Bullish Reaktions-Kerze (gruen, schliesst zurueck im Kanal)',
+      '(4) Trend (Mittellinie) zeigt klar aufwaerts',
+      '(5) CRV >= 1:2 zur Kanal-Mitte'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze beim Touch der unteren Kanal-Linie.',
+      sl: '1.5x ATR unter dem Touch-Tief.',
+      tp: 'TP1 = Kanal-Mitte · TP2 = oberer Kanal-Rand oder 2R fix.',
+      market: 'Funktioniert in klar definierten Trends. NICHT in chaotischen Maerkten ohne Kanal-Struktur.'
+    },
+    tip: 'Trend-Kanal-Trading lebt von der Trend-Klarheit. Wenn der Preis den Kanal mehrfach verletzt, ist die Struktur kaputt — dann ist Bounce-Trading nicht mehr safe.'
+  },
+
+  'head-shoulders': {
+    title: 'Head & Shoulders Reversal · BTC 4h · Short',
+    subtitle: 'Drei Hochs: Left-Shoulder, Head (hoeher), Right-Shoulder → Bruch der Neckline',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42700,l:42450,c:42650},{o:42650,h:42850,l:42600,c:42800},
+      {o:42800,h:43000,l:42750,c:42950},{o:42950,h:43200,l:42900,c:43150},
+      {o:43150,h:43350,l:43100,c:43300},{o:43300,h:43400,l:43200,c:43250},
+      {o:43250,h:43320,l:43050,c:43100},{o:43100,h:43180,l:42950,c:43020},
+      {o:43020,h:43250,l:42990,c:43200},{o:43200,h:43500,l:43150,c:43450},
+      {o:43450,h:43700,l:43400,c:43650},{o:43650,h:43850,l:43600,c:43800},
+      {o:43800,h:43900,l:43650,c:43700},{o:43700,h:43780,l:43500,c:43550},
+      {o:43550,h:43620,l:43350,c:43400},{o:43400,h:43480,l:43200,c:43250},
+      {o:43250,h:43330,l:43100,c:43150},{o:43150,h:43380,l:43120,c:43350},
+      {o:43350,h:43450,l:43250,c:43300},{o:43300,h:43350,l:43150,c:43200},
+      {o:43200,h:43250,l:43050,c:43100},{o:43100,h:43150,l:42900,c:42950},
+      {o:42950,h:43000,l:42700,c:42750},{o:42750,h:42800,l:42500,c:42550},
+      {o:42550,h:42600,l:42300,c:42350},{o:42350,h:42400,l:42100,c:42150},
+      {o:42150,h:42200,l:41900,c:41950},{o:41950,h:42000,l:41700,c:41750},
+      {o:41750,h:41800,l:41500,c:41550},{o:41550,h:41600,l:41300,c:41350}
+    ],
+    entryIdx: 21,
+    entryPrice: 42950, slPrice: 43500, tp1Price: 41850, tp2Price: 40850,
+    indicators: {
+      multipleMAs: [
+        { values: [43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050,43050], color: '#ef4444', label: 'Neckline', dashed: [6,3] }
+      ]
+    },
+    zone: { fromIdx: 20, toIdx: 22, top: 43200, bottom: 42950 },
+    zoneLabel: 'NECKLINE BREAK',
+    zoneColor: '239,68,68',
+    structureLabels: [
+      { idx: 4, price: 43350, text: 'Left Shoulder', color: '#fbbf24' },
+      { idx: 11, price: 43850, text: 'HEAD', color: '#ef4444' },
+      { idx: 17, price: 43380, text: 'Right Shoulder', color: '#fbbf24' },
+      { idx: 21, price: 42950, text: 'Neckline Break', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Uptrend vor dem Pattern',
+      '(2) Left-Shoulder, Head (hoeher), Right-Shoulder (~Schulter-Hoehe)',
+      '(3) Neckline durch die zwei Tiefs zwischen den Schultern',
+      '(4) Volume idealerweise: Head hoechstes, Right-Shoulder am niedrigsten',
+      '(5) Bruch-Kerze mit grossem Body schliesst UNTER der Neckline'
+    ],
+    setupRules: {
+      entry: 'Close UNTER der Neckline (oder Retest der Neckline von unten).',
+      sl: 'Ueber dem Right-Shoulder-Hoch + 0.5 ATR.',
+      tp: 'TP1 = Distanz Head-zu-Neckline projiziert nach unten · TP2 = Major-Support.',
+      market: 'Funktioniert am Top von langen Trends. Wirkt staerker auf hoeheren Timeframes (4h+).'
+    },
+    tip: 'H&S ist DIE Trader-Formation — jeder kennt sie, deshalb wird sie oft \"selffulfilling\". Aber Achtung: ohne Volume-Bestaetigung ist 40% der H&S-Patterns ein Fakeout.'
+  },
+
+  'double-bottom': {
+    title: 'Double Bottom · BTC 1h · Long',
+    subtitle: 'Zwei Tiefs auf gleichem Level → Bruch der Neckline = Reversal',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43550,l:43350,c:43400},{o:43400,h:43450,l:43250,c:43300},
+      {o:43300,h:43350,l:43100,c:43150},{o:43150,h:43200,l:42950,c:43000},
+      {o:43000,h:43050,l:42850,c:42900},{o:42900,h:42950,l:42750,c:42800},
+      {o:42800,h:42850,l:42650,c:42700},{o:42700,h:42750,l:42550,c:42600},
+      {o:42600,h:42650,l:42450,c:42500},{o:42500,h:42550,l:42300,c:42350},
+      {o:42350,h:42500,l:42300,c:42450},{o:42450,h:42650,l:42400,c:42600},
+      {o:42600,h:42800,l:42550,c:42750},{o:42750,h:42900,l:42700,c:42850},
+      {o:42850,h:42950,l:42800,c:42900},{o:42900,h:42950,l:42750,c:42800},
+      {o:42800,h:42850,l:42600,c:42650},{o:42650,h:42700,l:42450,c:42500},
+      {o:42500,h:42550,l:42310,c:42360},{o:42360,h:42560,l:42320,c:42520},
+      {o:42520,h:42720,l:42480,c:42680},{o:42680,h:42880,l:42640,c:42840},
+      {o:42840,h:43050,l:42800,c:43000},{o:43000,h:43200,l:42950,c:43150},
+      {o:43150,h:43400,l:43100,c:43350},{o:43350,h:43550,l:43300,c:43500},
+      {o:43500,h:43700,l:43450,c:43650},{o:43650,h:43850,l:43600,c:43800},
+      {o:43800,h:44000,l:43750,c:43950},{o:43950,h:44150,l:43900,c:44100}
+    ],
+    entryIdx: 23,
+    entryPrice: 43000, slPrice: 42300, tp1Price: 44400, tp2Price: 45100,
+    indicators: {
+      multipleMAs: [
+        { values: [42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950], color: '#22c55e', label: 'Neckline', dashed: [6,3] }
+      ]
+    },
+    zone: { fromIdx: 8, toIdx: 19, top: 42500, bottom: 42300 },
+    zoneLabel: 'DOUBLE BOTTOM',
+    zoneColor: '34,197,94',
+    structureLabels: [
+      { idx: 9, price: 42300, text: 'Tief 1', color: '#ef4444' },
+      { idx: 14, price: 42950, text: 'Neckline', color: '#fbbf24' },
+      { idx: 18, price: 42310, text: 'Tief 2 (=)', color: '#ef4444' },
+      { idx: 23, price: 43000, text: 'Break Up', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Downtrend vor dem Pattern',
+      '(2) Tief 1 = lokales Minimum',
+      '(3) Tief 2 = innerhalb 0.5% von Tief 1 (gleicher Level)',
+      '(4) Neckline = das Hoch zwischen beiden Tiefs',
+      '(5) Bruch-Kerze schliesst UEBER der Neckline'
+    ],
+    setupRules: {
+      entry: 'Close UEBER der Neckline (oder Retest der Neckline von oben).',
+      sl: 'Unter Tief 2 + 0.5 ATR. Das Pattern ist UNGUELTIG wenn Tief 2 bricht.',
+      tp: 'TP1 = Distanz Tief-zu-Neckline projiziert nach oben · TP2 = naechstes Major-Resistance.',
+      market: 'Funktioniert nach laengeren Abwaerts-Phasen. Bestes Setup: an einer wichtigen historischen Support-Zone.'
+    },
+    tip: 'Double Bottom = die \"W\"-Formation. Spiegelbild ist Double Top (\"M\"). Volume-Pattern: Tief 1 hat hohes Volume (Capitulation), Tief 2 weniger (Verkaeufer ausgeschossen).'
+  },
+
+  'triangle-breakout': {
+    title: 'Triangle Breakout · BTC 1h · Long',
+    subtitle: 'Symmetrisches Dreieck konvergiert → Bullish Breakout',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42850,l:42400,c:42800},{o:42800,h:42900,l:42600,c:42650},
+      {o:42650,h:42700,l:42450,c:42550},{o:42550,h:42820,l:42500,c:42780},
+      {o:42780,h:42820,l:42550,c:42600},{o:42600,h:42700,l:42500,c:42650},
+      {o:42650,h:42780,l:42600,c:42760},{o:42760,h:42790,l:42620,c:42660},
+      {o:42660,h:42700,l:42560,c:42600},{o:42600,h:42740,l:42580,c:42720},
+      {o:42720,h:42750,l:42650,c:42680},{o:42680,h:42700,l:42600,c:42620},
+      {o:42620,h:42710,l:42610,c:42700},{o:42700,h:42720,l:42650,c:42660},
+      {o:42660,h:42680,l:42620,c:42640},{o:42640,h:42690,l:42630,c:42680},
+      {o:42680,h:42820,l:42660,c:42800},{o:42800,h:43000,l:42780,c:42980},
+      {o:42980,h:43150,l:42950,c:43130},{o:43130,h:43300,l:43100,c:43280},
+      {o:43280,h:43450,l:43250,c:43430},{o:43430,h:43600,l:43400,c:43580},
+      {o:43580,h:43750,l:43550,c:43730},{o:43730,h:43900,l:43700,c:43880},
+      {o:43880,h:44050,l:43850,c:44030},{o:44030,h:44200,l:44000,c:44180},
+      {o:44180,h:44350,l:44150,c:44330},{o:44330,h:44500,l:44300,c:44480},
+      {o:44480,h:44650,l:44450,c:44630},{o:44630,h:44800,l:44600,c:44780}
+    ],
+    entryIdx: 17,
+    entryPrice: 42800, slPrice: 42400, tp1Price: 43600, tp2Price: 44400,
+    indicators: {
+      multipleMAs: [
+        { values: [42900,42890,42870,42850,42820,42800,42790,42780,42760,42740,42730,42720,42710,42700,42700,42700,42850,42990,43130,43270,43420,43580,43740,43900,44050,44200,44350,44500,44650,44800], color: '#ef4444', label: 'Upper Trendline', dashed: [4,3] },
+        { values: [42400,42430,42460,42490,42520,42540,42560,42580,42600,42620,42640,42660,42670,42680,42690,42700,42720,42760,42820,42890,42970,43060,43160,43270,43380,43500,43620,43750,43880,44010], color: '#22c55e', label: 'Lower Trendline', dashed: [4,3] }
+      ],
+      volumeBars: [80,70,65,60,58,55,52,50,48,45,42,40,38,35,32,30, 180, 130, 105, 90, 80, 75, 70, 68, 65, 62, 60, 58, 56, 55], volumeHighlightIdx: 16
+    },
+    zone: { fromIdx: 0, toIdx: 15, top: 42900, bottom: 42400 },
+    zoneLabel: 'CONVERGENCE',
+    zoneColor: '167,139,250',
+    structureLabels: [
+      { idx: 0, price: 42850, text: 'Start', color: '#fbbf24' },
+      { idx: 15, price: 42700, text: 'Apex', color: '#a78bfa' },
+      { idx: 16, price: 42800, text: 'BREAKOUT', color: '#22c55e' },
+      { idx: 25, price: 44200, text: 'Trend Up', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klare Konsolidierung mit konvergierenden Linien (min. 4 Touches)',
+      '(2) Volume nimmt im Dreieck ab (Konsolidierung)',
+      '(3) Breakout-Kerze mit grossem Body (> 1.5x ATR)',
+      '(4) Volume-Spike auf Breakout-Kerze',
+      '(5) Optional: Retest der gebrochenen Linie'
+    ],
+    setupRules: {
+      entry: 'Close UEBER der oberen Trendlinie + Volume-Bestaetigung.',
+      sl: 'Unter dem Apex (Spitze) des Dreiecks + 0.5 ATR.',
+      tp: 'TP1 = Dreieck-Hoehe ueber Breakout · TP2 = 2x Dreieck-Hoehe.',
+      market: 'Funktioniert in Trend-Konsolidierungen. Ascending = bullish bias, Descending = bearish, Symmetrical = neutral (Richtung folgt vorigem Trend).'
+    },
+    tip: 'Dreiecke ohne Volume-Bestaetigung sind 50% Fakeouts. Der Klassiker: zu frueh kaufen weil die Form schon \"klar\" aussieht. Warte IMMER auf die Bruch-Kerze + Volume-Spike.'
+  },
+
+  'flag-continuation': {
+    title: 'Flag Continuation · BTC 1h · Long',
+    subtitle: 'Starker Impulse → Konsolidierungs-Flagge → Continuation',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42550,l:42450,c:42500},{o:42500,h:42600,l:42480,c:42580},
+      {o:42580,h:42700,l:42560,c:42680},{o:42680,h:42950,l:42660,c:42900},
+      {o:42900,h:43200,l:42880,c:43150},{o:43150,h:43450,l:43130,c:43400},
+      {o:43400,h:43700,l:43380,c:43650},{o:43650,h:43950,l:43620,c:43900},
+      {o:43900,h:44150,l:43880,c:44100},{o:44100,h:44120,l:43950,c:43980},
+      {o:43980,h:44000,l:43850,c:43880},{o:43880,h:43920,l:43780,c:43810},
+      {o:43810,h:43900,l:43760,c:43850},{o:43850,h:43930,l:43800,c:43880},
+      {o:43880,h:43920,l:43780,c:43820},{o:43820,h:43890,l:43770,c:43850},
+      {o:43850,h:44150,l:43830,c:44120},{o:44120,h:44400,l:44090,c:44370},
+      {o:44370,h:44650,l:44340,c:44620},{o:44620,h:44900,l:44590,c:44870},
+      {o:44870,h:45150,l:44840,c:45120},{o:45120,h:45400,l:45090,c:45370},
+      {o:45370,h:45650,l:45340,c:45620},{o:45620,h:45900,l:45590,c:45870},
+      {o:45870,h:46150,l:45840,c:46120},{o:46120,h:46400,l:46090,c:46370},
+      {o:46370,h:46650,l:46340,c:46620},{o:46620,h:46900,l:46590,c:46870},
+      {o:46870,h:47150,l:46840,c:47120},{o:47120,h:47400,l:47090,c:47370}
+    ],
+    entryIdx: 16,
+    entryPrice: 43850, slPrice: 43400, tp1Price: 44760, tp2Price: 45650,
+    indicators: {
+      multipleMAs: [
+        { values: [42550,42600,42700,42950,43200,43450,43700,43950,44150,44000,44000,43950,43950,43950,43950,43950,44150,44400,44650,44900,45150,45400,45650,45900,46150,46400,46650,46900,47150,47400], color: '#ef4444', label: 'Flag-Top', dashed: [4,3] },
+        { values: [42450,42500,42600,42850,43100,43350,43600,43850,44050,43830,43830,43800,43800,43800,43800,43800,43830,44050,44300,44550,44800,45050,45300,45550,45800,46050,46300,46550,46800,47050], color: '#22c55e', label: 'Flag-Bottom', dashed: [4,3] }
+      ],
+      volumeBars: [60,80,120,180,200,220,200,180,160,80,70,60,55,50,55,60, 200, 170, 140, 110, 95, 80, 70, 65, 60, 55, 50, 48, 46, 45], volumeHighlightIdx: 16
+    },
+    zone: { fromIdx: 9, toIdx: 15, top: 44000, bottom: 43780 },
+    zoneLabel: 'FLAG',
+    zoneColor: '88,166,255',
+    structureLabels: [
+      { idx: 4, price: 43400, text: 'Flagstange', color: '#22c55e' },
+      { idx: 12, price: 43850, text: 'Flag', color: '#58a6ff' },
+      { idx: 16, price: 43850, text: 'BREAKOUT', color: '#22c55e' },
+      { idx: 23, price: 45620, text: 'Measured Move', color: '#fbbf24' }
+    ],
+    checklist: [
+      '(1) Starker Impulse (Flaggenstange) min. 3% in 3-7 Kerzen',
+      '(2) Konsolidierung (Flag) in kleinerer Range, leicht gegen Trend',
+      '(3) Flag-Range klar kleiner als Flaggenstange (max. 50%)',
+      '(4) Volume hoch in Flaggenstange, niedrig in Flag, Spike beim Breakout',
+      '(5) Bruch-Kerze schliesst UEBER Flag-Top'
+    ],
+    setupRules: {
+      entry: 'Close UEBER Flag-Top mit Volume-Bestaetigung.',
+      sl: 'Unter Flag-Bottom + 0.5 ATR.',
+      tp: 'TP1 = 2R · TP2 = Flaggenstange-Hoehe ueber Breakout-Punkt (Measured Move).',
+      market: 'Continuation-Pattern fuer starke Trends. NICHT in Sideways — jeder Move sieht dort wie eine \"Flagge\" aus, ist aber meist Noise.'
+    },
+    tip: 'Die perfekte Flag: Stange = aggressive Impulse, Flag = entspannte Konsolidierung. Wenn die Flagge zu lang wird (>10 Bars), wird sie zur Range — kein Continuation-Setup mehr.'
+  },
+
+  'bos-choch': {
+    title: 'BOS / CHoCH Market Structure · BTC 1h · Long',
+    subtitle: 'Im Downtrend kommt der Bruch des letzten Lower-Highs → CHoCH = Trend dreht',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43900,l:43700,c:43750},{o:43750,h:43850,l:43500,c:43550},
+      {o:43550,h:43650,l:43400,c:43450},{o:43450,h:43650,l:43400,c:43620},
+      {o:43620,h:43700,l:43400,c:43450},{o:43450,h:43500,l:43250,c:43300},
+      {o:43300,h:43350,l:43150,c:43200},{o:43200,h:43400,l:43180,c:43380},
+      {o:43380,h:43450,l:43250,c:43300},{o:43300,h:43350,l:43100,c:43150},
+      {o:43150,h:43250,l:43050,c:43100},{o:43100,h:43200,l:42950,c:43000},
+      {o:43000,h:43250,l:42980,c:43230},{o:43230,h:43300,l:43100,c:43150},
+      {o:43150,h:43200,l:42950,c:43000},{o:43000,h:43050,l:42850,c:42900},
+      {o:42900,h:43100,l:42880,c:43080},{o:43080,h:43300,l:43050,c:43280},
+      {o:43280,h:43500,l:43250,c:43480},{o:43480,h:43680,l:43450,c:43650},
+      {o:43650,h:43750,l:43500,c:43550},{o:43550,h:43700,l:43480,c:43680},
+      {o:43680,h:43900,l:43650,c:43880},{o:43880,h:44100,l:43850,c:44080},
+      {o:44080,h:44300,l:44050,c:44280},{o:44280,h:44500,l:44250,c:44480},
+      {o:44480,h:44700,l:44450,c:44680},{o:44680,h:44900,l:44650,c:44880},
+      {o:44880,h:45100,l:44850,c:45080},{o:45080,h:45300,l:45050,c:45280}
+    ],
+    entryIdx: 19,
+    entryPrice: 43480, slPrice: 42950, tp1Price: 44540, tp2Price: 45350,
+    indicators: {
+      multipleMAs: [
+        { values: [43620,43620,43620,43620,43620,43620,43620,43620,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400,43400], color: '#fbbf24', label: 'Last Lower-High', dashed: [4,3] },
+        { values: [42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42950,42850,42850,42850,42850,42850,42850,42850,42850,42850,42850,42850,42850,42850,42850,42850], color: '#22c55e', label: 'Last Higher-Low', dashed: [3,3] }
+      ]
+    },
+    zone: { fromIdx: 18, toIdx: 20, top: 43700, bottom: 43400 },
+    zoneLabel: 'CHoCH BREAK',
+    zoneColor: '34,197,94',
+    structureLabels: [
+      { idx: 3, price: 43650, text: 'LH', color: '#ef4444' },
+      { idx: 7, price: 43400, text: 'LH', color: '#ef4444' },
+      { idx: 12, price: 43250, text: 'LH', color: '#ef4444' },
+      { idx: 15, price: 42850, text: 'LL', color: '#ef4444' },
+      { idx: 19, price: 43480, text: 'CHoCH ↑', color: '#22c55e' },
+      { idx: 25, price: 44480, text: 'New Trend', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Downtrend: 3+ Lower-Highs UND 3+ Lower-Lows',
+      '(2) Identifiziere das LETZTE Lower-High (kritisches Level)',
+      '(3) Preis bricht das letzte Lower-High mit Close',
+      '(4) Optional: Retest der gebrochenen Struktur als Support',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close UEBER dem letzten Lower-High (kein nur-Wick-Bruch).',
+      sl: 'Unter dem letzten Higher-Low oder CHoCH-Tief + 0.3% Buffer.',
+      tp: 'TP1 = 2R · TP2 = naechstes Major-Structure-Level (vorheriges Top).',
+      market: 'Funktioniert auf jedem Timeframe. SMC-Trader nutzen 4h fuer Bias + 1h fuer Entry.'
+    },
+    tip: 'BOS = Bruch IN Trend-Richtung (bestaetigt Trend). CHoCH = Bruch GEGEN den Trend (erstes Warnsignal fuer Wechsel). CHoCH ist der wichtigere Trigger — er kuendigt den neuen Trend an.'
+  },
+
+  'rsi-divergence': {
+    title: 'Bullish RSI Divergence · BTC 1h · Long',
+    subtitle: 'Preis macht Lower-Low, RSI macht Higher-Low = Reversal',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43550,l:43350,c:43400},{o:43400,h:43450,l:43250,c:43300},
+      {o:43300,h:43350,l:43100,c:43150},{o:43150,h:43200,l:42950,c:43000},
+      {o:43000,h:43050,l:42850,c:42900},{o:42900,h:42950,l:42700,c:42750},
+      {o:42750,h:42800,l:42550,c:42600},{o:42600,h:42650,l:42400,c:42450},
+      {o:42450,h:42500,l:42250,c:42300},{o:42300,h:42350,l:42100,c:42150},
+      {o:42150,h:42400,l:42100,c:42350},{o:42350,h:42600,l:42300,c:42550},
+      {o:42550,h:42700,l:42500,c:42650},{o:42650,h:42700,l:42500,c:42550},
+      {o:42550,h:42600,l:42400,c:42450},{o:42450,h:42500,l:42300,c:42350},
+      {o:42350,h:42400,l:42200,c:42250},{o:42250,h:42300,l:42050,c:42080},
+      {o:42080,h:42350,l:42050,c:42300},{o:42300,h:42500,l:42250,c:42460},
+      {o:42460,h:42650,l:42420,c:42610},{o:42610,h:42800,l:42580,c:42770},
+      {o:42770,h:42950,l:42740,c:42920},{o:42920,h:43100,l:42890,c:43070},
+      {o:43070,h:43250,l:43040,c:43220},{o:43220,h:43400,l:43190,c:43370},
+      {o:43370,h:43550,l:43340,c:43520},{o:43520,h:43700,l:43490,c:43670},
+      {o:43670,h:43850,l:43640,c:43820},{o:43820,h:44000,l:43790,c:43970}
+    ],
+    entryIdx: 18,
+    entryPrice: 42300, slPrice: 41950, tp1Price: 43050, tp2Price: 43750,
+    indicators: {
+      subPanel: 'rsi',
+      rsiValues: [60,55,48,42,38,32,28,25,22,18,28,38,42,38,33,28,24,22, 32, 45, 55, 62, 68, 72, 75, 76, 75, 72, 68, 65]
+    },
+    zone: { fromIdx: 9, toIdx: 17, top: 42400, bottom: 41950 },
+    zoneLabel: 'DIVERGENCE',
+    zoneColor: '167,139,250',
+    structureLabels: [
+      { idx: 9, price: 42100, text: 'Tief 1', color: '#ef4444' },
+      { idx: 17, price: 42050, text: 'Tief 2 (LL)', color: '#ef4444' },
+      { idx: 18, price: 42300, text: 'Reversal', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Tief 2 macht ein klares Lower-Low (unter Tief 1)',
+      '(2) RSI bei Tief 2 ist HOEHER als bei Tief 1 (Higher-Low)',
+      '(3) Bullish Reaktions-Kerze am Tief 2',
+      '(4) RSI bei Tief 1 sollte oversold sein (<30)',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze NACH Divergenz-Identifikation.',
+      sl: 'Unter Tief 2 + 0.5 ATR.',
+      tp: 'TP1 = 2R · TP2 = vorheriges Pivot-Hoch oder Mean.',
+      market: 'Divergenzen funktionieren am besten an Major-Support-Levels. Nicht mitten im Trend traden.'
+    },
+    tip: 'Divergenzen sind ein KONFIRMATIONS-Signal, kein Standalone-Trigger. Sieh sie an wichtigen Support-Levels — dann ist die Quote >70%. Mitten im Trend = oft False-Divergence.'
+  },
+
+  'td-sequential-9': {
+    title: 'TD Sequential 9 · BTC 4h · Long',
+    subtitle: 'DeMark-Klassiker: 9 aufeinanderfolgende Closes < Close-vor-4 = Buy-Signal',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43900,l:43750,c:43850},{o:43850,h:43900,l:43680,c:43720},
+      {o:43720,h:43780,l:43560,c:43600},{o:43600,h:43660,l:43450,c:43500},
+      {o:43500,h:43560,l:43350,c:43400},{o:43400,h:43460,l:43250,c:43300},
+      {o:43300,h:43360,l:43150,c:43200},{o:43200,h:43260,l:43050,c:43100},
+      {o:43100,h:43160,l:42950,c:43000},{o:43000,h:43060,l:42850,c:42900},
+      {o:42900,h:42960,l:42750,c:42800},{o:42800,h:42860,l:42650,c:42700},
+      {o:42700,h:42760,l:42550,c:42600},{o:42600,h:42660,l:42450,c:42500},
+      {o:42500,h:42560,l:42350,c:42400},{o:42400,h:42460,l:42250,c:42300},
+      {o:42300,h:42500,l:42250,c:42450},{o:42450,h:42700,l:42400,c:42650},
+      {o:42650,h:42900,l:42600,c:42850},{o:42850,h:43050,l:42800,c:43000},
+      {o:43000,h:43150,l:42950,c:43100},{o:43100,h:43250,l:43050,c:43200},
+      {o:43200,h:43350,l:43150,c:43300},{o:43300,h:43450,l:43250,c:43400},
+      {o:43400,h:43550,l:43350,c:43500},{o:43500,h:43650,l:43450,c:43600},
+      {o:43600,h:43750,l:43550,c:43700},{o:43700,h:43850,l:43650,c:43800},
+      {o:43800,h:43950,l:43750,c:43900},{o:43900,h:44050,l:43850,c:44000}
+    ],
+    entryIdx: 16,
+    entryPrice: 42450, slPrice: 42200, tp1Price: 43000, tp2Price: 43500,
+    structureLabels: [
+      { idx: 7, price: 43160, text: '1', color: '#fbbf24' },
+      { idx: 8, price: 43060, text: '2', color: '#fbbf24' },
+      { idx: 9, price: 42960, text: '3', color: '#fbbf24' },
+      { idx: 10, price: 42860, text: '4', color: '#fbbf24' },
+      { idx: 11, price: 42760, text: '5', color: '#fbbf24' },
+      { idx: 12, price: 42660, text: '6', color: '#fbbf24' },
+      { idx: 13, price: 42560, text: '7', color: '#fbbf24' },
+      { idx: 14, price: 42460, text: '8', color: '#fbbf24' },
+      { idx: 15, price: 42400, text: '9 ★', color: '#a855f7' },
+      { idx: 16, price: 42450, text: 'BUY', color: '#22c55e' }
+    ],
+    zone: { fromIdx: 14, toIdx: 16, top: 42500, bottom: 42250 },
+    zoneLabel: 'TD-9 SETUP',
+    zoneColor: '168,85,247',
+    checklist: [
+      '(1) Mindestens 9 aufeinanderfolgende Closes UNTER Close-vor-4-Bars',
+      '(2) Bar 9 ist die letzte Setup-Kerze (★)',
+      '(3) Optional: Perfected Setup (Bar 8/9 Low < Bar 6/7 Low) = staerker',
+      '(4) Bullish Bestaetigungs-Kerze NACH Bar 9',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze NACH Bar 9 oder Close > Bar-9-High.',
+      sl: 'Unter Tief der Bar 9 + 0.3% Buffer.',
+      tp: 'TP1 = 2R · TP2 = naechstes Resistance oder TD-Risk-Level.',
+      market: 'Counter-Trend-Strategie — funktioniert am besten in ueberverkauften Maerkten. Hoehere TFs (4h+) liefern weniger aber bessere Signale.'
+    },
+    tip: 'Tom DeMarks TD Sequential ist ein 40-Jahre-alter Klassiker. Nach Bar 9 ist der Trend oft erschoepft — aber NICHT garantiert. Kombiniere mit Major-Support fuer beste Ergebnisse.'
+  },
+
+  'anchored-vwap': {
+    title: 'Anchored VWAP · BTC 1h · Long',
+    subtitle: 'VWAP ab Crash-Tief = Magnet-Linie → Pullback + Long',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43850,l:43650,c:43700},{o:43700,h:43750,l:43500,c:43550},
+      {o:43550,h:43600,l:43350,c:43400},{o:43400,h:43450,l:43200,c:43250},
+      {o:43250,h:43300,l:43050,c:43100},{o:43100,h:43150,l:42850,c:42900},
+      {o:42900,h:42950,l:42600,c:42650},{o:42650,h:42850,l:42550,c:42820},
+      {o:42820,h:43050,l:42800,c:43000},{o:43000,h:43200,l:42950,c:43150},
+      {o:43150,h:43350,l:43100,c:43300},{o:43300,h:43500,l:43250,c:43450},
+      {o:43450,h:43650,l:43400,c:43600},{o:43600,h:43700,l:43450,c:43500},
+      {o:43500,h:43600,l:43380,c:43420},{o:43420,h:43500,l:43330,c:43370},
+      {o:43370,h:43500,l:43340,c:43480},{o:43480,h:43700,l:43450,c:43670},
+      {o:43670,h:43900,l:43640,c:43870},{o:43870,h:44100,l:43840,c:44070},
+      {o:44070,h:44300,l:44040,c:44270},{o:44270,h:44500,l:44240,c:44470},
+      {o:44470,h:44700,l:44440,c:44670},{o:44670,h:44900,l:44640,c:44870},
+      {o:44870,h:45100,l:44840,c:45070},{o:45070,h:45300,l:45040,c:45270},
+      {o:45270,h:45500,l:45240,c:45470},{o:45470,h:45700,l:45440,c:45670},
+      {o:45670,h:45900,l:45640,c:45870},{o:45870,h:46100,l:45840,c:46070}
+    ],
+    entryIdx: 16,
+    entryPrice: 43480, slPrice: 43200, tp1Price: 44100, tp2Price: 44700,
+    indicators: {
+      multipleMAs: [
+        { values: [43800,43750,43700,43650,43600,43550,43400,43320,43280,43270,43280,43300,43330,43360,43380,43390,43400,43430,43470,43520,43580,43650,43720,43800,43880,43960,44050,44140,44230,44320], color: '#06b6d4', label: 'Anchored VWAP' }
+      ],
+      volumeBars: [60,65,70,75,85,100,250,200,150,110,90,80,75,70,65,60,90,110,130,140,135,125,115,105,95,85,80,75,70,68], volumeHighlightIdx: 6
+    },
+    zone: { fromIdx: 14, toIdx: 16, top: 43450, bottom: 43330 },
+    zoneLabel: 'AVWAP TOUCH',
+    zoneColor: '6,182,212',
+    structureLabels: [
+      { idx: 6, price: 42600, text: 'Anchor (Crash-Low)', color: '#06b6d4' },
+      { idx: 15, price: 43370, text: 'AVWAP Touch', color: '#06b6d4' },
+      { idx: 16, price: 43480, text: 'Bounce', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Anchor-Punkt: Crash-Low, ATH, Halving, News-Release',
+      '(2) Anchored VWAP berechnet ab diesem Punkt',
+      '(3) Preis ueber AVWAP = bullish bias',
+      '(4) Pullback zur AVWAP-Linie + bullish Reaktions-Kerze',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Bestaetigungs-Kerze beim Touch der AVWAP von oben.',
+      sl: '1.5x ATR unter dem Touch-Tief.',
+      tp: 'TP1 = 2R · TP2 = naechstes Major-Resistance oder Trail mit AVWAP.',
+      market: 'Funktioniert nach grossen Events: Crashes, Halvings, Earnings. Im Crypto: Halving als Anchor ist Klassiker.'
+    },
+    tip: 'Anchored VWAP ist staerker als Tages-VWAP weil er einen MAJOR-Punkt referenziert. Institutionelle Trader nutzen AVWAP als Magnet — der Preis kehrt typischerweise immer wieder zurueck.'
   }
 };
 
