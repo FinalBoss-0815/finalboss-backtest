@@ -30589,7 +30589,12 @@ function renderAcademy() {
          /order.?block|ob.?retest|liquidity.?sweep|lsob|wyckoff|spring|upthrust/i.test(strat.name) ? 'order-block-smc' :
          /funding|liquidation|open.?interest|oi.?\+|perp.?momentum/i.test(strat.name) ? 'crypto-perp-momentum' :
          /voting|multi.?strategy|ml.?classifier|regime.?switch|confluence|mtf/i.test(strat.name) ? 'multi-strategy-voting' :
-         /pin.?bar|shooting.?star|inside.?bar|three.?soldier|three.?crow|morning.?star|evening.?star|harami|piercing|dark.?cloud|tweezer/i.test(strat.name) ? 'engulfing-pattern' :
+         /three.?soldier|three.?crow|three.?white/i.test(strat.name) ? 'three-soldiers' :
+         /inside.?bar/i.test(strat.name) ? 'inside-bar-breakout' :
+         /pin.?bar/i.test(strat.name) ? 'pin-bar-support' :
+         /engulf.?\+.?volume|engulfing.*volume/i.test(strat.name) ? 'engulfing-volume' :
+         /engulf.?\+.?rsi|engulfing.*rsi/i.test(strat.name) ? 'engulfing-rsi' :
+         /shooting.?star|morning.?star|evening.?star|harami|piercing|dark.?cloud|tweezer/i.test(strat.name) ? 'engulfing-pattern' :
          /keltner|%b|connors|stochrsi|mfi|dpo|ultimate.?osc/i.test(strat.name) ? 'rsi-mean-reversion' :
          /awesome|roc.?momentum|vortex|momentum|hull.?ma|kama|trix|cmf|schaff|dmi|choppiness|ribbon|triple.?ema|atr.?breakout|crabel|minervini|vcp|day.?of.?week/i.test(strat.name) ? 'ma-cross' :
          /bollinger.?revers|rsi.?extreme|rsi.?reversal|rsi.?revers|linear.?regression|reversion|reversal/i.test(strat.name) ? 'rsi-mean-reversion' :
@@ -33143,7 +33148,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.7.0-beta';
-const APP_BUILD = '2026-05-12 04:55 UTC';
+const APP_BUILD = '2026-05-12 08:30 UTC';
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
@@ -37923,6 +37928,251 @@ const ACADEMY_ANIM_CONFIGS = {
     },
     tip: 'Voting ist ein Filter, kein Genie. Wenn 5 schlechte Strategien zusammenstimmen, ist es immer noch falsch. Die Sub-Strategien muessen UNKORRELIERT sein (Trend + Mean-Reversion + Volume + Pattern), sonst ist es nur Bestaetigungsfehler.'
   }
+,
+
+  'three-soldiers': {
+    title: 'Three White Soldiers · BTC 1h · Long',
+    subtitle: 'Drei starke gruene Kerzen nach Downtrend = Reversal-Bestaetigung',
+    skipEma: true,
+    candles: [
+      {o:43400,h:43500,l:43300,c:43350},{o:43350,h:43450,l:43200,c:43250},
+      {o:43250,h:43350,l:43100,c:43150},{o:43150,h:43250,l:43000,c:43050},
+      {o:43050,h:43150,l:42900,c:42950},{o:42950,h:43050,l:42800,c:42850},
+      {o:42850,h:42950,l:42700,c:42750},{o:42750,h:42850,l:42600,c:42650},
+      {o:42650,h:42750,l:42500,c:42550},{o:42550,h:42650,l:42400,c:42450},
+      {o:42450,h:42550,l:42300,c:42350},{o:42350,h:42450,l:42200,c:42250},
+      {o:42250,h:42350,l:42150,c:42200},{o:42200,h:42280,l:42130,c:42180},
+      {o:42180,h:42250,l:42130,c:42200},{o:42200,h:42550,l:42190,c:42500},
+      {o:42500,h:42850,l:42490,c:42800},{o:42800,h:43150,l:42790,c:43100},
+      {o:43100,h:43300,l:43050,c:43250},{o:43250,h:43450,l:43200,c:43400},
+      {o:43400,h:43600,l:43350,c:43550},{o:43550,h:43750,l:43500,c:43700},
+      {o:43700,h:43900,l:43650,c:43850},{o:43850,h:44050,l:43800,c:44000},
+      {o:44000,h:44200,l:43950,c:44150},{o:44150,h:44350,l:44100,c:44300},
+      {o:44300,h:44500,l:44250,c:44450},{o:44450,h:44650,l:44400,c:44600},
+      {o:44600,h:44800,l:44550,c:44750},{o:44750,h:44950,l:44700,c:44900}
+    ],
+    entryIdx: 18,
+    entryPrice: 43100, slPrice: 42130, tp1Price: 43800, tp2Price: 44650,
+    zone: { fromIdx: 15, toIdx: 17, top: 43150, bottom: 42190 },
+    zoneLabel: 'THREE SOLDIERS',
+    zoneColor: '34,197,94',
+    structureLabels: [
+      { idx: 13, price: 42130, text: 'LL', color: '#ef4444' },
+      { idx: 15, price: 42550, text: 'Soldier 1', color: '#22c55e' },
+      { idx: 16, price: 42850, text: 'Soldier 2', color: '#22c55e' },
+      { idx: 17, price: 43150, text: 'Soldier 3', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Downtrend mit min. 10 roten Kerzen davor',
+      '(2) Drei aufeinanderfolgende gruene Kerzen',
+      '(3) Jede Kerze schliesst klar ueber der vorherigen',
+      '(4) Geringe obere Wicks (keine Indecision)',
+      '(5) Volumen steigt mit jedem Soldier'
+    ],
+    setupRules: {
+      entry: 'Close NACH dem 3. Soldier (= 4. gruene Kerze als Bestaetigung).',
+      sl: 'Unter dem Tief vom 1. Soldier oder unter Pre-Pattern Low.',
+      tp: 'TP1 = 2R (50% schliessen) · TP2 = vorheriges Hoch oder 3R.',
+      market: 'Beste Ergebnisse an Major-Support-Levels. NICHT direkt vor wichtigen News.'
+    },
+    tip: 'Drei Soldiers OHNE Volumen-Anstieg sind verdaechtig — das koennte ein Squeeze ohne Substanz sein. Echte 3-Soldier-Reversals haben STEIGENDES Volumen Kerze fuer Kerze. Andernfalls warte auf Retest.'
+  },
+
+  'inside-bar-breakout': {
+    title: 'Inside Bar Breakout · BTC 1h · Long',
+    subtitle: 'Kleine Inside-Kerze + Breakout der Mother-Bar = Trend-Continuation',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42550,l:42400,c:42450},{o:42450,h:42500,l:42350,c:42400},
+      {o:42400,h:42500,l:42350,c:42450},{o:42450,h:42600,l:42400,c:42550},
+      {o:42550,h:42700,l:42500,c:42650},{o:42650,h:42850,l:42600,c:42800},
+      {o:42800,h:43000,l:42750,c:42950},{o:42950,h:43150,l:42900,c:43100},
+      {o:43100,h:43300,l:43050,c:43250},{o:43250,h:43450,l:43200,c:43400},
+      {o:43400,h:43600,l:43350,c:43550},{o:43550,h:43750,l:43500,c:43700},
+      {o:43700,h:43900,l:43450,c:43500},{o:43500,h:43750,l:43480,c:43620},
+      {o:43620,h:43700,l:43550,c:43650},{o:43650,h:43850,l:43620,c:43800},
+      {o:43800,h:44050,l:43770,c:44000},{o:44000,h:44250,l:43970,c:44200},
+      {o:44200,h:44450,l:44170,c:44400},{o:44400,h:44650,l:44370,c:44600},
+      {o:44600,h:44850,l:44570,c:44800},{o:44800,h:45050,l:44770,c:45000},
+      {o:45000,h:45250,l:44970,c:45200},{o:45200,h:45450,l:45170,c:45400},
+      {o:45400,h:45650,l:45370,c:45600},{o:45600,h:45850,l:45570,c:45800},
+      {o:45800,h:46050,l:45770,c:46000},{o:46000,h:46250,l:45970,c:46200},
+      {o:46200,h:46450,l:46170,c:46400},{o:46400,h:46650,l:46370,c:46600}
+    ],
+    entryIdx: 15,
+    entryPrice: 43800, slPrice: 43450, tp1Price: 44500, tp2Price: 45200,
+    zone: { fromIdx: 12, toIdx: 14, top: 43900, bottom: 43450 },
+    zoneLabel: 'MOTHER + INSIDE',
+    zoneColor: '251,191,36',
+    structureLabels: [
+      { idx: 12, price: 43900, text: 'Mother Bar High', color: '#fbbf24' },
+      { idx: 13, price: 43620, text: 'Inside Bar', color: '#fbbf24' },
+      { idx: 15, price: 43800, text: 'BREAKOUT', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Mother Bar (vorherige Kerze) mit grosser Range',
+      '(2) Inside Bar VOLLSTAENDIG innerhalb Mother-Bar-Range',
+      '(3) Inside Bar zeigt Konsolidierung (kleiner Body)',
+      '(4) Breakout-Kerze schliesst ueber Mother-Bar-High',
+      '(5) Trade IN Richtung des vorherigen Trends'
+    ],
+    setupRules: {
+      entry: 'Close NACH Breakout-Kerze ueber Mother-Bar-High (= 1 Kerze warten).',
+      sl: 'Unter Inside-Bar-Low oder Mother-Bar-Mitte.',
+      tp: 'TP1 = 2R · TP2 = 3R oder naechstes Major-Hoch.',
+      market: 'Funktioniert nur in klaren Trends. In Range-Markt sind Inside Bars Noise.'
+    },
+    tip: 'Inside Bar GEGEN den Trend ist 50/50. IN Richtung des bestehenden Trends ist es eine Konsolidierungs-Pause + Continuation. Nur die zweite Variante traden.'
+  },
+
+  'pin-bar-support': {
+    title: 'Pin Bar an Support · BTC 1h · Long',
+    subtitle: 'Langer unterer Docht an Support-Level = Rejection',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43550,l:43400,c:43450},{o:43450,h:43500,l:43300,c:43350},
+      {o:43350,h:43400,l:43200,c:43250},{o:43250,h:43300,l:43100,c:43150},
+      {o:43150,h:43200,l:43000,c:43050},{o:43050,h:43100,l:42900,c:42950},
+      {o:42950,h:43000,l:42800,c:42850},{o:42850,h:42900,l:42700,c:42750},
+      {o:42750,h:42800,l:42600,c:42650},{o:42650,h:42700,l:42500,c:42550},
+      {o:42550,h:42600,l:42400,c:42450},{o:42450,h:42500,l:42300,c:42350},
+      {o:42350,h:42400,l:42250,c:42300},{o:42300,h:42350,l:42200,c:42250},
+      {o:42250,h:42300,l:41800,c:42220},{o:42220,h:42400,l:42180,c:42350},
+      {o:42350,h:42550,l:42300,c:42500},{o:42500,h:42700,l:42450,c:42650},
+      {o:42650,h:42850,l:42600,c:42800},{o:42800,h:43000,l:42750,c:42950},
+      {o:42950,h:43150,l:42900,c:43100},{o:43100,h:43300,l:43050,c:43250},
+      {o:43250,h:43450,l:43200,c:43400},{o:43400,h:43550,l:43350,c:43500},
+      {o:43500,h:43650,l:43450,c:43600},{o:43600,h:43750,l:43550,c:43700},
+      {o:43700,h:43850,l:43650,c:43800},{o:43800,h:43950,l:43750,c:43900},
+      {o:43900,h:44050,l:43850,c:44000},{o:44000,h:44150,l:43950,c:44100}
+    ],
+    entryIdx: 15,
+    entryPrice: 42350, slPrice: 41800, tp1Price: 43000, tp2Price: 43500,
+    zone: { fromIdx: 13, toIdx: 14, top: 42300, bottom: 41800 },
+    zoneLabel: 'PIN BAR REJECTION',
+    zoneColor: '34,197,94',
+    structureLabels: [
+      { idx: 0, price: 43500, text: 'HH', color: '#fbbf24' },
+      { idx: 14, price: 41800, text: 'Pin Bar Wick', color: '#ef4444' },
+      { idx: 15, price: 42220, text: 'Rejection', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klares Support-Level (vorheriges Tief, S1 Pivot, EMA200)',
+      '(2) Pin Bar Wick min. 2-3x so lang wie der Body',
+      '(3) Pin Bar Body im OBEREN Drittel der Range',
+      '(4) Close > Pin-Bar-Body-Mitte (= Buyers in Control)',
+      '(5) Volumen-Spike auf der Pin Bar (Capitulation)'
+    ],
+    setupRules: {
+      entry: 'Close der gruenen Folge-Kerze NACH der Pin Bar (nicht direkt auf der Pin Bar).',
+      sl: 'Unter Pin-Bar-Wick-Tief + 0.2% Buffer.',
+      tp: 'TP1 = 2R (50%) · TP2 = vorheriges Hoch oder 3R.',
+      market: 'Beste Ergebnisse an Major-Support-Levels. Pin Bar mitten im Trend (ohne Level) ist schwach.'
+    },
+    tip: 'Pin Bar ohne Support-Level ist nur ein Doji mit langem Wick. Pin Bar AN einem Level (Pivot, vorheriges Hoch, EMA200) zeigt: Buyers haben den Preis abgewiesen. Ohne Level = ueberspringen.'
+  },
+
+  'engulfing-volume': {
+    title: 'Engulfing + Volume Spike · BTC 1h · Long',
+    subtitle: 'Bullish Engulfing MIT Volumen-Spike = starke Conviction',
+    skipEma: true,
+    candles: [
+      {o:43400,h:43500,l:43300,c:43350},{o:43350,h:43450,l:43200,c:43250},
+      {o:43250,h:43350,l:43100,c:43150},{o:43150,h:43250,l:43000,c:43050},
+      {o:43050,h:43150,l:42900,c:42950},{o:42950,h:43050,l:42800,c:42850},
+      {o:42850,h:42950,l:42700,c:42750},{o:42750,h:42850,l:42600,c:42650},
+      {o:42650,h:42750,l:42500,c:42550},{o:42550,h:42650,l:42400,c:42450},
+      {o:42450,h:42550,l:42300,c:42350},{o:42350,h:42450,l:42200,c:42250},
+      {o:42250,h:42350,l:42150,c:42200},{o:42200,h:42300,l:42100,c:42150},
+      {o:42150,h:42250,l:42050,c:42100},{o:42100,h:42200,l:42050,c:42150},
+      {o:42150,h:42550,l:42120,c:42500},{o:42500,h:42700,l:42450,c:42650},
+      {o:42650,h:42850,l:42600,c:42800},{o:42800,h:43000,l:42750,c:42950},
+      {o:42950,h:43150,l:42900,c:43100},{o:43100,h:43300,l:43050,c:43250},
+      {o:43250,h:43450,l:43200,c:43400},{o:43400,h:43550,l:43350,c:43500},
+      {o:43500,h:43650,l:43450,c:43600},{o:43600,h:43750,l:43550,c:43700},
+      {o:43700,h:43850,l:43650,c:43800},{o:43800,h:43950,l:43750,c:43900},
+      {o:43900,h:44050,l:43850,c:44000},{o:44000,h:44150,l:43950,c:44100}
+    ],
+    entryIdx: 17,
+    entryPrice: 42650, slPrice: 42050, tp1Price: 43500, tp2Price: 44100,
+    indicators: {
+      volumeBars: [0.2,0.25,0.3,0.25,0.3,0.35,0.3,0.35,0.4,0.35,0.4,0.45,0.45,0.5,0.55,0.55, 0.95, 0.7,0.65,0.6,0.55,0.55,0.5,0.5,0.45,0.45,0.4,0.4,0.4,0.4],
+      volumeHighlightIdx: 16
+    },
+    zone: { fromIdx: 14, toIdx: 16, top: 42250, bottom: 42050 },
+    zoneLabel: 'ENGULFING + VOL',
+    zoneColor: '251,191,36',
+    structureLabels: [
+      { idx: 0, price: 43400, text: 'HH', color: '#fbbf24' },
+      { idx: 15, price: 42050, text: 'Last Red', color: '#ef4444' },
+      { idx: 16, price: 42550, text: 'BULL ENGULF', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Downtrend mit min. 5 roten Kerzen',
+      '(2) Bullish-Engulfing-Kerze (open unter Red-Close, close ueber Red-Open)',
+      '(3) VOLUMEN-SPIKE >= 1.5x Average (Pflicht!)',
+      '(4) Engulfing-Body min. 1.5x vorheriger roter Body',
+      '(5) Bestaetigung durch Folge-Kerze'
+    ],
+    setupRules: {
+      entry: 'Close NACH Engulfing-Kerze (= 1 Kerze warten zur Bestaetigung).',
+      sl: 'Unter Engulfing-Tief + 0.3% Buffer.',
+      tp: 'TP1 = 2R · TP2 = vorheriges Hoch oder 3R.',
+      market: 'Engulfing OHNE Volumen ist halb wert — nur mit Volumen-Spike traden.'
+    },
+    tip: 'Schau auf den orangen Volumen-Bar in der Animation. DAS ist der Game-Changer. Engulfing + Volumen-Spike = Smart Money steigt ein. Engulfing ohne Spike = nur Noise. Lass deine Augen die Volumen-Bars scannen.'
+  },
+
+  'engulfing-rsi': {
+    title: 'Engulfing + RSI Oversold · BTC 1h · Long',
+    subtitle: 'Bullish Engulfing + RSI < 30 = Confluence-Reversal',
+    skipEma: true,
+    candles: [
+      {o:43400,h:43500,l:43300,c:43350},{o:43350,h:43450,l:43200,c:43250},
+      {o:43250,h:43350,l:43100,c:43150},{o:43150,h:43250,l:43000,c:43050},
+      {o:43050,h:43150,l:42900,c:42950},{o:42950,h:43050,l:42800,c:42850},
+      {o:42850,h:42950,l:42700,c:42750},{o:42750,h:42850,l:42600,c:42650},
+      {o:42650,h:42750,l:42500,c:42550},{o:42550,h:42650,l:42400,c:42450},
+      {o:42450,h:42550,l:42300,c:42350},{o:42350,h:42450,l:42200,c:42250},
+      {o:42250,h:42350,l:42150,c:42200},{o:42200,h:42300,l:42100,c:42150},
+      {o:42150,h:42250,l:42050,c:42100},{o:42100,h:42200,l:42050,c:42150},
+      {o:42150,h:42550,l:42120,c:42500},{o:42500,h:42700,l:42450,c:42650},
+      {o:42650,h:42850,l:42600,c:42800},{o:42800,h:43000,l:42750,c:42950},
+      {o:42950,h:43150,l:42900,c:43100},{o:43100,h:43300,l:43050,c:43250},
+      {o:43250,h:43450,l:43200,c:43400},{o:43400,h:43550,l:43350,c:43500},
+      {o:43500,h:43650,l:43450,c:43600},{o:43600,h:43750,l:43550,c:43700},
+      {o:43700,h:43850,l:43650,c:43800},{o:43800,h:43950,l:43750,c:43900},
+      {o:43900,h:44050,l:43850,c:44000},{o:44000,h:44150,l:43950,c:44100}
+    ],
+    entryIdx: 17,
+    entryPrice: 42650, slPrice: 42050, tp1Price: 43500, tp2Price: 44100,
+    indicators: {
+      subPanel: 'rsi',
+      rsiValues: [62,58,54,50,46,42,40,37,34,32,30,28,26,25,24,25, 45, 52,58,62,66,68,70,72,73,72,71,70,69,68]
+    },
+    zone: { fromIdx: 12, toIdx: 16, top: 42250, bottom: 42050 },
+    zoneLabel: 'RSI < 30 + ENGULF',
+    zoneColor: '88,166,255',
+    structureLabels: [
+      { idx: 0, price: 43400, text: 'HH', color: '#fbbf24' },
+      { idx: 14, price: 42050, text: 'Last Red', color: '#ef4444' },
+      { idx: 16, price: 42550, text: 'BULL ENGULF', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) RSI faellt unter 30 (Oversold) fuer min. 2-3 Bars',
+      '(2) Bullish-Engulfing-Kerze waehrend RSI < 30',
+      '(3) RSI startet zu steigen (kreuzt aus Oversold raus)',
+      '(4) Engulfing-Body verschluckt letzte rote Kerze klar',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH Engulfing + RSI muss aus Oversold rausgekreuzt haben.',
+      sl: 'Unter Engulfing-Tief + 0.3% Buffer.',
+      tp: 'TP1 = RSI bei 50 / Mean (50% close) · TP2 = RSI bei 70 oder 3R.',
+      market: 'Beste Confluence: Engulfing UND RSI < 30 UND Major-Support-Level. Ohne alle 3 schwaecher.'
+    },
+    tip: 'Schau auf das RSI-Panel unten in der Animation. Der Cross aus dem gruenen Bereich (unter 30) heraus ist der Trigger — vorher ist es nur "fallendes Messer". Engulfing OHNE RSI-Bestaetigung kann sehr schnell wieder kaputt gehen.'
+  }
 
 };
 
@@ -38003,9 +38253,257 @@ function playAcademyInlineAnim(canvasId, configKey) {
   _academyAnimRAF = requestAnimationFrame(frame);
 }
 
+// === Indikator-Renderer fuer Akademie-Animationen ===
+function _academyDrawVolumeBars(ctx, candles, nVisible, xScale, candleW, volumeAreaY, volumeAreaH, volumes, highlightIdx) {
+  // volumes: array of relative volumes (0-1)
+  // volumeAreaY: top y of volume area
+  // volumeAreaH: height
+  for (let i = 0; i < nVisible; i++) {
+    const v = volumes ? (volumes[i] || 0) : 0.5;
+    const c = candles[i];
+    const isGreen = c.c >= c.o;
+    const barH = Math.max(1, v * volumeAreaH);
+    const isHighlight = (highlightIdx !== undefined && i === highlightIdx);
+    ctx.fillStyle = isHighlight
+      ? 'rgba(251,191,36,0.85)'
+      : (isGreen ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)');
+    ctx.fillRect(xScale(i) - candleW/2, volumeAreaY + volumeAreaH - barH, candleW, barH);
+  }
+  // Label
+  ctx.font = 'bold 9px ui-sans-serif';
+  ctx.fillStyle = '#9ca3af';
+  ctx.textAlign = 'left';
+  ctx.fillText('VOLUMEN', xScale(0) - 8, volumeAreaY + 10);
+}
+
+function _academyDrawRsiPanel(ctx, panelY, panelH, panelW, panelX, xScale, nVisible, rsiValues, t) {
+  if (!rsiValues || rsiValues.length === 0) return;
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
+  // 30/70 zones (oversold/overbought)
+  const yRsi = (v) => panelY + (1 - v / 100) * panelH;
+  ctx.fillStyle = 'rgba(239,68,68,0.10)';
+  ctx.fillRect(panelX, panelY, panelW, yRsi(70) - panelY);  // Top zone (>70)
+  ctx.fillStyle = 'rgba(34,197,94,0.10)';
+  ctx.fillRect(panelX, yRsi(30), panelW, panelY + panelH - yRsi(30));  // Bottom zone (<30)
+  // Reference lines at 30, 50, 70
+  ctx.strokeStyle = 'rgba(156,163,175,0.30)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([2, 3]);
+  [30, 50, 70].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(panelX, yRsi(v));
+    ctx.lineTo(panelX + panelW, yRsi(v));
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  // Draw RSI line
+  ctx.strokeStyle = '#a78bfa';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const maxI = Math.min(nVisible, rsiValues.length);
+  for (let i = 0; i < maxI; i++) {
+    const x = xScale(i);
+    const y = yRsi(rsiValues[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // Labels
+  ctx.font = '8px ui-sans-serif';
+  ctx.fillStyle = '#ef4444';
+  ctx.textAlign = 'left';
+  ctx.fillText('70', panelX + 2, yRsi(70) + 3);
+  ctx.fillStyle = '#22c55e';
+  ctx.fillText('30', panelX + 2, yRsi(30) + 3);
+  // Panel title
+  ctx.font = 'bold 9px ui-sans-serif';
+  ctx.fillStyle = '#a78bfa';
+  ctx.fillText('RSI(14)', panelX + 2, panelY - 3);
+}
+
+function _academyDrawBollingerBands(ctx, candles, xScale, yScale, nVisible, bbValues) {
+  // bbValues: { upper: [], mid: [], lower: [] }
+  if (!bbValues || !bbValues.upper) return;
+  const maxI = Math.min(nVisible, bbValues.upper.length);
+  // Fill between upper and lower (subtle)
+  ctx.fillStyle = 'rgba(167,139,250,0.05)';
+  ctx.beginPath();
+  for (let i = 0; i < maxI; i++) {
+    const x = xScale(i);
+    if (i === 0) ctx.moveTo(x, yScale(bbValues.upper[i]));
+    else ctx.lineTo(x, yScale(bbValues.upper[i]));
+  }
+  for (let i = maxI - 1; i >= 0; i--) {
+    ctx.lineTo(xScale(i), yScale(bbValues.lower[i]));
+  }
+  ctx.closePath();
+  ctx.fill();
+  // Lines
+  const drawBBLine = (arr, color, dashed) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    if (dashed) ctx.setLineDash(dashed);
+    ctx.beginPath();
+    for (let i = 0; i < maxI; i++) {
+      const x = xScale(i), y = yScale(arr[i]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  drawBBLine(bbValues.upper, 'rgba(167,139,250,0.70)', [4,2]);
+  drawBBLine(bbValues.mid,   'rgba(167,139,250,0.50)', null);
+  drawBBLine(bbValues.lower, 'rgba(167,139,250,0.70)', [4,2]);
+  // Label
+  ctx.font = 'bold 9px ui-sans-serif';
+  ctx.fillStyle = 'rgba(167,139,250,0.9)';
+  ctx.textAlign = 'left';
+  if (maxI > 5) {
+    ctx.fillText('BB(20,2)', xScale(4), yScale(bbValues.upper[4]) - 4);
+  }
+}
+
+function _academyDrawMacdPanel(ctx, panelY, panelH, panelX, panelW, xScale, nVisible, macd) {
+  if (!macd || !macd.line) return;
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
+  // Compute extent
+  const vals = macd.line.slice(0, nVisible).concat(macd.signal.slice(0, nVisible), (macd.hist||[]).slice(0, nVisible));
+  let mn = Math.min(...vals), mx = Math.max(...vals);
+  if (mn === mx) { mn -= 1; mx += 1; }
+  const yM = (v) => panelY + panelH - ((v - mn) / (mx - mn)) * panelH;
+  // Zero line
+  ctx.strokeStyle = 'rgba(156,163,175,0.30)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(panelX, yM(0));
+  ctx.lineTo(panelX + panelW, yM(0));
+  ctx.stroke();
+  // Histogram
+  if (macd.hist) {
+    const w = panelW / nVisible * 0.7;
+    for (let i = 0; i < Math.min(nVisible, macd.hist.length); i++) {
+      const v = macd.hist[i];
+      const y0 = yM(0), y1 = yM(v);
+      ctx.fillStyle = v >= 0 ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)';
+      ctx.fillRect(xScale(i) - w/2, Math.min(y0, y1), w, Math.abs(y1 - y0));
+    }
+  }
+  // MACD line
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < Math.min(nVisible, macd.line.length); i++) {
+    const x = xScale(i), y = yM(macd.line[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // Signal line
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < Math.min(nVisible, macd.signal.length); i++) {
+    const x = xScale(i), y = yM(macd.signal[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.font = 'bold 9px ui-sans-serif';
+  ctx.fillStyle = '#58a6ff';
+  ctx.textAlign = 'left';
+  ctx.fillText('MACD(12,26,9)', panelX + 2, panelY - 3);
+}
+
+function _academyDrawStochPanel(ctx, panelY, panelH, panelX, panelW, xScale, nVisible, stoch) {
+  if (!stoch || !stoch.k) return;
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
+  const yS = (v) => panelY + (1 - v / 100) * panelH;
+  // OB/OS zones
+  ctx.fillStyle = 'rgba(239,68,68,0.10)';
+  ctx.fillRect(panelX, panelY, panelW, yS(80) - panelY);
+  ctx.fillStyle = 'rgba(34,197,94,0.10)';
+  ctx.fillRect(panelX, yS(20), panelW, panelY + panelH - yS(20));
+  ctx.strokeStyle = 'rgba(156,163,175,0.30)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([2,3]);
+  [20, 50, 80].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(panelX, yS(v));
+    ctx.lineTo(panelX + panelW, yS(v));
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  // K line
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < Math.min(nVisible, stoch.k.length); i++) {
+    const x = xScale(i), y = yS(stoch.k[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // D line
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < Math.min(nVisible, stoch.d.length); i++) {
+    const x = xScale(i), y = yS(stoch.d[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.font = 'bold 9px ui-sans-serif';
+  ctx.fillStyle = '#58a6ff';
+  ctx.textAlign = 'left';
+  ctx.fillText('Stoch K(14) / D(3)', panelX + 2, panelY - 3);
+}
+
+function _academyDrawMultipleMAs(ctx, candles, xScale, yScale, nVisible, mas) {
+  // mas: array of { values: [], color, label, dashed }
+  if (!mas || mas.length === 0) return;
+  mas.forEach(ma => {
+    if (!ma.values) return;
+    const maxI = Math.min(nVisible, ma.values.length);
+    ctx.strokeStyle = ma.color || '#fbbf24';
+    ctx.lineWidth = 1.5;
+    if (ma.dashed) ctx.setLineDash(ma.dashed);
+    ctx.beginPath();
+    for (let i = 0; i < maxI; i++) {
+      const x = xScale(i), y = yScale(ma.values[i]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (ma.label && maxI > 3) {
+      ctx.font = 'bold 9px ui-sans-serif';
+      ctx.fillStyle = ma.color || '#fbbf24';
+      ctx.textAlign = 'left';
+      ctx.fillText(ma.label, xScale(3), yScale(ma.values[3]) - 4);
+    }
+  });
+}
+
 function _drawAcademyAnimFrame(ctx, W, H, cfg, t) {
   const pad = { top: 70, right: 130, bottom: 100, left: 50 };
-  const chartH = H - pad.top - pad.bottom;
+  const fullChartH = H - pad.top - pad.bottom;
+  // Sub-Panel platzbedarf — Kerzen-Chart wird oben, Sub-Panel unten
+  const hasSubPanel = !!(cfg.indicators && cfg.indicators.subPanel);
+  const hasVolumeBars = !!(cfg.indicators && cfg.indicators.volumeBars);
+  const chartH = hasSubPanel ? fullChartH * 0.66 : (hasVolumeBars ? fullChartH * 0.84 : fullChartH);
+  const subPanelGap = 8;
+  const subPanelH = hasSubPanel ? fullChartH * 0.30 : 0;
+  const subPanelY = pad.top + chartH + subPanelGap;
+  const volumeH = hasVolumeBars ? fullChartH * 0.14 : 0;
+  const volumeY = pad.top + chartH + 4;
   const chartW = W - pad.left - pad.right;
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, '#0a0a0a');
@@ -38087,6 +38585,27 @@ function _drawAcademyAnimFrame(ctx, W, H, cfg, t) {
     }
     ctx.fillStyle = color;
     ctx.fillRect(x - candleW/2, yTop, candleW, h);
+  }
+
+  // v1.8: Strategy-specific indicators
+  if (cfg.indicators) {
+    const ind = cfg.indicators;
+    if (ind.bollinger) {
+      _academyDrawBollingerBands(ctx, candles, xScale, yScale, nVisible, ind.bollinger);
+    }
+    if (ind.multipleMAs) {
+      _academyDrawMultipleMAs(ctx, candles, xScale, yScale, nVisible, ind.multipleMAs);
+    }
+    if (ind.volumeBars) {
+      _academyDrawVolumeBars(ctx, candles, nVisible, xScale, candleW, volumeY, volumeH, ind.volumeBars, ind.volumeHighlightIdx);
+    }
+    if (ind.subPanel === 'rsi' && ind.rsiValues) {
+      _academyDrawRsiPanel(ctx, subPanelY, subPanelH, chartW, pad.left, xScale, nVisible, ind.rsiValues, t);
+    } else if (ind.subPanel === 'macd' && ind.macdValues) {
+      _academyDrawMacdPanel(ctx, subPanelY, subPanelH, pad.left, chartW, xScale, nVisible, ind.macdValues);
+    } else if (ind.subPanel === 'stoch' && ind.stochValues) {
+      _academyDrawStochPanel(ctx, subPanelY, subPanelH, pad.left, chartW, xScale, nVisible, ind.stochValues);
+    }
   }
 
   if (t >= 0.30) {
