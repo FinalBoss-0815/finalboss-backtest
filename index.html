@@ -1312,7 +1312,7 @@ input[type=number] { -moz-appearance:textfield }
     <input type="number" id="slippagePct" value="0.02" step="0.01" min="0" max="0.2" style="width:70px" title="Geschätzte Slippage pro Entry/Exit">
   </div>
   <div class="control-group">
-    <label data-i18n="lbl.cooldown">Cooldown</label>
+    <label style="font-size:11px"><span data-i18n="lbl.cooldown">Cooldown</span><span class="info-icon" style="vertical-align:middle">i<span class="info-tip" data-i18n-html="tip.cooldown">Anzahl Kerzen die nach einem Exit gewartet werden muss bevor ein neuer Trade eroeffnet werden darf.<br><br><strong>Verhindert Overtrading</strong> und sofortiges Re-Entry nach einem Stop-Out.<br><br><strong>0</strong> = kein Cooldown<br><strong>2-5</strong> = Default fuer Day-Trading<br><strong>10+</strong> = Swing-Strategien<br><br>Faustregel: hoeherer Cooldown = weniger Trades, oft hoeherer Profit-Faktor.</span></span></label>
     <div style="display:flex;align-items:center;gap:6px">
       <input type="number" id="cooldownBars" value="2" step="1" min="0" max="50" style="width:50px" title="Min. Bars zwischen Trades">
       <span style="font-size:12px;color:var(--text-muted)" data-i18n="lbl.candles">candles</span>
@@ -1331,7 +1331,7 @@ input[type=number] { -moz-appearance:textfield }
     </div>
   </div>
   <div class="control-group">
-    <label style="font-size:11px" data-i18n="lbl.nextbar">Next-Bar Entry</label>
+    <label style="font-size:11px"><span data-i18n="lbl.nextbar">Next-Bar Entry</span><span class="info-icon" style="vertical-align:middle">i<span class="info-tip" data-i18n-html="tip.nextbar"><strong>WANN wird der Entry ausgefuehrt?</strong><br><br><strong>Ja (realistisch):</strong> Entry auf <em>Open</em> der NAECHSTEN Kerze nach dem Signal — wie ein echter Trader: Signal am Kerzen-Close sehen, dann naechste Bar einsteigen.<br><br><strong>Nein (optimistisch):</strong> Entry direkt auf <em>Close</em> der Signal-Kerze — ueberschaetzt die Performance massiv, weil der Close-Preis erst am Kerzen-Ende bekannt war (in der Realitaet unmoeglich zu diesem Preis einzusteigen).<br><br><strong>Empfehlung:</strong> immer Ja fuer realistische Backtest-Resultate.</span></span></label>
     <select id="nextBarEntry" style="width:60px" title="Entry auf Open der nächsten Kerze statt Close der Signal-Kerze">
       <option value="1" selected>Ja</option>
       <option value="0">Nein</option>
@@ -2742,6 +2742,28 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <div id="optParamList" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
+      <!-- AI Coach Panel -->
+      <details id="optAiCoachPanel" style="background:linear-gradient(135deg,rgba(168,85,247,0.06),rgba(99,102,241,0.06));border:1px solid rgba(168,85,247,0.25);border-radius:8px;margin-bottom:12px">
+        <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:600;color:#c4b5fd;list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
+          <span style="font-size:11px;color:#a855f7">▶</span>
+          <span style="font-size:16px">🤖</span>
+          <span>AI-Coach — frag die KI was Sinn macht zu optimieren</span>
+          <span style="flex:1"></span>
+          <span id="optAiCoachProvider" style="font-size:10px;color:var(--text-muted);background:var(--bg-tertiary);padding:2px 8px;border-radius:10px"></span>
+        </summary>
+        <div style="padding:0 16px 16px">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <button type="button" onclick="aiCoachOptSuggest()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px">🤖 Vorschlag holen</button>
+            <button type="button" onclick="aiCoachOptInterpret()" id="optAiInterpretBtn" style="display:none;background:linear-gradient(135deg,#06b6d4,#3b82f6);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px">💡 Ergebnis interpretieren</button>
+            <button type="button" onclick="aiCoachOptClear()" style="background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px">🗑️ Reset</button>
+          </div>
+          <div id="optAiCoachChat" style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:6px;padding:12px;min-height:80px;max-height:400px;overflow-y:auto;font-size:13px;line-height:1.55;margin-bottom:10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"><div style="color:var(--text-muted);text-align:center;padding:20px;font-size:12px">👋 Frag mich was Sinn macht zu optimieren — oder klick <strong>Vorschlag holen</strong> für einen konkreten Plan.</div></div>
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <textarea id="optAiCoachInput" rows="2" placeholder="z.B. Welche Parameter haben den größten Einfluss bei dieser Strategie?" style="flex:1;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);padding:8px 10px;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px"></textarea>
+            <button type="button" onclick="aiCoachOptSendMsg()" style="background:linear-gradient(135deg,#a855f7,#6366f1);border:none;color:#fff;padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;white-space:nowrap">Senden ▶</button>
+          </div>
+        </div>
+      </details>
       <div id="optResults" style="flex:1;overflow-y:auto"></div>
     </div>
   </div>
@@ -10122,8 +10144,113 @@ const STRATEGIES = [
     },
     shouldEnter(candles, i, params) { return null; },
     shouldExit() { return false; }
+  },
+
+  // ── Stablecoin Dominance Reversal ──
+  {
+    name: "Stablecoin Dominance Reversal",
+    defaultTF: "4h",
+    params: {
+      rsiPeriod: { label: "USDT.D RSI Proxy", value: 14, min: 5, max: 30 },
+      extremeUsdtD: { label: "Extreme Stable-Dom >", value: 75, min: 60, max: 90 },
+      atrPeriod: { label: "ATR Period", value: 14, min: 5, max: 30 },
+      slMult: { label: "SL × ATR", value: 1.5, min: 0.5, max: 5.0, step: 0.5 },
+      tpR: { label: "TP R-Mult", value: 2.5, min: 1.0, max: 5.0, step: 0.5 }
+    },
+    init(candles, params) {
+      const closes = candles.map(c => c.close);
+      // USDT.D rises when BTC falls — we use inverse RSI of BTC as proxy
+      const invCloses = closes.map((c, i) => i === 0 ? c : (2*closes[0] - c));
+      this._rsi = Indicators.rsi(invCloses, params.rsiPeriod);
+      this._atr = Indicators.atr(candles.map(c=>c.high), candles.map(c=>c.low), closes, params.atrPeriod);
+    },
+    shouldEnter(candles, i, params) {
+      if (i < params.rsiPeriod + 2 || isNaN(this._rsi[i]) || isNaN(this._atr[i])) return null;
+      // Long BTC when Stablecoin-Dominance proxy peaks + reverses
+      if (this._rsi[i-1] > params.extremeUsdtD && this._rsi[i] < this._rsi[i-1] &&
+          candles[i].close > candles[i].open) {
+        return { dir: "long", sl: candles[i].low - params.slMult*this._atr[i] };
+      }
+      return null;
+    },
+    shouldExit(candles, i, position, params) {
+      const r = Math.abs(position.entryPrice - position.sl);
+      if (position.dir === "long" && candles[i].high >= position.entryPrice + params.tpR*r) return true;
+      return false;
+    }
   }
 ];
+
+// ════════════════════════════════════════════════════════════════
+//  STRATEGY_DIFFICULTY: Score 1-10 — Wie schwer ist die Strategie zu traden?
+//  1-2  = Anfänger (1 Indikator, klare Regeln)
+//  3-4  = Einfach (1-2 Indikatoren, Standard-Patterns)
+//  5-6  = Mittel (Multi-Indikator, Pattern-Recognition nötig)
+//  7-8  = Komplex (Multi-Timeframe, SMC/ICT, fortgeschrittene Konzepte)
+//  9-10 = Sehr komplex (Subjektive Interpretation, Profi-Level)
+// ════════════════════════════════════════════════════════════════
+const STRATEGY_DIFFICULTY = {
+  // 1-2: Anfänger
+  'Golden / Death Cross': 1, 'MA Cross': 1, 'Day-of-Week Effect': 1,
+  'Hammer Reversal': 2, 'Engulfing at Key Level': 2, 'Bollinger Reversion': 2,
+  'Three Soldiers / Crows': 2, 'Volume Spike Reversal': 2, 'Donchian-Breakout + ADX': 2,
+  'Inside Bar Breakout': 2,
+  // 3-4: Einfach
+  'RSI Mean Reversion': 3, 'MACD Crossover': 3, 'Stochastic K/D Cross': 3,
+  'CCI Trend': 3, 'Williams %R Reversal': 3, 'Aroon Trend': 3, 'ROC Momentum': 3,
+  'Bollinger %B Reversal': 3, 'Pin Bar Support': 3,
+  'Bollinger Squeeze Breakout': 4, 'Bollinger Bandwidth Squeeze': 4,
+  'Keltner Channel Reversion': 4, 'Donchian Mean Reversion': 4, 'EMA Ribbon Trend': 4,
+  'ADX Power Trend': 4, 'Trend-Pullback': 4, '21 EMA Bounce/Retest': 4,
+  'Pivot Point Bounce': 4, 'Fibonacci Retracement': 4, 'TRIX Zero Cross': 4,
+  'Awesome Oscillator': 4,
+  // 5-6: Mittel
+  'Triple EMA Cross': 5, 'Hull MA Cross': 5, 'Supertrend + ATR-Trail': 5,
+  'Parabolic SAR + ADX': 5, 'Chandelier Exit Trend': 5, 'Heikin-Ashi Trend': 5,
+  'HA Strong Continuation': 5, 'VWAP Mean Reversion': 5, 'VWAP Bands Reversion': 5,
+  'KAMA Trend': 5, 'Vortex Crossover': 5, 'DMI Crossover': 5,
+  'Linear Regression Reversion': 5, 'MFI Mean Reversion': 5, 'CMF Trend': 5,
+  'StochRSI Reversal': 5, 'Ultimate Oscillator': 5, 'Klinger Volume Oscillator': 5,
+  'Coppock Curve': 5, 'Engulfing + Volume': 5, 'Engulfing + RSI': 5,
+  'Triangle Breakout': 5, 'Flag Continuation': 5, 'Double Bottom': 5,
+  'Triple Bottom': 5, 'Custom Builder': 5,
+  'Schaff Trend Cycle': 6, 'Z-Score Mean Reversion': 6, 'Connors RSI 2': 6,
+  'DPO Reversal': 6, 'Choppiness + Trend': 6, 'TTM Squeeze': 6,
+  'Inverse Head & Shoulders': 6, 'Head & Shoulders Reversal': 6, 'Cup & Handle': 6,
+  'Rising/Falling Wedge': 6, 'MACD Bullish Divergence': 6, 'Bullish RSI Divergence': 6,
+  'Williams Alligator': 6, 'Delphin (EMA Fakeout)': 6, 'ATR Breakout (Toby Crabel)': 6,
+  'VCP (Minervini)': 6, 'Old Money Stacks Breakout': 6, 'Distance from 200 SMA': 6,
+  // 7-8: Komplex
+  'Ichimoku Kumo Breakout': 7, 'Trendlinien-Bruch + Retest': 7, 'Trend-Kanal Bounce': 7,
+  'Anchored VWAP': 7, 'Volume Profile POC': 7, 'TD Sequential 9': 7,
+  'Hidden Bullish Divergence': 7, 'Time-of-Day Session': 7, 'Fear & Greed Reversal': 7,
+  'CME Gap Fill': 7, 'Premium / Discount Zone': 7, 'Order Block Retest (SMC)': 7,
+  'BOS / CHoCH Market Structure': 7, 'Stablecoin Dominance Reversal': 7,
+  'Funding Rate Momentum': 7, 'Liquidation Reversal': 7,
+  'Advancing/Retracing Wicks (Scalping)': 7,
+  'Liquidity Sweep + FVG (SMC)': 8, 'LSOB (Liquidity Sweep Order Block)': 8,
+  'Wyckoff Spring/Upthrust': 8, 'OI + Price Action': 8, 'Funding Rate Extreme Reversal': 8,
+  'Quasimodo Reversal': 8, 'Power of 3 (ICT)': 8, 'Pair Trading (Ratio)': 8,
+  // 9-10: Sehr komplex
+  'FinalBoss Zonen': 9, 'SMC Multi-Layer Confluence': 9, 'Elliott Wave Impulse': 9,
+  'Gartley Harmonic': 9, 'MTF Confluence': 9, 'Multi-Strategy Voting': 9,
+  'ML Feature Classifier': 10, 'Regime-Switch Master': 10
+};
+
+// Helper: get difficulty for any strategy (default 5)
+function getStratDifficulty(name) {
+  return STRATEGY_DIFFICULTY[name] || 5;
+}
+
+// Helper: Color für Badge basierend auf Difficulty
+function getDifficultyColor(d) {
+  if (d <= 2) return { bg: '#22c55e', label: 'Anfänger', labelEn: 'Beginner' };
+  if (d <= 4) return { bg: '#84cc16', label: 'Einfach', labelEn: 'Easy' };
+  if (d <= 6) return { bg: '#eab308', label: 'Mittel', labelEn: 'Medium' };
+  if (d <= 8) return { bg: '#f97316', label: 'Komplex', labelEn: 'Complex' };
+  return { bg: '#ef4444', label: 'Profi', labelEn: 'Pro' };
+}
+
 
 // ═══════════════════════════════════════════════
 //  DATA FETCHING — Binance Public API
@@ -10910,10 +11037,13 @@ function setStatus(text, state = 'ready') {
 function populateStrategies() {
   const sel = document.getElementById('strategySelect');
   sel.innerHTML = '';
-  STRATEGIES.forEach((s, i) => {
+  // Sort by difficulty (easy → hard), keep original index as option value
+  const indexed = STRATEGIES.map((s, i) => ({ s, i, d: getStratDifficulty(s.name) }));
+  indexed.sort((a, b) => a.d - b.d || a.s.name.localeCompare(b.s.name));
+  indexed.forEach(({ s, i, d }) => {
     const opt = document.createElement('option');
     opt.value = i;
-    opt.textContent = s.name;
+    opt.textContent = '[' + d + '/10] ' + s.name;
     sel.appendChild(opt);
   });
   sel.addEventListener('change', updateStrategyParams);
@@ -11581,6 +11711,30 @@ const STRATEGY_INFO_EN = {
 // Wird im Akademie-"Einfach"-Modus statt STRATEGY_INFO genutzt.
 // ═══════════════════════════════════════════════════════════════
 const STRATEGY_INFO_SIMPLE = {
+  "Stablecoin Dominance Reversal": {
+    desc: "Wenn die Stablecoin-Dominance (USDT.D + USDC.D) EXTREM hoch ist (>8-10% Market-Share), bedeutet das: alle haben in Cash gefluechtet. Das ist statistisch der Bottom — Long BTC/ETH.",
+    indicators: [
+      "USDT.D Chart auf TradingView (TVC:USDTDOM).",
+      "RSI(14) auf USDT.D als Bestaetigung.",
+      "ATR(14) fuer Stopp-Loss."
+    ],
+    steps: [
+      "Beobachte die Stablecoin-Dominance: USDT.D + USDC.D auf TradingView.",
+      "Long-Setup: USDT.D peakt bei >8% + RSI > 75 (extrem ueberkauft).",
+      "Warte auf RSI-Drop (USDT.D faellt) — das Geld flieest wieder in BTC/ETH.",
+      "Bullish Bestaetigungs-Kerze auf BTC/ETH.",
+      "Entry: Close der bullish Kerze auf BTC.",
+      "SL: 1.5x ATR unter dem Reversal-Tief.",
+      "TP: 2.5R fix oder bis USDT.D wieder unter 5% (normal)."
+    ],
+    glossary: [
+      "USDT.D = USDT-Dominance = Market-Cap-Share von Tether am Krypto-Total. Wenn USDT.D steigt, fluechtet Geld aus Coins in Cash.",
+      "Stablecoin-Dominance = Summe aller Stablecoin-Shares (USDT + USDC + BUSD + DAI etc.).",
+      "Inverse Korrelation = BTC und USDT.D bewegen sich GEGENGLEICH. BTC up → USDT.D down (Geld in Coins). BTC down → USDT.D up (Cash-Flight).",
+      "Risk-On / Risk-Off = klassische Macro-Begriffe. Niedrige USDT.D = Risk-On. Hohe USDT.D = Risk-Off."
+    ],
+    market: "Funktioniert auf hoeheren Timeframes (4h+). Statistische Edge bei Major-Bottoms/Tops. In normalen Mid-Phasen weniger klar."
+  },
   "Elliott Wave Impulse": {
     desc: "Ralph Nelson Elliotts Klassiker: Markt-Bewegungen folgen 5-Wave-Mustern. Welle 3 ist meist die staerkste — Entry am Ende von Welle 2 = optimaler Long.",
     indicators: ["Visueller Pattern — 5-Wave-Count manuell.","Fibonacci-Retracement zur Wave-2-Identifikation.","ATR(14) fuer Stopp-Loss."],
@@ -14063,21 +14217,21 @@ function buildStrategyAssessment(result, stratName) {
     if (n < 30) {
       tips.push({
         icon: '📅',
-        text: 'Mehr Trades sammeln: <strong>längerer Zeitraum, kürzerer Timeframe oder mehr Coins</strong> testen. Im Tab <strong>Portfolio-Backtest</strong> läufst du dieselbe Strategie auf BTC + ETH + SOL gleichzeitig.'
+        text: 'Mehr Trades sammeln: <strong>längerer Zeitraum, kürzerer Timeframe oder mehr Coins</strong> testen. Im Tab <strong>Portfolio-Backtest</strong> läufst du dieselbe Strategie auf BTC + ETH + SOL gleichzeitig.<button onclick="document.querySelector(\'.tab-btn[data-tab=&quot;portfolio&quot;]\')?.click()" style="display:inline-block;margin-left:8px;padding:4px 10px;background:linear-gradient(135deg,#10b981,#34d399);color:#fff;border:none;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;vertical-align:middle;white-space:nowrap">→ Zu Portfolio</button>'
       });
     }
     // Wenn Params dabei sind → Grid-Optimizer
     if (n >= 5) {
       tips.push({
         icon: '🎛️',
-        text: 'Tab <strong>Optimizer (Grid + Genetic)</strong> — testet automatisch hunderte Parameter-Kombinationen und findet Settings die den Profit-Factor maximieren. Aber Vorsicht: ohne Walk-Forward danach kommt schnell Overfitting raus.'
+        text: '<strong>Optimizer (Grid + Genetic)</strong> — testet automatisch hunderte Parameter-Kombinationen und findet Settings die den Profit-Factor maximieren. Aber Vorsicht: ohne Walk-Forward danach kommt schnell Overfitting raus.<button onclick="document.querySelector(\'.tab-btn[data-tab=&quot;optimizer&quot;]\')?.click()" style="display:inline-block;margin-left:8px;padding:4px 10px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;border:none;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;vertical-align:middle;white-space:nowrap">→ Zum Optimizer</button>'
       });
     }
     // Bei genug Trades → Walk-Forward + Monte Carlo
     if (n >= 20) {
       tips.push({
         icon: '🔬',
-        text: 'Tab <strong>Walk-Forward + Monte Carlo</strong> — wenn die Strategie auch nach Permutation der Trade-Reihenfolge profitabel bleibt, ist der Edge eher echt als Glück. Beste Methode um zwischen Edge und Zufall zu unterscheiden.'
+        text: '<strong>Walk-Forward + Monte Carlo</strong> — wenn die Strategie auch nach Permutation der Trade-Reihenfolge profitabel bleibt, ist der Edge eher echt als Glück. Beste Methode um zwischen Edge und Zufall zu unterscheiden.<button onclick="document.querySelector(\'.tab-btn[data-tab=&quot;walkforward&quot;]\')?.click()" style="display:inline-block;margin-left:8px;padding:4px 10px;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;border:none;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;vertical-align:middle;white-space:nowrap">→ Zu Walk-Forward</button>'
       });
     }
     // TP-Logik fehlt → Refine oder manuell ergänzen
@@ -23614,6 +23768,8 @@ const I18N = {
     'tip.builder': 'Kombiniere Indikatoren zu einer eigenen Strategie. Wähle Entry- und Exit-Bedingungen und teste sie im Backtest.',
     'tip.notes': 'Schreib hier in eigenen Worten was die Strategie machen soll, z.B. „Entry wenn Preis die EMA21 berührt und mit einer Bounce-Kerze rejected wird. Exit beim ersten Schluss unter EMA21 oder bei TP." Das wird zusammen mit der Strategie gespeichert/geladen, hat aber keinen Einfluss auf die Ausführung — die regeln nur die Bedingungs-Bausteine oben.',
     'tip.barreplay': '<strong>An (realistisch):</strong> Exits werden VOR Entries auf derselben Kerze geprüft — wie im echten Markt. Kein Entry+Exit auf gleicher Kerze möglich.<br><br><strong>Aus (optimistisch):</strong> Entry und Exit auf gleicher Kerze erlaubt — überschätzt die Performance, kann aber zum schnellen Testen nützlich sein.',
+    'tip.cooldown': 'Anzahl Kerzen die nach einem Exit gewartet werden muss bevor ein neuer Trade eröffnet werden darf.<br><br><strong>Verhindert Overtrading</strong> und sofortiges Re-Entry nach einem Stop-Out.<br><br><strong>0</strong> = kein Cooldown · <strong>2-5</strong> = Default Day-Trading · <strong>10+</strong> = Swing-Strategien<br><br>Faustregel: höherer Cooldown = weniger Trades, oft höherer Profit-Faktor.',
+    'tip.nextbar': '<strong>WANN wird der Entry ausgeführt?</strong><br><br><strong>Ja (realistisch):</strong> Entry auf <em>Open</em> der NÄCHSTEN Kerze nach dem Signal — wie ein echter Trader: Signal am Kerzen-Close sehen, dann nächste Bar einsteigen.<br><br><strong>Nein (optimistisch):</strong> Entry direkt auf <em>Close</em> der Signal-Kerze — überschätzt die Performance massiv weil der Close-Preis erst am Kerzen-Ende bekannt war.<br><br><strong>Empfehlung:</strong> immer Ja für realistische Backtest-Resultate.',
     'tip.split': 'Die Daten werden in zwei Hälften geteilt. <strong>Train:</strong> Auf diesen Daten wird die Strategie „trainiert" — hier sollte sie gut funktionieren. <strong>Test:</strong> Ungesehene Daten — nur wenn die Strategie hier auch profitabel ist, hat sie einen echten Edge und ist kein Overfit.',
     'tip.equity': 'Zeigt den Kontostand über die Zeit. Die gestrichelte Linie markiert den Split zwischen Train und Test. Eine gleichmäßig steigende Kurve ist ideal — große Sprünge oder Einbrüche zeigen instabile Phasen.',
     'tip.drawdown': 'Zeigt wie weit dein Konto vom letzten Höchststand gefallen ist (in %). Ein Drawdown von -10% heißt: du hattest z.B. $11.000 und bist auf $9.900 gefallen. Je flacher und weniger tief, desto besser.',
@@ -23742,6 +23898,8 @@ const I18N = {
     'tip.builder': 'Combine indicators into your own strategy. Choose entry and exit conditions and test them in the backtest.',
     'tip.notes': 'Write here in your own words what the strategy should do, e.g. „Entry when price touches EMA21 and is rejected with a bounce candle. Exit on first close below EMA21 or at TP." This is saved/loaded with the strategy but does not affect execution — only the condition blocks above do that.',
     'tip.barreplay': '<strong>On (realistic):</strong> Exits are checked BEFORE entries on the same candle — like the real market. No entry+exit on the same candle possible.<br><br><strong>Off (optimistic):</strong> Entry and exit on the same candle allowed — overestimates performance but useful for quick tests.',
+    'tip.cooldown': 'Number of bars to wait after an exit before opening a new trade.<br><br><strong>Prevents overtrading</strong> and immediate re-entry after stop-out.<br><br><strong>0</strong> = no cooldown · <strong>2-5</strong> = default day-trading · <strong>10+</strong> = swing strategies<br><br>Rule of thumb: higher cooldown = fewer trades, often higher profit factor.',
+    'tip.nextbar': '<strong>WHEN is the entry executed?</strong><br><br><strong>Yes (realistic):</strong> Entry on <em>Open</em> of the NEXT bar after the signal — like a real trader: see signal at bar close, enter on next bar.<br><br><strong>No (optimistic):</strong> Entry directly on <em>Close</em> of the signal bar — massively overestimates performance because close price was only known at bar end.<br><br><strong>Recommendation:</strong> always Yes for realistic backtest results.',
     'tip.split': 'Data is split into two halves. <strong>Train:</strong> The strategy is „trained" on this data — should work well here. <strong>Test:</strong> Unseen data — only if the strategy is also profitable here does it have a real edge and is not just overfit.',
     'tip.equity': 'Shows account balance over time. The dashed line marks the train/test split. A steadily rising curve is ideal — big jumps or drops show unstable phases.',
     'tip.drawdown': 'Shows how far your account fell from its last peak (in %). A drawdown of -10% means: you had e.g. $11,000 and dropped to $9,900. The flatter and shallower, the better.',
@@ -23811,6 +23969,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ═══════════════════════════════════════════════
 // Mappt jede Strategie auf eine Schema-Kategorie (fuer SVG-Beispiel + Filter)
 const ACADEMY_SCHEMAS = {
+  'Stablecoin Dominance Reversal': 'crypto-specific',
   'Z-Score Mean Reversion': 'channel-reversion',
   'Elliott Wave Impulse': 'pattern',
   'Gartley Harmonic': 'pattern',
@@ -31920,7 +32079,13 @@ function renderAcademy() {
 
   let html = '';
   let count = 0;
-  for (const strat of STRATEGIES) {
+  // v1.8.6: Sort academy by difficulty (easy → hard)
+  const _sortedStrats = [...STRATEGIES].sort((a, b) => {
+    const da = getStratDifficulty(a.name), db = getStratDifficulty(b.name);
+    if (da !== db) return da - db;
+    return a.name.localeCompare(b.name);
+  });
+  for (const strat of _sortedStrats) {
    try {
     const simpleInfo = simpleSrc[strat.name];
     const detailedInfo = detailedSrc[strat.name];
@@ -31995,6 +32160,7 @@ function renderAcademy() {
       const _hasAnim = (typeof ACADEMY_ANIM_CONFIGS !== 'undefined') &&
         (/trend.?pullback/i.test(strat.name) ? 'trend-pullback' :
          /ema.?bounce/i.test(strat.name) ? 'trend-pullback' :
+         /stablecoin.?dominance|usdt.?d|usdc.?d|stable.?dom/i.test(strat.name) ? 'stablecoin-dominance' :
          /elliott.?wave|wave.?impulse|5.?wave/i.test(strat.name) ? 'elliott-wave' :
          /gartley|harmonic/i.test(strat.name) ? 'gartley-harmonic' :
          /pair.?trading|ratio.?trad/i.test(strat.name) ? 'pair-trading' :
@@ -32233,8 +32399,14 @@ function renderAcademy() {
     const stratAttr = strat.name.replace(/"/g, '&quot;');
     html += `
       <details data-strat="${stratAttr}" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
-        <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none">
+        <summary style="padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px;user-select:none;flex-wrap:wrap">
           <span style="color:var(--blue);font-size:11px">▶</span>
+          ${(() => {
+            const d = getStratDifficulty(strat.name);
+            const col = getDifficultyColor(d);
+            const lbl = isEn ? col.labelEn : col.label;
+            return `<span title="${isEn ? 'Difficulty' : 'Schwierigkeit'}: ${d}/10 — ${lbl}" style="display:inline-flex;align-items:center;gap:4px;background:${col.bg};color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.3px;white-space:nowrap"><span style="font-size:11px">${d}</span><span style="opacity:0.85;font-size:9px;text-transform:uppercase">${lbl}</span></span>`;
+          })()}
           <span>${strat.name}</span>
           ${proBtnHtml}
           <span style="flex:1"></span>
@@ -34663,7 +34835,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-13 05:00 UTC';
+const APP_BUILD = '2026-05-13 09:30 UTC';
 
 // Header-Badge dynamisch setzen (verhindert hardcoded Stale-Werte)
 (function _initVersionBadge() {
@@ -43724,6 +43896,64 @@ const ACADEMY_ANIM_CONFIGS = {
       market: 'ICT/SMC-Trader\'s Favorit fuer Top/Bottom-Picks. NUR in klar strukturierten Maerkten.'
     },
     tip: 'Quasimodo = der \"Buckel\"-Pattern. Stop-Hunt + sofortiges Reversal ohne Retest. Sehr stark weil Smart Money Liquiditaet aufnimmt + sofort dreht.'
+  },
+
+  'stablecoin-dominance': {
+    title: 'Stablecoin Dominance Reversal · BTC 4h · Long',
+    subtitle: 'USDT.D peakt bei extrem (>8%) → Cash flieht zurück in BTC',
+    skipEma: true,
+    candles: [
+      {o:46500,h:46600,l:46400,c:46450},{o:46450,h:46500,l:46200,c:46250},
+      {o:46250,h:46350,l:46000,c:46050},{o:46050,h:46150,l:45800,c:45850},
+      {o:45850,h:45950,l:45600,c:45650},{o:45650,h:45750,l:45400,c:45450},
+      {o:45450,h:45550,l:45200,c:45250},{o:45250,h:45350,l:44950,c:45000},
+      {o:45000,h:45100,l:44700,c:44750},{o:44750,h:44850,l:44450,c:44500},
+      {o:44500,h:44600,l:44200,c:44250},{o:44250,h:44350,l:43950,c:44000},
+      {o:44000,h:44100,l:43700,c:43750},{o:43750,h:43850,l:43450,c:43500},
+      {o:43500,h:43600,l:43200,c:43250},{o:43250,h:43500,l:43180,c:43450},
+      {o:43450,h:43750,l:43420,c:43720},{o:43720,h:44050,l:43690,c:44020},
+      {o:44020,h:44350,l:43990,c:44320},{o:44320,h:44650,l:44290,c:44620},
+      {o:44620,h:44950,l:44590,c:44920},{o:44920,h:45250,l:44890,c:45220},
+      {o:45220,h:45550,l:45190,c:45520},{o:45520,h:45850,l:45490,c:45820},
+      {o:45820,h:46150,l:45790,c:46120},{o:46120,h:46450,l:46090,c:46420},
+      {o:46420,h:46750,l:46390,c:46720},{o:46720,h:47050,l:46690,c:47020},
+      {o:47020,h:47350,l:46990,c:47320},{o:47320,h:47650,l:47290,c:47620}
+    ],
+    entryIdx: 15,
+    entryPrice: 43450, slPrice: 43050, tp1Price: 44450, tp2Price: 45050,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [5.2,5.5,5.8,6.0,6.3,6.5,6.8,7.1,7.3,7.6,7.9,8.2,8.5,8.7,8.9, 8.2, 7.5, 6.8, 6.2, 5.8, 5.5, 5.3, 5.1, 4.9, 4.8, 4.7, 4.6, 4.6, 4.5, 4.5],
+        mid: 5.5, hiZone: 8, loZone: 3,
+        fillHi: 8, fillLo: 3,
+        bot: 3, top: 10,
+        lineColor: '#10b981',
+        label: 'Stablecoin Dominance %'
+      }
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 43600, bottom: 43050 },
+    zoneLabel: 'USDT.D PEAK',
+    zoneColor: '16,185,129',
+    structureLabels: [
+      { idx: 14, price: 43200, text: 'USDT.D = 8.9%', color: '#10b981' },
+      { idx: 15, price: 43450, text: 'Cash-Flight Reversed', color: '#22c55e' },
+      { idx: 24, price: 45820, text: 'Risk-On Return', color: '#fbbf24' }
+    ],
+    checklist: [
+      '(1) USDT.D + USDC.D Summe > 8% (extremer Cash-Flight)',
+      '(2) RSI auf Stablecoin-Dominance > 75 (überkauft)',
+      '(3) Stable-Dom dreht und faellt (Geld fliesst zurueck)',
+      '(4) Bullish Reaktions-Kerze auf BTC/ETH',
+      '(5) CRV >= 1:2.5'
+    ],
+    setupRules: {
+      entry: 'Close der bullish Bestaetigungs-Kerze auf BTC NACH USDT.D-Peak.',
+      sl: '1.5x ATR unter dem Reversal-Tief auf BTC.',
+      tp: 'TP1 = 2.5R · TP2 = bis Stable-Dom wieder unter 5% (Risk-On normal).',
+      market: 'Major-Macro-Edge in Bear-Markets. Funktioniert besonders nach Crashes/Capitulation-Phasen.'
+    },
+    tip: 'Stablecoin-Dominance ist der ultimative Stimmungs-Indikator: hoch = Angst, niedrig = Gier. Bei Extrem-Werten >8% folgte historisch IMMER eine BTC-Rally. Aber: Timing kann Wochen brauchen.'
   }
 };
 
@@ -47291,6 +47521,243 @@ window.addEventListener('beforeunload', () => {
     if (typeof backtestAborted !== 'undefined') { try { backtestAborted = true; } catch(e) {} }
   } catch(e) {}
 });
+
+
+
+// ════════════════════════════════════════════════════════════════
+//  AI-Coach im Optimizer (v1.8.6)
+//  3 Use-Cases: Free-Chat, Vorschlag holen, Ergebnis interpretieren
+// ════════════════════════════════════════════════════════════════
+let _aiCoachOptState = { history: [] };
+let _lastOptimizerResult = null;  // wird von runOptimizer() gefüllt
+
+const AI_COACH_OPT_SYSTEM_PROMPT = `Du bist ein erfahrener Trading-Strategy-Optimizer-Coach in der FinalBoss-App.
+
+Du hilfst dem Nutzer beim Optimieren von Backtest-Strategie-Parametern. Du kennst diese Konzepte:
+- Grid-Search vs Genetic-Algorithm
+- Overfitting / Curve-Fitting (Hauptgefahr!)
+- In-Sample (Train) vs Out-of-Sample (Test)
+- Walk-Forward-Analyse
+- Profit Factor, Sharpe, Sortino, Calmar, Win Rate
+- Faustregel: mind. 20 Trades pro getestetem Parameter, sonst statistisch fragwürdig
+- Welche Parameter typischerweise grossen Impact haben:
+  * Entry-Trigger (RSI-Levels, Z-Score-Schwellen, MA-Periods) → IMMER wichtig
+  * Exit-Distanz (SL × ATR, TP-R-Mult) → fast IMMER wichtig
+  * Trend-Filter (ADX-Min/Max) → wichtig für Range vs Trend
+  * Atom-Werte (ATR-Period, RSI-Period) → meist kleiner Impact
+- Empfehlungen für Optimizer-Settings:
+  * 2-3 Parameter optimal (mehr = teuer + Overfitting-Risiko)
+  * Grid: 3-5 Werte pro Parameter
+  * Genetic: 20-40 Pop × 15-30 Generationen
+- Anti-Overfitting:
+  * Walk-Forward IMMER nach Optimizer
+  * Monte Carlo Permutation testen
+  * Robustness-Score statt nur PF anschauen
+  * Bei besten Settings: nicht der absolute Spitze nehmen, sondern eine "Plateau"-Region
+
+Sprache: Deutsch (es sei denn User schreibt Englisch). Antworten KURZ und PRÄZISE — max 200 Wörter ausser bei Vorschlag-Holen.
+Format: Markdown erlaubt (Listen mit -, fett mit **text**, Code mit \`text\`).`;
+
+// Helper: aktuellen Strategie-Kontext zusammenstellen
+function _aiCoachOptGetContext() {
+  const idx = parseInt(document.getElementById('strategySelect')?.value || 0);
+  const strat = (typeof STRATEGIES !== 'undefined') ? STRATEGIES[idx] : null;
+  if (!strat) return { strat: null, params: [], mode: 'grid', objective: 'profitFactor' };
+  const params = strat.params ? Object.entries(strat.params).map(([k, p]) => ({
+    name: k,
+    label: p.label,
+    current: p.value,
+    min: p.min,
+    max: p.max,
+    step: p.step
+  })) : [];
+  const difficulty = (typeof STRATEGY_DIFFICULTY !== 'undefined' && STRATEGY_DIFFICULTY[strat.name]) || 5;
+  const mode = document.getElementById('optMode')?.value || 'grid';
+  const objective = document.getElementById('optObjective')?.value || 'profitFactor';
+  // Last backtest results (if any)
+  let lastBt = null;
+  try {
+    if (window._lastBacktestMetrics) {
+      const m = window._lastBacktestMetrics;
+      lastBt = {
+        trades: m.trades || 0,
+        winRate: m.winRate,
+        profitFactor: m.profitFactor,
+        sharpe: m.sharpe,
+        totalReturn: m.totalReturn,
+        maxDrawdown: m.maxDrawdown
+      };
+    }
+  } catch(e) {}
+  return { strat, params, difficulty, mode, objective, lastBt };
+}
+
+// Helper: Provider-Anzeige aktualisieren
+function _aiCoachOptUpdateProvider() {
+  const cfg = (typeof aiLoadConfig === 'function') ? aiLoadConfig() : {};
+  const provName = (typeof AI_PROVIDERS !== 'undefined' && AI_PROVIDERS[cfg.provider] && AI_PROVIDERS[cfg.provider].name) || cfg.provider || 'KI';
+  const el = document.getElementById('optAiCoachProvider');
+  if (el) el.textContent = provName;
+}
+
+// Helper: Markdown-light → HTML
+function _aiCoachOptRenderMd(text) {
+  let h = String(text || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]);
+  // Code blocks
+  h = h.replace(/```([\s\S]+?)```/g, '<pre style="background:rgba(0,0,0,0.4);padding:8px 10px;border-radius:4px;overflow-x:auto;font-size:12px;margin:6px 0">$1</pre>');
+  // Inline code
+  h = h.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:3px;font-size:12px">$1</code>');
+  // Bold
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  h = h.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // List items (- xyz at line start)
+  h = h.replace(/^- (.+)$/gm, '<div style="padding-left:14px;text-indent:-12px;margin:2px 0">• $1</div>');
+  // Line breaks
+  h = h.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+  return h;
+}
+
+// Chat-Bubble rendern
+function _aiCoachOptAddBubble(role, text) {
+  const chat = document.getElementById('optAiCoachChat');
+  if (!chat) return;
+  // Erste Nachricht: Placeholder ersetzen
+  if (chat.querySelector('div[style*="padding:20px"]')) chat.innerHTML = '';
+  const bubble = document.createElement('div');
+  if (role === 'user') {
+    bubble.style.cssText = 'background:rgba(168,85,247,0.18);border-left:3px solid #a855f7;padding:8px 12px;border-radius:0 6px 6px 0;margin-bottom:8px;color:var(--text-primary)';
+    bubble.innerHTML = '<div style="font-size:10px;color:#c4b5fd;font-weight:700;margin-bottom:2px">DU</div>' + _aiCoachOptRenderMd(text);
+  } else if (role === 'assistant') {
+    bubble.style.cssText = 'background:rgba(99,102,241,0.10);border-left:3px solid #6366f1;padding:8px 12px;border-radius:0 6px 6px 0;margin-bottom:8px;color:var(--text-primary)';
+    bubble.innerHTML = '<div style="font-size:10px;color:#a5b4fc;font-weight:700;margin-bottom:2px">🤖 KI-COACH</div>' + _aiCoachOptRenderMd(text);
+  } else if (role === 'system') {
+    bubble.style.cssText = 'color:var(--text-muted);font-size:11px;text-align:center;padding:6px;font-style:italic';
+    bubble.innerHTML = text;
+  }
+  chat.appendChild(bubble);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// User-Message senden
+async function aiCoachOptSendMsg() {
+  const input = document.getElementById('optAiCoachInput');
+  const msg = (input?.value || '').trim();
+  if (!msg) return;
+  input.value = '';
+  await _aiCoachOptAsk(msg);
+}
+
+// Generic: Frage an KI senden + Antwort anzeigen
+async function _aiCoachOptAsk(userMsg, isContextual) {
+  _aiCoachOptUpdateProvider();
+  _aiCoachOptAddBubble('user', userMsg);
+  _aiCoachOptAddBubble('system', '⏳ KI denkt nach...');
+  const chat = document.getElementById('optAiCoachChat');
+  // Strategie-Kontext zum System-Prompt hinzufügen
+  const ctx = _aiCoachOptGetContext();
+  let contextStr = '';
+  if (ctx.strat) {
+    contextStr = `\n\nAktueller Kontext:\n- Strategie: ${ctx.strat.name} (Schwierigkeit ${ctx.difficulty}/10)\n- Modus: ${ctx.mode}, Objective: ${ctx.objective}\n- Verfügbare Parameter: ${ctx.params.map(p => `${p.name} (${p.label}, aktuell ${p.current}, range ${p.min}-${p.max})`).join(', ')}`;
+    if (ctx.lastBt) contextStr += `\n- Letzter Backtest: ${ctx.lastBt.trades} Trades, PF ${(ctx.lastBt.profitFactor || 0).toFixed(2)}, WR ${((ctx.lastBt.winRate || 0) * 100).toFixed(1)}%, Sharpe ${(ctx.lastBt.sharpe || 0).toFixed(2)}, MaxDD ${((ctx.lastBt.maxDrawdown || 0) * 100).toFixed(1)}%`;
+  }
+  const sysPrompt = AI_COACH_OPT_SYSTEM_PROMPT + contextStr;
+  // History (max 6 letzte Nachrichten als Kontext)
+  _aiCoachOptState.history.push({ role: 'user', content: userMsg });
+  const messages = _aiCoachOptState.history.slice(-6);
+  try {
+    const reply = await aiCallLLM(sysPrompt, messages);
+    _aiCoachOptState.history.push({ role: 'assistant', content: reply });
+    // System-Bubble (Loader) entfernen
+    const last = chat.lastElementChild;
+    if (last && last.textContent.includes('denkt nach')) last.remove();
+    _aiCoachOptAddBubble('assistant', reply);
+  } catch (e) {
+    const last = chat.lastElementChild;
+    if (last && last.textContent.includes('denkt nach')) last.remove();
+    _aiCoachOptAddBubble('system', '❌ Fehler: ' + (e.message || String(e)) + '. <a href="#" onclick="event.preventDefault();document.getElementById(\'btnAiBuilder\')?.click();return false">→ API-Key prüfen</a>');
+  }
+}
+
+// Quick-Action: Vorschlag holen
+async function aiCoachOptSuggest() {
+  const ctx = _aiCoachOptGetContext();
+  if (!ctx.strat) {
+    _aiCoachOptAddBubble('system', 'Bitte zuerst eine Strategie wählen.');
+    return;
+  }
+  const userMsg = `Bitte schlag mir vor welche **2-3 Parameter** ich bei "${ctx.strat.name}" optimieren soll und welche **Ranges/Schritte** sinnvoll sind. Begründung kurz pro Parameter. Berücksichtige Overfitting-Risiko.`;
+  await _aiCoachOptAsk(userMsg, true);
+}
+
+// Quick-Action: Optimizer-Ergebnis interpretieren
+async function aiCoachOptInterpret() {
+  if (!_lastOptimizerResult) {
+    _aiCoachOptAddBubble('system', 'Noch kein Optimizer-Ergebnis vorhanden. Führ erst einen Optimizer-Run aus.');
+    return;
+  }
+  const top = _lastOptimizerResult;
+  const userMsg = `Mein Optimizer hat folgende Top-Ergebnisse:\n\n${top}\n\nIst das echt oder Overfitting? Was ist der nächste sinnvolle Schritt? Soll ich Walk-Forward laufen lassen?`;
+  await _aiCoachOptAsk(userMsg, true);
+}
+
+// Reset
+function aiCoachOptClear() {
+  _aiCoachOptState = { history: [] };
+  const chat = document.getElementById('optAiCoachChat');
+  if (chat) chat.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:12px">👋 Frag mich was Sinn macht zu optimieren — oder klick <strong>Vorschlag holen</strong> für einen konkreten Plan.</div>';
+}
+
+// Enter im Textarea senden (Shift+Enter = Newline)
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('optAiCoachInput');
+  if (inp) {
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        aiCoachOptSendMsg();
+      }
+    });
+  }
+  // Provider initial setzen
+  _aiCoachOptUpdateProvider();
+});
+
+// Hook: wenn Optimizer fertig läuft, speichere Top-Ergebnis als Text + zeige Interpret-Button
+window._aiCoachOptStoreResult = function(topResultText) {
+  _lastOptimizerResult = topResultText;
+  const btn = document.getElementById('optAiInterpretBtn');
+  if (btn) btn.style.display = 'inline-flex';
+};
+
+
+// MutationObserver: erkennt wenn Optimizer-Resultate angezeigt werden → Interpret-Btn einblenden + Top-Result einlesen
+(function setupOptResultsObserver() {
+  const target = document.getElementById('optResults');
+  if (!target) {
+    // Try again later, DOM might not be ready
+    setTimeout(setupOptResultsObserver, 1000);
+    return;
+  }
+  const obs = new MutationObserver(() => {
+    // Look for the first results table
+    const table = target.querySelector('table');
+    if (table && table.rows.length > 1) {
+      // Extract top 3 rows as text
+      const rows = [];
+      const headers = [...table.rows[0].cells].map(c => c.textContent.trim()).slice(0, 8);
+      rows.push(headers.join(' | '));
+      for (let i = 1; i < Math.min(4, table.rows.length); i++) {
+        const cells = [...table.rows[i].cells].map(c => c.textContent.trim()).slice(0, 8);
+        rows.push(cells.join(' | '));
+      }
+      if (typeof window._aiCoachOptStoreResult === 'function') {
+        window._aiCoachOptStoreResult(rows.join('\n'));
+      }
+    }
+  });
+  obs.observe(target, { childList: true, subtree: true });
+})();
 
 </script>
 
