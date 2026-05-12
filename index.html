@@ -30565,12 +30565,22 @@ function renderAcademy() {
         (/trend.?pullback/i.test(strat.name) ? 'trend-pullback' :
          /ema.?bounce/i.test(strat.name) ? 'trend-pullback' :
          /donchian.?mean|donchian.?revers/i.test(strat.name) ? 'donchian-mean-reversion' :
+         /ttm.?squeeze|squeeze.?momentum/i.test(strat.name) ? 'ttm-squeeze' :
+         /bb.?bandwidth.?squeeze/i.test(strat.name) ? 'bb-bandwidth-squeeze' :
+         /bollinger.?squeeze|bb.?squeeze/i.test(strat.name) ? 'bollinger-squeeze' :
+         /atr.?breakout|crabel|opening.?range/i.test(strat.name) ? 'atr-breakout-crabel' :
+         /inside.?bar/i.test(strat.name) ? 'inside-bar-breakout' :
+         /old.?money|old money stacks/i.test(strat.name) ? 'old-money-stacks' :
+         /ichimoku|kumo|cloud.?break/i.test(strat.name) ? 'ichimoku-cloud-break' :
+         /vcp|minervini|volatility.?contraction/i.test(strat.name) ? 'vcp-minervini' :
          /breakout|donchian/i.test(strat.name) ? 'breakout' :
          /macd.?cross/i.test(strat.name) ? 'macd-crossover' :
          /finalboss.?zonen?|smc.?zone/i.test(strat.name) ? 'finalboss-zonen' :
          /bollinger.?squeeze|bb.?squeeze|squeeze/i.test(strat.name) ? 'bollinger-squeeze' :
-         /rsi.?mean.?reversion|z.?score.?mean|^z.?score/i.test(strat.name) ? 'rsi-mean-reversion' :
+         /rsi.?mean.?reversion/i.test(strat.name) ? 'rsi-mean-reversion' :
          /supertrend/i.test(strat.name) ? 'supertrend' :
+         /triple.?ema|3.?ema/i.test(strat.name) ? 'triple-ema-cross' :
+         /hull.?ma/i.test(strat.name) ? 'hull-ma-cross' :
          /ma.?cross|golden.?cross|death.?cross|ema.?cross/i.test(strat.name) ? 'ma-cross' :
          /volume.?spike|capitulation/i.test(strat.name) ? 'volume-spike' :
          /stochastic/i.test(strat.name) ? 'stochastic-oversold' :
@@ -30594,7 +30604,10 @@ function renderAcademy() {
          /old.?money|old money stacks/i.test(strat.name) ? 'old-money-stacks' :
          /order.?block|ob.?retest|wyckoff|spring|upthrust/i.test(strat.name) ? 'order-block-smc' :
          /funding|liquidation|open.?interest|oi.?\+|perp.?momentum/i.test(strat.name) ? 'crypto-perp-momentum' :
-         /voting|multi.?strategy|ml.?classifier|regime.?switch|confluence|mtf/i.test(strat.name) ? 'multi-strategy-voting' :
+         /regime.?switch|regime.?master/i.test(strat.name) ? 'regime-switch-master' :
+         /ml.?(feature|classifier|model)/i.test(strat.name) ? 'ml-classifier' :
+         /\bmtf\b|multi.?timeframe|mtf.?conflu/i.test(strat.name) ? 'mtf-confluence' :
+         /voting|multi.?strategy|confluence/i.test(strat.name) ? 'multi-strategy-voting' :
          /three.?soldier|three.?crow|three.?white/i.test(strat.name) ? 'three-soldiers' :
          /inside.?bar/i.test(strat.name) ? 'inside-bar-breakout' :
          /pin.?bar/i.test(strat.name) ? 'pin-bar-support' :
@@ -30607,6 +30620,16 @@ function renderAcademy() {
          /keltner/i.test(strat.name) ? 'keltner-reversion' :
          /ttm.?squeeze|squeeze.?momentum/i.test(strat.name) ? 'ttm-squeeze' :
          /donchian.?mean|donchian.?revers/i.test(strat.name) ? 'donchian-mean-reversion' :
+         /\bdpo\b|detrended/i.test(strat.name) ? 'dpo-reversal' :
+         /\bmfi\b|money.?flow/i.test(strat.name) ? 'mfi-mean-reversion' :
+         /stochrsi|stoch.?rsi/i.test(strat.name) ? 'stochrsi-reversal' :
+         /ultimate.?osc/i.test(strat.name) ? 'ultimate-oscillator' :
+         /linear.?regression/i.test(strat.name) ? 'linear-regression-reversion' :
+         /z.?score/i.test(strat.name) ? 'zscore-mean-reversion' :
+         /\bcmf\b|chaikin.?money/i.test(strat.name) ? 'cmf-trend' :
+         /choppiness/i.test(strat.name) ? 'choppiness-trend' :
+         /\bribbon\b|ema.?ribbon/i.test(strat.name) ? 'ema-ribbon-trend' :
+         /\bmtf\b|multi.?timeframe/i.test(strat.name) ? 'mtf-confluence' :
          /connors|stochrsi|mfi|dpo|ultimate.?osc/i.test(strat.name) ? 'rsi-mean-reversion' :
          /triple.?ema/i.test(strat.name) ? 'triple-ema-cross' :
          /hull.?ma/i.test(strat.name) ? 'hull-ma-cross' :
@@ -30627,9 +30650,10 @@ function renderAcademy() {
          /ml.?(feature|classifier|model)/i.test(strat.name) ? 'ml-classifier' :
          /regime.?switch|regime.?master/i.test(strat.name) ? 'regime-switch-master' :
          /momentum|cmf|choppiness|ribbon|day.?of.?week/i.test(strat.name) ? 'ma-cross' :
-         /bollinger.?revers|rsi.?extreme|rsi.?reversal|rsi.?revers|linear.?regression|reversion|reversal/i.test(strat.name) ? 'rsi-mean-reversion' :
          /klinger|on.?balance.?volume|obv/i.test(strat.name) ? 'volume-spike' :
          /ha.?strong|ha.?continu/i.test(strat.name) ? 'heikin-ashi-trend' :
+         /bollinger.?revers|rsi.?extreme|rsi.?reversal|rsi.?revers|linear.?regression|reversion|reversal/i.test(strat.name) ? 'rsi-mean-reversion' :
+
          /delphin|fakeout|fake.?out/i.test(strat.name) ? 'trend-pullback' :
          /wick|retrac|scalping|scalper/i.test(strat.name) ? 'hammer-reversal' :
          /ml.?(feature|classifier|model)/i.test(strat.name) ? 'multi-strategy-voting' : null);
@@ -33178,7 +33202,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-12 20:20 UTC';
+const APP_BUILD = '2026-05-12 23:45 UTC';
 
 // Header-Badge dynamisch setzen (verhindert hardcoded Stale-Werte)
 (function _initVersionBadge() {
@@ -36751,6 +36775,7 @@ const ACADEMY_ANIM_CONFIGS = {
   'trend-pullback': {
     title: 'Trend-Pullback · BTC 1h · Long',
     subtitle: 'Uptrend → Pullback auf 50 EMA → Bullish Engulfing → Long',
+    skipEma: true,
     candles: [
       {o:41600,h:41700,l:41500,c:41700},{o:41700,h:41900,l:41650,c:41850},
       {o:41850,h:42000,l:41800,c:41950},{o:41950,h:42100,l:41900,c:42050},
@@ -37127,6 +37152,7 @@ const ACADEMY_ANIM_CONFIGS = {
   'ma-cross': {
     title: 'MA Cross (Golden Cross) · BTC 1h · Long',
     subtitle: 'EMA 50 kreuzt EMA 200 nach oben → starkes Trend-Signal',
+    skipEma: true,
     candles: [
       {o:43500,h:43600,l:43400,c:43450},{o:43450,h:43550,l:43300,c:43350},
       {o:43350,h:43450,l:43200,c:43250},{o:43250,h:43350,l:43100,c:43150},
@@ -40034,7 +40060,578 @@ const ACADEMY_ANIM_CONFIGS = {
     },
     tip: 'Regime-Switch ist Meta-Trading: nicht eine Strategy, sondern eine Strategy-Auswahl-Strategy. Schwierigster Teil ist die Regime-Detection. ADX + Choppiness + ATR-of-ATR gemeinsam ist robust — single-Indicator-Switch ist meistens Whipsaw-anfaellig.'
   }
+,
 
+  'dpo-reversal': {
+    title: 'DPO Reversal · BTC 1h · Long',
+    subtitle: 'DPO < 0 (extreme detrended dip) → Cross zurueck = Reversal',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43600,l:43400,c:43450},{o:43450,h:43550,l:43250,c:43300},
+      {o:43300,h:43400,l:43100,c:43150},{o:43150,h:43250,l:42950,c:43000},
+      {o:43000,h:43100,l:42800,c:42850},{o:42850,h:42950,l:42700,c:42750},
+      {o:42750,h:42850,l:42600,c:42650},{o:42650,h:42750,l:42500,c:42550},
+      {o:42550,h:42650,l:42400,c:42450},{o:42450,h:42550,l:42300,c:42350},
+      {o:42350,h:42450,l:42200,c:42250},{o:42250,h:42350,l:42100,c:42150},
+      {o:42150,h:42250,l:42000,c:42050},{o:42050,h:42150,l:41900,c:41950},
+      {o:41950,h:42050,l:41750,c:41850},{o:41850,h:42250,l:41820,c:42200},
+      {o:42200,h:42450,l:42150,c:42400},{o:42400,h:42650,l:42350,c:42600},
+      {o:42600,h:42850,l:42550,c:42800},{o:42800,h:43050,l:42750,c:43000},
+      {o:43000,h:43200,l:42950,c:43150},{o:43150,h:43350,l:43100,c:43300},
+      {o:43300,h:43500,l:43250,c:43450},{o:43450,h:43650,l:43400,c:43600},
+      {o:43600,h:43800,l:43550,c:43750},{o:43750,h:43950,l:43700,c:43900},
+      {o:43900,h:44100,l:43850,c:44050},{o:44050,h:44250,l:44000,c:44200},
+      {o:44200,h:44400,l:44150,c:44350},{o:44350,h:44550,l:44300,c:44500}
+    ],
+    entryIdx: 15,
+    entryPrice: 42200, slPrice: 41750, tp1Price: 43200, tp2Price: 43900,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [180,120,80,40,0,-40,-90,-130,-170,-200,-220,-235,-245,-250,-255, -120, 50, 180, 260, 310, 330, 320, 290, 250, 200, 150, 100, 50, 10, -20],
+        mid: 0, hiZone: 200, loZone: -200,
+        fillHi: 200, fillLo: -200,
+        bot: -300, top: 350,
+        lineColor: '#06b6d4',
+        label: 'DPO (Detrended Price Osc)'
+      }
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 42100, bottom: 41750 },
+    zoneLabel: 'DPO EXTREME',
+    zoneColor: '6,182,212',
+    structureLabels: [
+      { idx: 14, price: 41750, text: 'DPO < -200', color: '#ef4444' },
+      { idx: 15, price: 42200, text: 'DPO Cross ↑', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) DPO dipt extrem unter Schwellwert (z.B. < -200)',
+      '(2) DPO kreuzt vom Tief zurueck nach oben',
+      '(3) Bullish Reaktions-Kerze in der Zone',
+      '(4) Volumen-Confirmation',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH DPO-Cross zurueck Richtung Null + bullish Kerze.',
+      sl: 'Unter dem DPO-Tief-Kerzentief + 0.3% Buffer.',
+      tp: 'TP1 = 2R · TP2 = vorheriger Pivot oder DPO = +200.',
+      market: 'DPO entfernt den Trend — funktioniert besonders gut in Range-Maerkten und Sideways-Phasen.'
+    },
+    tip: 'DPO macht den Detrend-Job: er zeigt nur die Oszillation um den Trend. Extrem-Tiefs (< -200) sind oft Wendepunkte — aber nur in Ranges. In starken Trends bleiben extreme DPO-Werte laenger persistent.'
+  },
+
+  'mfi-mean-reversion': {
+    title: 'MFI Mean Reversion · BTC 1h · Long',
+    subtitle: 'MFI < 20 (oversold + volume-weighted) → Bounce',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43900,l:43750,c:43800},{o:43800,h:43850,l:43650,c:43700},
+      {o:43700,h:43750,l:43500,c:43550},{o:43550,h:43600,l:43400,c:43450},
+      {o:43450,h:43500,l:43300,c:43350},{o:43350,h:43400,l:43200,c:43250},
+      {o:43250,h:43300,l:43100,c:43150},{o:43150,h:43200,l:43000,c:43050},
+      {o:43050,h:43100,l:42900,c:42950},{o:42950,h:43000,l:42800,c:42850},
+      {o:42850,h:42900,l:42700,c:42750},{o:42750,h:42800,l:42600,c:42650},
+      {o:42650,h:42700,l:42500,c:42550},{o:42550,h:42600,l:42400,c:42450},
+      {o:42450,h:42500,l:42250,c:42300},{o:42300,h:42400,l:42150,c:42180},
+      {o:42180,h:42550,l:42150,c:42500},{o:42500,h:42700,l:42450,c:42650},
+      {o:42650,h:42850,l:42600,c:42800},{o:42800,h:43000,l:42750,c:42950},
+      {o:42950,h:43100,l:42900,c:43050},{o:43050,h:43200,l:43000,c:43150},
+      {o:43150,h:43300,l:43100,c:43250},{o:43250,h:43400,l:43200,c:43350},
+      {o:43350,h:43500,l:43300,c:43450},{o:43450,h:43600,l:43400,c:43550},
+      {o:43550,h:43700,l:43500,c:43650},{o:43650,h:43800,l:43600,c:43750},
+      {o:43750,h:43900,l:43700,c:43850},{o:43850,h:44000,l:43800,c:43950}
+    ],
+    entryIdx: 16,
+    entryPrice: 42500, slPrice: 42100, tp1Price: 43300, tp2Price: 43900,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [65,60,55,50,45,40,35,30,28,26,22,20,18,15,12,10, 28, 42, 55, 62, 68, 70, 70, 68, 65, 60, 58, 55, 52, 50],
+        mid: 50, hiZone: 80, loZone: 20,
+        fillHi: 80, fillLo: 20,
+        bot: 0, top: 100,
+        lineColor: '#f59e0b',
+        label: 'MFI (Money Flow Index)'
+      },
+      volumeBars: [50,55,60,65,70,75,80,85,90,100,110,125,145,170,200,220,180,140,110,90,75,68,62,58,55,52,50,48,47,46], volumeHighlightIdx: 14
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 42300, bottom: 42100 },
+    zoneLabel: 'MFI < 20',
+    zoneColor: '245,158,11',
+    structureLabels: [
+      { idx: 14, price: 42100, text: 'MFI < 15', color: '#ef4444' },
+      { idx: 16, price: 42500, text: 'Reversal', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Klarer Abverkauf mit hohem Volumen',
+      '(2) MFI dipt unter 20 (oversold + volume bestaetigt)',
+      '(3) MFI kreuzt 20 von unten zurueck',
+      '(4) Bullish-Reaktions-Kerze',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH MFI > 20 + bullish Bestaetigung.',
+      sl: 'Unter dem MFI-Tief-Kerzentief.',
+      tp: 'TP1 = 2R · TP2 = MFI = 50 oder vorheriger Pivot.',
+      market: 'MFI = volumengewichteter RSI. Funktioniert besser als RSI in Range-Maerkten weil Volume mit drin ist.'
+    },
+    tip: 'MFI ist RSI + Volume. Niedrige MFI-Werte mit HOHEM Volumen = echte Capitulation. Niedrige MFI mit LEISEM Volumen = Schwaeche ohne Capitulation, Trade riskanter.'
+  },
+
+  'stochrsi-reversal': {
+    title: 'Stochastic RSI Reversal · BTC 1h · Long',
+    subtitle: 'StochRSI K/D Cross im Oversold (< 20) = Long',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43600,l:43400,c:43450},{o:43450,h:43550,l:43250,c:43300},
+      {o:43300,h:43400,l:43100,c:43150},{o:43150,h:43250,l:42950,c:43000},
+      {o:43000,h:43100,l:42800,c:42850},{o:42850,h:42950,l:42700,c:42750},
+      {o:42750,h:42850,l:42600,c:42650},{o:42650,h:42750,l:42500,c:42550},
+      {o:42550,h:42650,l:42400,c:42450},{o:42450,h:42550,l:42300,c:42350},
+      {o:42350,h:42450,l:42200,c:42250},{o:42250,h:42350,l:42100,c:42150},
+      {o:42150,h:42250,l:42000,c:42050},{o:42050,h:42150,l:41900,c:41950},
+      {o:41950,h:42050,l:41800,c:41850},{o:41850,h:42200,l:41820,c:42150},
+      {o:42150,h:42400,l:42100,c:42350},{o:42350,h:42600,l:42300,c:42550},
+      {o:42550,h:42800,l:42500,c:42750},{o:42750,h:43000,l:42700,c:42950},
+      {o:42950,h:43150,l:42900,c:43100},{o:43100,h:43300,l:43050,c:43250},
+      {o:43250,h:43450,l:43200,c:43400},{o:43400,h:43600,l:43350,c:43550},
+      {o:43550,h:43750,l:43500,c:43700},{o:43700,h:43900,l:43650,c:43850},
+      {o:43850,h:44050,l:43800,c:44000},{o:44000,h:44200,l:43950,c:44150},
+      {o:44150,h:44350,l:44100,c:44300},{o:44300,h:44500,l:44250,c:44450}
+    ],
+    entryIdx: 15,
+    entryPrice: 42150, slPrice: 41800, tp1Price: 42900, tp2Price: 43600,
+    indicators: {
+      subPanel: 'stoch',
+      stochValues: {
+        k: [70,65,58,50,42,35,28,22,18,12,8,5,3,2,3, 25, 55, 75, 88, 92, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45],
+        d: [75,72,68,62,55,48,40,32,25,18,13,8,5,3,3, 12, 35, 60, 78, 88, 90, 88, 84, 78, 72, 67, 62, 57, 52, 47]
+      }
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 42100, bottom: 41800 },
+    zoneLabel: 'StochRSI < 20',
+    zoneColor: '167,139,250',
+    structureLabels: [
+      { idx: 14, price: 41800, text: 'StochRSI Cross', color: '#a78bfa' },
+      { idx: 15, price: 42150, text: 'Long Trigger', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) StochRSI K + D beide unter 20 (oversold)',
+      '(2) K kreuzt D nach oben',
+      '(3) Bullish Reaktions-Kerze',
+      '(4) Hoehere Tiefs nach dem Cross',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH K/D Bullish Cross im Oversold-Bereich.',
+      sl: 'Unter dem Tief der Cross-Kerze.',
+      tp: 'TP1 = 2R · TP2 = StochRSI > 80 oder vorheriger Pivot.',
+      market: 'StochRSI ist sensibler als reiner Stochastic — eignet sich besser fuer Scalps + 5m-15m Charts.'
+    },
+    tip: 'StochRSI tickt schneller als Stochastic auf normalen Preisen — weil er auf RSI laeuft. Vorteil: schnellere Signale. Nachteil: mehr False-Crosses. Filter mit hoeherem Timeframe oder Trend.'
+  },
+
+  'ultimate-oscillator': {
+    title: 'Ultimate Oscillator · BTC 1h · Long',
+    subtitle: 'UO < 30 (oversold across 3 timeframes) + Divergence = Long',
+    skipEma: true,
+    candles: [
+      {o:43800,h:43900,l:43750,c:43800},{o:43800,h:43850,l:43650,c:43700},
+      {o:43700,h:43750,l:43500,c:43550},{o:43550,h:43600,l:43400,c:43450},
+      {o:43450,h:43500,l:43300,c:43350},{o:43350,h:43400,l:43200,c:43250},
+      {o:43250,h:43300,l:43100,c:43150},{o:43150,h:43200,l:43000,c:43050},
+      {o:43050,h:43100,l:42900,c:42950},{o:42950,h:43000,l:42800,c:42850},
+      {o:42850,h:42900,l:42700,c:42750},{o:42750,h:42800,l:42600,c:42650},
+      {o:42650,h:42700,l:42500,c:42550},{o:42550,h:42600,l:42400,c:42450},
+      {o:42450,h:42500,l:42250,c:42300},{o:42300,h:42400,l:42150,c:42180},
+      {o:42180,h:42500,l:42150,c:42450},{o:42450,h:42700,l:42400,c:42650},
+      {o:42650,h:42850,l:42600,c:42800},{o:42800,h:43000,l:42750,c:42950},
+      {o:42950,h:43100,l:42900,c:43050},{o:43050,h:43200,l:43000,c:43150},
+      {o:43150,h:43300,l:43100,c:43250},{o:43250,h:43400,l:43200,c:43350},
+      {o:43350,h:43500,l:43300,c:43450},{o:43450,h:43600,l:43400,c:43550},
+      {o:43550,h:43700,l:43500,c:43650},{o:43650,h:43800,l:43600,c:43750},
+      {o:43750,h:43900,l:43700,c:43850},{o:43850,h:44000,l:43800,c:43950}
+    ],
+    entryIdx: 16,
+    entryPrice: 42450, slPrice: 42100, tp1Price: 43250, tp2Price: 43850,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [60,55,50,45,42,38,35,32,30,28,26,24,22,20,18, 35, 50, 60, 65, 68, 65, 62, 58, 55, 52, 50, 48, 46, 45, 44],
+        mid: 50, hiZone: 70, loZone: 30,
+        fillHi: 70, fillLo: 30,
+        bot: 0, top: 100,
+        lineColor: '#8b5cf6',
+        label: 'Ultimate Oscillator (7,14,28)'
+      }
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 42250, bottom: 42100 },
+    zoneLabel: 'UO < 30',
+    zoneColor: '139,92,246',
+    structureLabels: [
+      { idx: 14, price: 42100, text: 'UO < 20', color: '#ef4444' },
+      { idx: 16, price: 42450, text: 'UO > 30', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) UO faellt unter 30 (oversold ueber 3 Timeframes)',
+      '(2) Optional: Bullish Divergence (UO HL, Preis LL)',
+      '(3) UO kreuzt 30 von unten nach oben',
+      '(4) Bullish Reaktions-Kerze',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH UO > 30 + bullish Bestaetigung.',
+      sl: 'Unter UO-Tief-Kerzentief.',
+      tp: 'TP1 = 2R · TP2 = UO = 70 oder vorheriger Pivot.',
+      market: 'UO ist robust durch 3-Periode-Gewichtung — funktioniert auch in volatilen Maerkten gut.'
+    },
+    tip: 'Williams\' Ultimate Oscillator kombiniert 3 Timeframes (7,14,28). Dadurch weniger False-Signals als Single-Period-Oscillatoren. Bestes Setup: UO < 30 + Bullish Divergence.'
+  },
+
+  'linear-regression-reversion': {
+    title: 'Linear Regression Reversion · BTC 1h · Long',
+    subtitle: 'Preis touched -2σ LinReg-Band → Reversion zur Mitte',
+    skipEma: true,
+    candles: [
+      {o:43200,h:43300,l:43100,c:43150},{o:43150,h:43250,l:43000,c:43050},
+      {o:43050,h:43150,l:42900,c:42950},{o:42950,h:43050,l:42800,c:42850},
+      {o:42850,h:42950,l:42700,c:42750},{o:42750,h:42850,l:42600,c:42650},
+      {o:42650,h:42750,l:42500,c:42550},{o:42550,h:42650,l:42400,c:42450},
+      {o:42450,h:42550,l:42300,c:42350},{o:42350,h:42450,l:42200,c:42250},
+      {o:42250,h:42350,l:42100,c:42150},{o:42150,h:42250,l:42000,c:42050},
+      {o:42050,h:42150,l:41900,c:41950},{o:41950,h:42050,l:41800,c:41850},
+      {o:41850,h:41950,l:41700,c:41750},{o:41750,h:42100,l:41720,c:42050},
+      {o:42050,h:42300,l:42000,c:42250},{o:42250,h:42500,l:42200,c:42450},
+      {o:42450,h:42700,l:42400,c:42650},{o:42650,h:42850,l:42600,c:42800},
+      {o:42800,h:43000,l:42750,c:42950},{o:42950,h:43150,l:42900,c:43100},
+      {o:43100,h:43300,l:43050,c:43250},{o:43250,h:43450,l:43200,c:43400},
+      {o:43400,h:43600,l:43350,c:43550},{o:43550,h:43750,l:43500,c:43700},
+      {o:43700,h:43900,l:43650,c:43850},{o:43850,h:44050,l:43800,c:44000},
+      {o:44000,h:44200,l:43950,c:44150},{o:44150,h:44350,l:44100,c:44300}
+    ],
+    entryIdx: 15,
+    entryPrice: 42050, slPrice: 41700, tp1Price: 42800, tp2Price: 43500,
+    indicators: {
+      bollinger: {
+        upper: [43500,43450,43400,43350,43300,43250,43200,43150,43100,43050,43000,42950,42900,42850,42800,42850,42950,43100,43250,43400,43550,43700,43850,44000,44150,44300,44450,44600,44750,44900],
+        mid:   [43000,42950,42900,42850,42800,42750,42700,42650,42600,42550,42500,42450,42400,42350,42300,42350,42450,42600,42750,42900,43050,43200,43350,43500,43650,43800,43950,44100,44250,44400],
+        lower: [42500,42450,42400,42350,42300,42250,42200,42150,42100,42050,42000,41950,41900,41850,41800,41850,41950,42100,42250,42400,42550,42700,42850,43000,43150,43300,43450,43600,43750,43900]
+      }
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 41900, bottom: 41700 },
+    zoneLabel: 'BELOW -2σ',
+    zoneColor: '6,182,212',
+    structureLabels: [
+      { idx: 0, price: 43200, text: 'Trend Start', color: '#fbbf24' },
+      { idx: 14, price: 41700, text: '-2σ Touch', color: '#06b6d4' },
+      { idx: 15, price: 42050, text: 'Reversion', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Linear Regression Channel sichtbar (Mitte + Bands)',
+      '(2) Preis touched -2σ Lower-Band (statistischer Extremwert)',
+      '(3) Bullish Rejection-Kerze',
+      '(4) Volumen bestaetigt (kein Trend-Break)',
+      '(5) CRV >= 1:2 zur Channel-Mitte'
+    ],
+    setupRules: {
+      entry: 'Close NACH Touch des -2σ Bandes + bullish Reaktion.',
+      sl: 'Unter dem Band-Touch-Tief + 0.3% Buffer.',
+      tp: 'TP1 = LinReg-Mid (50% schliessen) · TP2 = +1σ oder vorheriger Pivot.',
+      market: 'LinReg-Reversion lebt in Range-Maerkten. In starken Trends "walken" Preise an den Bands entlang.'
+    },
+    tip: 'Linear Regression Channel ist Bollinger-aehnlich aber linear statt SMA-basiert. Vorteil: weniger lag, klarere Trend-Richtung in der Channel-Mitte. -2σ Touch = ~5% Statistik-Wahrscheinlichkeit, oft Reversal.'
+  },
+
+  'zscore-mean-reversion': {
+    title: 'Z-Score Mean Reversion · BTC 1h · Long',
+    subtitle: 'Z-Score < -2 (statistisch extrem) → Reversion zum Mean',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43600,l:43400,c:43450},{o:43450,h:43550,l:43250,c:43300},
+      {o:43300,h:43400,l:43100,c:43150},{o:43150,h:43250,l:42950,c:43000},
+      {o:43000,h:43100,l:42800,c:42850},{o:42850,h:42950,l:42700,c:42750},
+      {o:42750,h:42850,l:42600,c:42650},{o:42650,h:42750,l:42500,c:42550},
+      {o:42550,h:42650,l:42400,c:42450},{o:42450,h:42550,l:42300,c:42350},
+      {o:42350,h:42450,l:42200,c:42250},{o:42250,h:42350,l:42100,c:42150},
+      {o:42150,h:42250,l:42000,c:42050},{o:42050,h:42150,l:41850,c:41900},
+      {o:41900,h:42000,l:41700,c:41750},{o:41750,h:42150,l:41720,c:42100},
+      {o:42100,h:42350,l:42050,c:42300},{o:42300,h:42550,l:42250,c:42500},
+      {o:42500,h:42700,l:42450,c:42650},{o:42650,h:42850,l:42600,c:42800},
+      {o:42800,h:43000,l:42750,c:42950},{o:42950,h:43150,l:42900,c:43100},
+      {o:43100,h:43300,l:43050,c:43250},{o:43250,h:43450,l:43200,c:43400},
+      {o:43400,h:43600,l:43350,c:43550},{o:43550,h:43750,l:43500,c:43700},
+      {o:43700,h:43900,l:43650,c:43850},{o:43850,h:44050,l:43800,c:44000},
+      {o:44000,h:44200,l:43950,c:44150},{o:44150,h:44350,l:44100,c:44300}
+    ],
+    entryIdx: 15,
+    entryPrice: 42100, slPrice: 41700, tp1Price: 42950, tp2Price: 43600,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [0.5,0.3,0.1,-0.2,-0.5,-0.8,-1.1,-1.4,-1.6,-1.8,-2.0,-2.2,-2.4,-2.5,-2.6, -1.0, 0.5, 1.2, 1.6, 1.8, 1.7, 1.5, 1.2, 0.9, 0.7, 0.5, 0.4, 0.3, 0.2, 0.1],
+        mid: 0, hiZone: 2, loZone: -2,
+        fillHi: 2, fillLo: -2,
+        bot: -3, top: 2.5,
+        lineColor: '#06b6d4',
+        label: 'Z-Score (20-period)'
+      }
+    },
+    zone: { fromIdx: 13, toIdx: 15, top: 41850, bottom: 41700 },
+    zoneLabel: 'Z < -2',
+    zoneColor: '6,182,212',
+    structureLabels: [
+      { idx: 14, price: 41700, text: 'Z < -2.5', color: '#ef4444' },
+      { idx: 15, price: 42100, text: 'Mean Revert', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Z-Score faellt unter -2 (5%-Statistik-Extremwert)',
+      '(2) Z-Score dreht von Tief nach oben',
+      '(3) Bullish-Kerze als Bestaetigung',
+      '(4) Markt sollte in Range/Mean-Revert-Mode sein',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH Z-Score Cross zurueck > -2 + bullish Bestaetigung.',
+      sl: 'Unter dem Z-Score-Tief-Kerzentief.',
+      tp: 'TP1 = Z = 0 (Mean) · TP2 = Z = +1 oder 2R.',
+      market: 'Statistical Edge: nur ~5% der Werte sind unter -2σ. In Range-Maerkten oft Wendepunkte. In Trends kann Z laenger negativ bleiben.'
+    },
+    tip: 'Z-Score = (Preis - SMA20) / StdDev20. Pure Statistik. Z < -2 ist ein 2-Standardabweichungs-Event = ca. 5% Wahrscheinlichkeit. Aber Achtung: in Trends ist Statistik ein schlechter Trader.'
+  },
+
+  'cmf-trend': {
+    title: 'CMF Trend · BTC 1h · Long',
+    subtitle: 'Chaikin Money Flow > 0 = Akkumulation → Long-Trend',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42600,l:42400,c:42450},{o:42450,h:42550,l:42350,c:42400},
+      {o:42400,h:42500,l:42300,c:42350},{o:42350,h:42450,l:42250,c:42300},
+      {o:42300,h:42400,l:42200,c:42250},{o:42250,h:42350,l:42150,c:42200},
+      {o:42200,h:42300,l:42100,c:42150},{o:42150,h:42250,l:42050,c:42100},
+      {o:42100,h:42200,l:42000,c:42050},{o:42050,h:42150,l:41950,c:42000},
+      {o:42000,h:42150,l:41950,c:42100},{o:42100,h:42250,l:42050,c:42200},
+      {o:42200,h:42400,l:42150,c:42350},{o:42350,h:42550,l:42300,c:42500},
+      {o:42500,h:42700,l:42450,c:42650},{o:42650,h:42850,l:42600,c:42800},
+      {o:42800,h:43000,l:42750,c:42950},{o:42950,h:43150,l:42900,c:43100},
+      {o:43100,h:43300,l:43050,c:43250},{o:43250,h:43450,l:43200,c:43400},
+      {o:43400,h:43600,l:43350,c:43550},{o:43550,h:43750,l:43500,c:43700},
+      {o:43700,h:43900,l:43650,c:43850},{o:43850,h:44050,l:43800,c:44000},
+      {o:44000,h:44200,l:43950,c:44150},{o:44150,h:44350,l:44100,c:44300},
+      {o:44300,h:44500,l:44250,c:44450},{o:44450,h:44650,l:44400,c:44600},
+      {o:44600,h:44800,l:44550,c:44750},{o:44750,h:44950,l:44700,c:44900}
+    ],
+    entryIdx: 12,
+    entryPrice: 42350, slPrice: 41950, tp1Price: 43150, tp2Price: 43950,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [-0.15,-0.18,-0.20,-0.22,-0.25,-0.22,-0.18,-0.15,-0.10,-0.05, 0.02, 0.08, 0.15, 0.22, 0.28, 0.32, 0.35, 0.36, 0.35, 0.33, 0.30, 0.28, 0.25, 0.23, 0.20, 0.18, 0.16, 0.14, 0.12, 0.10],
+        mid: 0, hiZone: 0.25, loZone: -0.25,
+        fillHi: 0.25, fillLo: -0.25,
+        bot: -0.35, top: 0.40,
+        lineColor: '#10b981',
+        label: 'CMF (Chaikin Money Flow)'
+      },
+      volumeBars: [60,65,68,70,72,68,65,62,58,55,80,95,120,140,160,170,165,150,140,130,120,110,100,95,90,85,80,75,72,70], volumeHighlightIdx: 14
+    },
+    zone: { fromIdx: 9, toIdx: 12, top: 42100, bottom: 41950 },
+    zoneLabel: 'CMF Cross > 0',
+    zoneColor: '16,185,129',
+    structureLabels: [
+      { idx: 10, price: 42000, text: 'CMF > 0', color: '#22c55e' },
+      { idx: 12, price: 42350, text: 'Accum', color: '#22c55e' },
+      { idx: 25, price: 44200, text: 'Trend Mode', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) CMF war laengere Zeit negativ (Distribution)',
+      '(2) CMF kreuzt 0-Linie nach oben (Akkumulation start)',
+      '(3) Preis baut hoehere Tiefs',
+      '(4) Volumen-Anstieg in den gruenen Kerzen',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH CMF > 0 + erstem hoeheren Tief.',
+      sl: 'Unter dem letzten Swing-Low vor CMF-Cross.',
+      tp: 'TP1 = 2R · TP2 = Trail bis CMF unter 0.',
+      market: 'CMF ist trend-following — funktioniert in klaren Akkumulation/Distribution-Phasen sehr gut.'
+    },
+    tip: 'Chaikin Money Flow misst ob Buyer oder Seller dominieren. CMF > 0 = Akkumulation, < 0 = Distribution. Kombiniert Volume + Close-Position. Robuster als reines OBV weil Range-bewusst.'
+  },
+
+  'choppiness-trend': {
+    title: 'Choppiness + Trend · BTC 1h · Long',
+    subtitle: 'Choppiness Index < 38 (Trend faengt an) → Long-Trigger',
+    skipEma: true,
+    candles: [
+      {o:42500,h:42550,l:42400,c:42450},{o:42450,h:42600,l:42400,c:42500},
+      {o:42500,h:42550,l:42400,c:42450},{o:42450,h:42600,l:42400,c:42500},
+      {o:42500,h:42620,l:42400,c:42480},{o:42480,h:42600,l:42400,c:42520},
+      {o:42520,h:42580,l:42400,c:42450},{o:42450,h:42600,l:42400,c:42500},
+      {o:42500,h:42560,l:42420,c:42460},{o:42460,h:42600,l:42400,c:42520},
+      {o:42520,h:42650,l:42450,c:42600},{o:42600,h:42820,l:42550,c:42780},
+      {o:42780,h:43000,l:42750,c:42950},{o:42950,h:43150,l:42900,c:43100},
+      {o:43100,h:43350,l:43050,c:43300},{o:43300,h:43550,l:43250,c:43500},
+      {o:43500,h:43750,l:43450,c:43700},{o:43700,h:43950,l:43650,c:43900},
+      {o:43900,h:44150,l:43850,c:44100},{o:44100,h:44350,l:44050,c:44300},
+      {o:44300,h:44550,l:44250,c:44500},{o:44500,h:44750,l:44450,c:44700},
+      {o:44700,h:44950,l:44650,c:44900},{o:44900,h:45150,l:44850,c:45100},
+      {o:45100,h:45350,l:45050,c:45300},{o:45300,h:45550,l:45250,c:45500},
+      {o:45500,h:45750,l:45450,c:45700},{o:45700,h:45950,l:45650,c:45900},
+      {o:45900,h:46150,l:45850,c:46100},{o:46100,h:46350,l:46050,c:46300}
+    ],
+    entryIdx: 11,
+    entryPrice: 42780, slPrice: 42400, tp1Price: 43540, tp2Price: 44300,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [72,74,76,75,73,72,71,70,72,71, 55, 38, 30, 25, 22, 20, 22, 25, 28, 30, 33, 35, 38, 42, 45, 48, 50, 52, 53, 55],
+        mid: 50, hiZone: 61.8, loZone: 38.2,
+        fillHi: 61.8, fillLo: 38.2,
+        bot: 0, top: 100,
+        lineColor: '#f59e0b',
+        label: 'Choppiness Index (14)'
+      }
+    },
+    zone: { fromIdx: 0, toIdx: 10, top: 42620, bottom: 42400 },
+    zoneLabel: 'CHOP > 61',
+    zoneColor: '245,158,11',
+    structureLabels: [
+      { idx: 9, price: 42420, text: 'CHOP drops', color: '#fbbf24' },
+      { idx: 11, price: 42780, text: 'Trend Start', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Choppiness Index > 61 (klarer Range-Markt)',
+      '(2) CI faellt unter 38 (Trend faengt an)',
+      '(3) Range-Breakout-Kerze mit grossem Body',
+      '(4) Volumen-Spike auf Breakout',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH CI < 38 + Range-Breakout in Trend-Richtung.',
+      sl: 'Unter Range-Mitte oder letztem Swing-Low der Chop-Phase.',
+      tp: 'TP1 = 2R · TP2 = Trail bis CI wieder > 61 (Chop returns).',
+      market: 'Genialer Filter: vermeidet Trades in Choppy-Phasen, triggert nur wenn echter Trend startet.'
+    },
+    tip: 'Choppiness Index ist KEIN Richtungs-Indikator — nur Trend-Qualitaet. CI > 61 = Range, CI < 38 = Trend. Kombiniere mit Richtungs-Filter (z.B. EMA-Cross), um zu wissen WOHIN getradet wird.'
+  },
+
+  'ema-ribbon-trend': {
+    title: 'EMA Ribbon Trend · BTC 1h · Long',
+    subtitle: 'Mehrere EMAs (5,8,13,21,34,55) faechern auf = starker Trend',
+    skipEma: true,
+    candles: [
+      {o:43500,h:43550,l:43350,c:43400},{o:43400,h:43500,l:43250,c:43300},
+      {o:43300,h:43400,l:43100,c:43150},{o:43150,h:43250,l:42950,c:43000},
+      {o:43000,h:43100,l:42850,c:42900},{o:42900,h:43000,l:42750,c:42800},
+      {o:42800,h:42900,l:42700,c:42750},{o:42750,h:42850,l:42700,c:42820},
+      {o:42820,h:42950,l:42780,c:42920},{o:42920,h:43100,l:42880,c:43080},
+      {o:43080,h:43250,l:43030,c:43220},{o:43220,h:43400,l:43180,c:43380},
+      {o:43380,h:43550,l:43330,c:43520},{o:43520,h:43700,l:43480,c:43670},
+      {o:43670,h:43850,l:43620,c:43820},{o:43820,h:44000,l:43780,c:43970},
+      {o:43970,h:44150,l:43920,c:44120},{o:44120,h:44300,l:44070,c:44270},
+      {o:44270,h:44450,l:44220,c:44420},{o:44420,h:44600,l:44370,c:44570},
+      {o:44570,h:44750,l:44520,c:44720},{o:44720,h:44900,l:44670,c:44870},
+      {o:44870,h:45050,l:44820,c:45020},{o:45020,h:45200,l:44970,c:45170},
+      {o:45170,h:45350,l:45120,c:45320},{o:45320,h:45500,l:45270,c:45470},
+      {o:45470,h:45650,l:45420,c:45620},{o:45620,h:45800,l:45570,c:45770},
+      {o:45770,h:45950,l:45720,c:45920},{o:45920,h:46100,l:45870,c:46070}
+    ],
+    entryIdx: 9,
+    entryPrice: 43080, slPrice: 42650, tp1Price: 43940, tp2Price: 44800,
+    indicators: {
+      multipleMAs: [
+        { values: [43400,43320,43230,43130,43020,42910,42820,42770,42770,42810,42890,42990,43110,43240,43390,43560,43730,43910,44100,44290,44490,44690,44890,45090,45290,45490,45690,45890,46090,46290], color: '#22c55e', label: 'EMA 5' },
+        { values: [43420,43350,43270,43180,43080,42980,42890,42820,42790,42810,42870,42950,43050,43170,43300,43450,43610,43780,43960,44140,44330,44520,44720,44920,45110,45300,45500,45690,45880,46070], color: '#10b981', label: 'EMA 8' },
+        { values: [43450,43390,43320,43240,43160,43070,42990,42930,42890,42890,42930,42990,43070,43160,43270,43400,43540,43690,43850,44020,44190,44370,44550,44730,44910,45090,45270,45450,45630,45810], color: '#06b6d4', label: 'EMA 13' },
+        { values: [43480,43430,43370,43300,43230,43160,43090,43030,42990,42970,42990,43020,43080,43160,43250,43360,43480,43620,43770,43930,44090,44260,44430,44600,44770,44940,45110,45280,45450,45620], color: '#3b82f6', label: 'EMA 21' },
+        { values: [43520,43480,43430,43380,43320,43270,43210,43160,43120,43090,43090,43100,43130,43180,43240,43320,43410,43520,43640,43780,43920,44070,44230,44390,44550,44710,44880,45040,45210,45370], color: '#8b5cf6', label: 'EMA 34' },
+        { values: [43560,43530,43490,43450,43410,43370,43330,43290,43260,43230,43220,43210,43220,43240,43270,43320,43380,43460,43550,43660,43780,43900,44030,44170,44310,44450,44600,44740,44890,45040], color: '#a78bfa', label: 'EMA 55', dashed: [3,3] }
+      ]
+    },
+    zone: { fromIdx: 7, toIdx: 9, top: 42950, bottom: 42700 },
+    zoneLabel: 'RIBBON FLIP',
+    zoneColor: '34,197,94',
+    structureLabels: [
+      { idx: 7, price: 42700, text: 'LL', color: '#ef4444' },
+      { idx: 9, price: 43080, text: 'Ribbon Stack', color: '#22c55e' },
+      { idx: 20, price: 44400, text: 'Trend Strong', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Mehrere EMAs (5,8,13,21,34,55) sichtbar als Ribbon',
+      '(2) Alle EMAs faechern in gleiche Richtung auf',
+      '(3) Preis schliesst ueber allen 6 EMAs',
+      '(4) Ribbon-Spread waechst (Trend-Beschleunigung)',
+      '(5) CRV >= 1:2'
+    ],
+    setupRules: {
+      entry: 'Close NACH Bullish-Ribbon-Formation (alle EMAs aufgefaechert, kurze ueber langer).',
+      sl: 'Unter EMA 55 oder dem letzten Swing-Low.',
+      tp: 'TP1 = 2R · TP2 = Trail mit EMA 21 bis Ribbon-Cross zurueck.',
+      market: 'Funktioniert in starken Trend-Phasen exzellent. In Choppy Maerkten = Whipsaw-Hoelle.'
+    },
+    tip: 'EMA Ribbon ist der visuelle Ueberschall-Test: wenn alle EMAs in einer geordneten Reihe stehen + auseinander laufen = starker Trend. Verklumpen sie sich + ueberkreuzen = Range. Sehr intuitiv lesbar.'
+  },
+
+  'mtf-confluence': {
+    title: 'MTF Confluence · BTC 1h + 4h + Daily · Long',
+    subtitle: 'Trend-Alignment ueber 3 Timeframes (1h, 4h, Daily)',
+    skipEma: true,
+    candles: [
+      {o:43000,h:43100,l:42900,c:42950},{o:42950,h:43050,l:42850,c:42900},
+      {o:42900,h:43000,l:42800,c:42850},{o:42850,h:42950,l:42750,c:42800},
+      {o:42800,h:42900,l:42700,c:42750},{o:42750,h:42850,l:42650,c:42700},
+      {o:42700,h:42800,l:42600,c:42650},{o:42650,h:42750,l:42550,c:42600},
+      {o:42600,h:42700,l:42500,c:42550},{o:42550,h:42700,l:42500,c:42650},
+      {o:42650,h:42800,l:42600,c:42750},{o:42750,h:42900,l:42700,c:42850},
+      {o:42850,h:43050,l:42800,c:43000},{o:43000,h:43200,l:42950,c:43150},
+      {o:43150,h:43350,l:43100,c:43300},{o:43300,h:43500,l:43250,c:43450},
+      {o:43450,h:43650,l:43400,c:43600},{o:43600,h:43800,l:43550,c:43750},
+      {o:43750,h:43950,l:43700,c:43900},{o:43900,h:44100,l:43850,c:44050},
+      {o:44050,h:44250,l:44000,c:44200},{o:44200,h:44400,l:44150,c:44350},
+      {o:44350,h:44550,l:44300,c:44500},{o:44500,h:44700,l:44450,c:44650},
+      {o:44650,h:44850,l:44600,c:44800},{o:44800,h:45000,l:44750,c:44950},
+      {o:44950,h:45150,l:44900,c:45100},{o:45100,h:45300,l:45050,c:45250},
+      {o:45250,h:45450,l:45200,c:45400},{o:45400,h:45600,l:45350,c:45550}
+    ],
+    entryIdx: 13,
+    entryPrice: 43150, slPrice: 42500, tp1Price: 44460, tp2Price: 45400,
+    indicators: {
+      subPanel: 'osc',
+      oscOpts: {
+        values: [30,28,25,22,20,18,15,18,22,28, 40, 55, 70, 85, 90, 95, 95, 95, 95, 95, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50],
+        mid: 50, hiZone: 80, loZone: 20,
+        fillHi: 80, fillLo: 20,
+        bot: 0, top: 100,
+        lineColor: '#10b981',
+        label: 'MTF Confluence Score (3 TFs)'
+      },
+      multipleMAs: [
+        { values: [43000,42960,42910,42850,42790,42730,42670,42620,42590,42600,42660,42770,42910,43080,43270,43470,43670,43880,44080,44290,44480,44680,44870,45050,45230,45410,45580,45750,45920,46080], color: '#22c55e', label: '1h EMA50' },
+        { values: [43200,43180,43150,43110,43070,43030,42990,42960,42940,42930,42950,43000,43080,43180,43300,43440,43590,43740,43900,44070,44240,44410,44580,44750,44920,45080,45240,45400,45550,45710], color: '#3b82f6', label: '4h EMA50', dashed: [3,3] }
+      ]
+    },
+    zone: { fromIdx: 11, toIdx: 13, top: 43000, bottom: 42700 },
+    zoneLabel: 'MTF ALIGNED',
+    zoneColor: '16,185,129',
+    structureLabels: [
+      { idx: 8, price: 42500, text: 'LL', color: '#ef4444' },
+      { idx: 13, price: 43150, text: '3 TF Bullish', color: '#22c55e' },
+      { idx: 25, price: 44950, text: 'Strong Trend', color: '#22c55e' }
+    ],
+    checklist: [
+      '(1) Daily Trend bullish (200 EMA aufwaerts)',
+      '(2) 4h Trend bullish (50 EMA ueber 200 EMA)',
+      '(3) 1h Trigger: Bullish-Pattern oder EMA-Cross',
+      '(4) Confluence-Score > 80% (alle 3 TFs aligned)',
+      '(5) CRV >= 1:2 mit Daily-Pivot als TP-Target'
+    ],
+    setupRules: {
+      entry: 'Close auf 1h NACH MTF-Alignment (alle 3 TFs bullish).',
+      sl: 'Unter dem letzten 1h-Swing-Low (= darunter ist MTF-Alignment kaputt).',
+      tp: 'TP1 = naechster 4h-Pivot · TP2 = Daily-Resistance oder Trail mit 4h-EMA.',
+      market: 'MTF-Setup ist konservativ — viele Bedingungen muessen passen. Aber wenn sie alle passen, sind die Trades stark.'
+    },
+    tip: 'Multi-Timeframe-Confluence = der heilige Gral fuer konservative Trader. Setup-Frequency niedrig (~3-5 pro Monat) aber Hit-Rate sehr hoch. Geduld ist die einzige Voraussetzung.'
+  }
 };
 
 let _academyAnimRAF = null;
@@ -40116,13 +40713,13 @@ function playAcademyInlineAnim(canvasId, configKey) {
 
 // === Indikator-Renderer fuer Akademie-Animationen ===
 function _academyDrawVolumeBars(ctx, candles, nVisible, xScale, candleW, volumeAreaY, volumeAreaH, volumes, highlightIdx) {
-  // volumes: array of volumes (any scale - auto-normalized to 0-1)
+  if (!volumes || volumes.length === 0) return;
+  // v1.8.3 FIX: auto-normalize
+  const maxV = Math.max(0.001, ...volumes.map(v => Math.abs(v || 0)));
+  const norm = maxV > 1.5 ? maxV : 1.0;
+  // volumes: array (any scale)
   // volumeAreaY: top y of volume area
   // volumeAreaH: height
-  if (!volumes || volumes.length === 0) return;
-  // v1.8.3 FIX: auto-normalize. Accepts both 0-1 scale and absolute scales (e.g. 60-220).
-  const maxV = Math.max(0.001, ...volumes.map(v => Math.abs(v || 0)));
-  const norm = maxV > 1.5 ? maxV : 1.0;  // If max > 1.5 it's absolute scale → normalize
   for (let i = 0; i < nVisible; i++) {
     const v = (volumes[i] || 0) / norm;
     const c = candles[i];
@@ -40639,8 +41236,9 @@ function _drawAcademyAnimFrame(ctx, W, H, cfg, t) {
     }
   }
 
-  // v1.8.2 FIX: respect cfg.skipEma — default EMA50 fake-formula nicht mehr ueberlagern
-  if (t >= 0.30 && !cfg.skipEma) {
+  // v1.8.4 FIX: also skip if multipleMAs/bollinger present
+  const _hasOwnMAs = cfg.indicators && (cfg.indicators.multipleMAs || cfg.indicators.bollinger);
+  if (t >= 0.30 && !cfg.skipEma && !_hasOwnMAs) {
     const emaOp = phase(0.30, 0.36);
     ctx.strokeStyle = 'rgba(251,146,60,' + emaOp + ')';
     ctx.lineWidth = 2;
