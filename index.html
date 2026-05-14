@@ -34836,7 +34836,38 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-13 11:00 UTC';
+const APP_BUILD = '2026-05-13 12:30 UTC';
+
+// ═══════════════════════════════════════════════
+//  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
+//  (Instagram/TikTok/Facebook In-App-Browser blockieren oft localStorage)
+// ═══════════════════════════════════════════════
+const _memStorage = {};
+function _safeSetItem(key, value) {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage) {
+      localStorage.setItem(key, value);
+      return true;
+    }
+  } catch (e) {}
+  _memStorage[key] = value;
+  return false;
+}
+function _safeGetItem(key) {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage) {
+      const v = localStorage.getItem(key);
+      if (v !== null) return v;
+    }
+  } catch (e) {}
+  return Object.prototype.hasOwnProperty.call(_memStorage, key) ? _memStorage[key] : null;
+}
+function _safeRemoveItem(key) {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage) localStorage.removeItem(key);
+  } catch (e) {}
+  delete _memStorage[key];
+}
 
 // Header-Badge dynamisch setzen (verhindert hardcoded Stale-Werte)
 (function _initVersionBadge() {
@@ -35041,8 +35072,8 @@ const DISCLAIMER_VERSION = 'v1';
 const DISCLAIMER_KEY = `fb_disclaimer_${DISCLAIMER_VERSION}`;
 
 function showDisclaimer() {
-  // Wenn schon akzeptiert, skip
-  if (localStorage.getItem(DISCLAIMER_KEY) === '1') return;
+  // Wenn schon akzeptiert, skip (mit safe-storage fallback fuer In-App-Browser)
+  if (_safeGetItem(DISCLAIMER_KEY) === '1') return;
   const overlay = document.createElement('div');
   overlay.id = 'disclaimerOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s';
@@ -35093,17 +35124,23 @@ function acceptDisclaimer() {
 }
 
 function acceptDisclaimerAndDemo() {
-  // Auch wenn checkbox nicht gesetzt → noch nicht persistieren, aber Demo zeigen
+  // Demo immer zeigen — Modal schliessen, Demo starten
+  // Wenn checkbox checked → Disclaimer persistieren, sonst nur Session
   const cb = document.getElementById('disclaimerCheck');
-  if (cb && cb.checked) {
-    acceptDisclaimer();
-    setTimeout(runDemo, 400);
-  } else {
-    // Show error
-    cb.parentElement.style.color = '#ef4444';
-    cb.parentElement.style.transition = 'color 0.3s';
-    setTimeout(() => { cb.parentElement.style.color = ''; }, 1500);
+  const persistAccept = !!(cb && cb.checked);
+  if (persistAccept) {
+    _safeSetItem(DISCLAIMER_KEY, '1');
   }
+  const overlay = document.getElementById('disclaimerOverlay');
+  if (overlay) {
+    overlay.style.transition = 'opacity 0.3s';
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      try { overlay.remove(); } catch (e) {}
+      document.body.style.overflow = '';
+    }, 300);
+  }
+  setTimeout(runDemo, 400);
 }
 
 function runDemo() {
