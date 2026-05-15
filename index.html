@@ -18248,6 +18248,9 @@ let _mobileChart = null;
 let _mobileCandleSeries = null;
 let _mobileEmaSeries = null;
 let _mobileLastData = null;
+let _mobileChartInitialized = false;
+let _mobileLastCandleSig = '';
+let _mobileLastMarkerSig = '';
 
 // Mobile-Detection: orientierungs-unabhängig (Math.min checkt die KURZE Seite)
 // + Touch-Capability als Fallback. Wird einmal beim ersten Aufruf gecached.
@@ -18312,43 +18315,80 @@ function renderMobileChart(candles, trades) {
     if (!t) continue;
     data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
   }
-  _mobileCandleSeries.setData(data);
 
-  // Trade-Marker als entry/exit Punkte
-  if (trades && trades.length > 0) {
-    const markers = [];
-    for (const t of trades) {
-      if (t.entryTs) {
-        markers.push({
-          time: Math.floor(t.entryTs / 1000),
-          position: t.dir === 'long' ? 'belowBar' : 'aboveBar',
-          color: t.dir === 'long' ? '#22c55e' : '#ef4444',
-          shape: t.dir === 'long' ? 'arrowUp' : 'arrowDown',
-          text: t.dir === 'long' ? 'L' : 'S'
-        });
+  // Signatur berechnen — Length + erste + letzte Candle Time + Close
+  const firstC = data[0], lastC = data[data.length - 1];
+  const sig = data.length + '|' + (firstC ? firstC.time : '') + '|' + (lastC ? (lastC.time + ':' + lastC.close) : '');
+
+  if (!_mobileChartInitialized) {
+    // ERSTER Render — Full setData + fitContent
+    _mobileCandleSeries.setData(data);
+    try { _mobileChart.timeScale().fitContent(); } catch(e) {}
+    _mobileChartInitialized = true;
+  } else if (sig !== _mobileLastCandleSig) {
+    // Daten haben sich geaendert — pruefe ob nur die letzte Kerze
+    const oldLen = (_mobileLastCandleSig.split('|')[0] | 0);
+    if (data.length === oldLen && lastC) {
+      // Nur Live-Update der letzten Kerze → incremental, KEIN Zoom-Reset
+      try { _mobileCandleSeries.update(lastC); } catch(e) {
+        // Fallback bei Fehler
+        _mobileCandleSeries.setData(data);
       }
-      if (t.exitTs) {
-        const win = (t.pnlUsd || 0) >= 0;
-        markers.push({
-          time: Math.floor(t.exitTs / 1000),
-          position: win ? 'aboveBar' : 'belowBar',
-          color: win ? '#22c55e' : '#ef4444',
-          shape: 'circle',
-          text: win ? '✓' : '✗'
-        });
+    } else if (data.length === oldLen + 1 && lastC) {
+      // Eine neue Kerze dazu (WebSocket close) → incremental
+      try { _mobileCandleSeries.update(lastC); } catch(e) {
+        _mobileCandleSeries.setData(data);
       }
+    } else {
+      // Komplett anderer Datensatz (neuer Backtest, neuer Coin) → full setData + fit
+      _mobileCandleSeries.setData(data);
+      try { _mobileChart.timeScale().fitContent(); } catch(e) {}
     }
-    // Markers nach Zeit sortieren (Lightweight Charts requirement)
-    markers.sort((a, b) => a.time - b.time);
-    _mobileCandleSeries.setMarkers(markers);
-  } else {
-    _mobileCandleSeries.setMarkers([]);
+  }
+  _mobileLastCandleSig = sig;
+
+  // Trade-Marker — nur neu setzen wenn Anzahl oder erstem Trade-Zeitpunkt sich ändert
+  const tradesSig = (trades || []).length + '|' + ((trades && trades[0]) ? (trades[0].entryTs || 0) : '');
+  if (tradesSig !== _mobileLastMarkerSig) {
+    if (trades && trades.length > 0) {
+      const markers = [];
+      for (const t of trades) {
+        if (t.entryTs) {
+          markers.push({
+            time: Math.floor(t.entryTs / 1000),
+            position: t.dir === 'long' ? 'belowBar' : 'aboveBar',
+            color: t.dir === 'long' ? '#22c55e' : '#ef4444',
+            shape: t.dir === 'long' ? 'arrowUp' : 'arrowDown',
+            text: t.dir === 'long' ? 'L' : 'S'
+          });
+        }
+        if (t.exitTs) {
+          const win = (t.pnlUsd || 0) >= 0;
+          markers.push({
+            time: Math.floor(t.exitTs / 1000),
+            position: win ? 'aboveBar' : 'belowBar',
+            color: win ? '#22c55e' : '#ef4444',
+            shape: 'circle',
+            text: win ? '✓' : '✗'
+          });
+        }
+      }
+      markers.sort((a, b) => a.time - b.time);
+      _mobileCandleSeries.setMarkers(markers);
+    } else {
+      _mobileCandleSeries.setMarkers([]);
+    }
+    _mobileLastMarkerSig = tradesSig;
   }
 
   _mobileLastData = { candles, trades };
+}
 
-  // Auto-fit beim ersten Render
-  try { _mobileChart.timeScale().fitContent(); } catch(e) {}
+// Reset Mobile-Chart-State (z.B. bei neuem Coin/TF/Backtest)
+function resetMobileChart() {
+  _mobileChartInitialized = false;
+  _mobileLastCandleSig = '';
+  _mobileLastMarkerSig = '';
 }
 
 // Tab-Aktivierung → Resize wenn Mobile-Chart sichtbar wird
@@ -35159,7 +35199,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 18:00 UTC';
+const APP_BUILD = '2026-05-15 18:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
