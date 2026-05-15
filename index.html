@@ -2375,7 +2375,36 @@ input[type=number] { -moz-appearance:textfield }
           <button id="mobileCoinBtn" onclick="openMobileCoinPicker()" aria-label="Coin wählen"><span id="mobileCoinBtnLabel">BTC</span> ▾</button>
           <select id="mobileCoinSelect" onchange="onMobileCoinChange()" aria-label="Coin wählen" style="display:none"></select>
           <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
+          <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
+          <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ REPLAY</button>
           <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
+        </div>
+        <!-- Mobile Bar Replay Control-Panel (sichtbar wenn aktiv) -->
+        <div id="mobileReplayInstruction" style="display:none;background:#fbbf24;color:#0a0a0a;padding:8px 12px;font-size:13px;font-weight:700;text-align:center;border-top:1px solid #f59e0b">👆 Tippe auf eine Kerze zum Starten</div>
+        <div id="mobileReplayPanel" style="display:none;background:#0d1117;border-top:1px solid #1f2937;padding:8px 10px;align-items:center;gap:6px;flex-wrap:wrap">
+          <button id="mobileReplayStepBack" onclick="mobileReplayStep(-1)" aria-label="Schritt zurück" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;min-width:38px">⏮</button>
+          <button id="mobileReplayPlayBtn" onclick="mobileReplayToggle()" aria-label="Play/Pause" style="background:#22c55e;border:1px solid #16a34a;color:#0a0a0a;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;font-weight:700;min-width:38px">▶</button>
+          <button id="mobileReplayStepFwd" onclick="mobileReplayStep(1)" aria-label="Schritt vor" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;min-width:38px">⏭</button>
+          <select id="mobileReplaySpeed" onchange="mobileReplaySpeedChange()" aria-label="Geschwindigkeit" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 8px;font-size:12px;cursor:pointer">
+            <option value="1000">1× (langsam)</option>
+            <option value="500" selected>2×</option>
+            <option value="200">5×</option>
+            <option value="100">10×</option>
+            <option value="50">20× (schnell)</option>
+          </select>
+          <input id="mobileReplaySlider" type="range" min="0" max="100" value="0" oninput="mobileReplaySeek(this.value)" style="flex:1;min-width:120px;height:24px;accent-color:#22c55e;cursor:pointer">
+          <div id="mobileReplayCounter" style="font-size:11px;color:#9ca3af;font-weight:600;min-width:70px;text-align:right">0 / 0</div>
+          <button onclick="mobileReplayExit()" aria-label="Replay beenden" title="Replay beenden" style="background:#7f1d1d;border:1px solid #b91c1c;color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;font-weight:700">✕</button>
+        </div>
+        <!-- Mobile Indicators Modal -->
+        <div id="mobileIndicatorsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:flex-start;justify-content:center;padding-top:8vh">
+          <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;width:90%;max-width:400px;max-height:80vh;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #1f2937">
+              <div style="font-size:14px;font-weight:700;color:#e6edf3">📊 Indikatoren</div>
+              <button onclick="closeMobileIndicators()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;padding:0 4px">✕</button>
+            </div>
+            <div id="mobileIndicatorsList" style="flex:1;overflow-y:auto;padding:10px"></div>
+          </div>
         </div>
         <!-- Mobile Coin Picker Modal (mit Suche, alle 190 Coins) -->
         <div id="mobileCoinPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:flex-start;justify-content:center;padding-top:10vh">
@@ -18592,6 +18621,9 @@ function renderMobileChart(candles, trades) {
   }
 
   _mobileLastData = { candles, trades };
+
+  // Indikatoren aktualisieren (falls welche aktiv sind)
+  try { if (typeof _updateMobileIndicators === 'function') _updateMobileIndicators(candles); } catch(e) {}
 }
 
 // Reset Mobile-Chart-State (z.B. bei neuem Coin/TF/Backtest)
@@ -18599,7 +18631,554 @@ function resetMobileChart() {
   _mobileChartInitialized = false;
   _mobileLastCandleSig = '';
   _mobileLastMarkerSig = '';
+  // Indikator-Series aufraeumen
+  try {
+    if (_mobileIndicatorSeries && _mobileChart) {
+      for (const k in _mobileIndicatorSeries) {
+        const arr = _mobileIndicatorSeries[k];
+        if (Array.isArray(arr)) {
+          for (const s of arr) { try { _mobileChart.removeSeries(s); } catch(e){} }
+        } else {
+          try { _mobileChart.removeSeries(arr); } catch(e){}
+        }
+      }
+    }
+    _mobileIndicatorSeries = {};
+  } catch(e) {}
 }
+
+// ═══════════════════════════════════════════════
+// MOBILE INDICATORS
+// ═══════════════════════════════════════════════
+let _mobileIndicators = {};        // { id: true } — Toggle-State
+let _mobileIndicatorSeries = {};   // { id: LineSeries | [LineSeries] }
+
+// Definitionen: id, label, kategorie, farben, compute(candles) → {time, value}[] oder [arr1, arr2, arr3]
+const MOBILE_INDICATORS_DEFS = [
+  { id: 'ema20',  label: 'EMA 20',  cat: 'Moving Averages', color: '#fbbf24', period: 20,  type: 'ema' },
+  { id: 'ema50',  label: 'EMA 50',  cat: 'Moving Averages', color: '#f97316', period: 50,  type: 'ema' },
+  { id: 'ema200', label: 'EMA 200', cat: 'Moving Averages', color: '#ef4444', period: 200, type: 'ema' },
+  { id: 'sma20',  label: 'SMA 20',  cat: 'Moving Averages', color: '#60a5fa', period: 20,  type: 'sma' },
+  { id: 'sma50',  label: 'SMA 50',  cat: 'Moving Averages', color: '#3b82f6', period: 50,  type: 'sma' },
+  { id: 'sma200', label: 'SMA 200', cat: 'Moving Averages', color: '#a78bfa', period: 200, type: 'sma' },
+  { id: 'bb',     label: 'Bollinger Bands (20, 2)', cat: 'Bands', color: '#22d3ee', period: 20, mult: 2, type: 'bb' },
+  { id: 'vwap',   label: 'VWAP (Session)',          cat: 'Volume', color: '#ec4899', type: 'vwap' }
+];
+
+function _candlesToCloseArr(candles) {
+  const closes = new Array(candles.length);
+  for (let i = 0; i < candles.length; i++) closes[i] = candles[i].close;
+  return closes;
+}
+
+function _candlesToTime(c) {
+  return Math.floor((c.ts || c.time || 0) / 1000);
+}
+
+// VWAP: Session-VWAP, reset bei Tageswechsel (UTC-Mitternacht)
+function _computeVWAP(candles) {
+  const out = [];
+  let cumPV = 0, cumV = 0, lastDay = -1;
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const t = _candlesToTime(c);
+    if (!t) continue;
+    const day = Math.floor(t / 86400);
+    if (day !== lastDay) { cumPV = 0; cumV = 0; lastDay = day; }
+    const tp = (c.high + c.low + c.close) / 3;
+    const v = c.volume || c.vol || 1;
+    cumPV += tp * v;
+    cumV  += v;
+    if (cumV > 0) out.push({ time: t, value: cumPV / cumV });
+  }
+  return out;
+}
+
+function _computeMobileIndicator(def, candles) {
+  if (!candles || candles.length === 0) return null;
+  const closes = _candlesToCloseArr(candles);
+
+  if (def.type === 'ema' || def.type === 'sma') {
+    const vals = (def.type === 'ema') ? Indicators.ema(closes, def.period) : Indicators.sma(closes, def.period);
+    const out = [];
+    for (let i = 0; i < candles.length; i++) {
+      const t = _candlesToTime(candles[i]);
+      if (!t || !isFinite(vals[i])) continue;
+      out.push({ time: t, value: vals[i] });
+    }
+    return out;
+  }
+
+  if (def.type === 'bb') {
+    const bb = Indicators.bollinger(closes, def.period, def.mult);
+    const upArr = [], midArr = [], loArr = [];
+    for (let i = 0; i < candles.length; i++) {
+      const t = _candlesToTime(candles[i]);
+      if (!t) continue;
+      if (isFinite(bb.upper[i])) upArr.push({ time: t, value: bb.upper[i] });
+      if (isFinite(bb.mid[i]))   midArr.push({ time: t, value: bb.mid[i] });
+      if (isFinite(bb.lower[i])) loArr.push({ time: t, value: bb.lower[i] });
+    }
+    return [upArr, midArr, loArr];
+  }
+
+  if (def.type === 'vwap') {
+    return _computeVWAP(candles);
+  }
+
+  return null;
+}
+
+function _createMobileIndicatorSeries(def) {
+  if (!_mobileChart) return null;
+  if (def.type === 'bb') {
+    // 3 Linien: upper (dashed), mid (solid), lower (dashed)
+    const upper = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const mid   = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const lower = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    return [upper, mid, lower];
+  }
+  // Standard: Eine Linie
+  return _mobileChart.addLineSeries({
+    color: def.color,
+    lineWidth: 2,
+    priceLineVisible: false,
+    lastValueVisible: true,
+    crosshairMarkerVisible: false,
+    title: def.label.split(' ')[0] + (def.period ? ' ' + def.period : '')
+  });
+}
+
+function _setIndicatorData(def, series, data) {
+  if (!series || !data) return;
+  if (def.type === 'bb') {
+    if (Array.isArray(series) && Array.isArray(data) && data.length === 3) {
+      try { series[0].setData(data[0]); } catch(e){}
+      try { series[1].setData(data[1]); } catch(e){}
+      try { series[2].setData(data[2]); } catch(e){}
+    }
+    return;
+  }
+  try { series.setData(data); } catch(e){}
+}
+
+function _updateMobileIndicators(candles) {
+  if (!_mobileChart || !candles || candles.length === 0) return;
+  for (const def of MOBILE_INDICATORS_DEFS) {
+    if (!_mobileIndicators[def.id]) continue;
+    let series = _mobileIndicatorSeries[def.id];
+    // Lazy-Recreation falls Series fehlt (z.B. nach Coin-Wechsel)
+    if (!series) {
+      series = _createMobileIndicatorSeries(def);
+      if (!series) continue;
+      _mobileIndicatorSeries[def.id] = series;
+    }
+    const data = _computeMobileIndicator(def, candles);
+    _setIndicatorData(def, series, data);
+  }
+}
+
+function openMobileIndicators() {
+  const modal = document.getElementById('mobileIndicatorsModal');
+  const list  = document.getElementById('mobileIndicatorsList');
+  if (!modal || !list) return;
+
+  // Gruppieren nach Kategorie
+  const cats = {};
+  for (const def of MOBILE_INDICATORS_DEFS) {
+    if (!cats[def.cat]) cats[def.cat] = [];
+    cats[def.cat].push(def);
+  }
+
+  let html = '';
+  for (const cat in cats) {
+    html += `<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1.2px;padding:8px 6px 4px">${cat}</div>`;
+    for (const def of cats[cat]) {
+      const active = !!_mobileIndicators[def.id];
+      html += `
+        <div onclick="toggleMobileIndicator('${def.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 10px;margin-bottom:4px;background:${active ? 'rgba(34,197,94,0.08)' : '#161b22'};border:1px solid ${active ? '#22c55e' : '#1f2937'};border-radius:8px;cursor:pointer;transition:all 0.15s">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:14px;height:3px;background:${def.color};border-radius:2px"></div>
+            <div style="font-size:13px;color:#e6edf3;font-weight:${active ? '700' : '500'}">${def.label}</div>
+          </div>
+          <div style="width:36px;height:20px;background:${active ? '#22c55e' : '#374151'};border-radius:10px;position:relative;transition:background 0.15s">
+            <div style="position:absolute;top:2px;left:${active ? '18px' : '2px'};width:16px;height:16px;background:#fff;border-radius:50%;transition:left 0.15s"></div>
+          </div>
+        </div>`;
+    }
+  }
+  // Footer: Alle deaktivieren
+  const anyActive = Object.values(_mobileIndicators).some(v => v);
+  if (anyActive) {
+    html += `<div style="padding:8px 6px 4px"><button onclick="clearAllMobileIndicators()" style="width:100%;padding:10px;background:#0d1117;border:1px solid #374151;color:#9ca3af;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">Alle deaktivieren</button></div>`;
+  }
+
+  list.innerHTML = html;
+  modal.style.display = 'flex';
+}
+
+function closeMobileIndicators() {
+  const modal = document.getElementById('mobileIndicatorsModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function toggleMobileIndicator(id) {
+  const def = MOBILE_INDICATORS_DEFS.find(d => d.id === id);
+  if (!def) return;
+  const wasActive = !!_mobileIndicators[id];
+
+  if (wasActive) {
+    // Deaktivieren: Series entfernen
+    const series = _mobileIndicatorSeries[id];
+    if (series && _mobileChart) {
+      if (Array.isArray(series)) {
+        for (const s of series) { try { _mobileChart.removeSeries(s); } catch(e){} }
+      } else {
+        try { _mobileChart.removeSeries(series); } catch(e){}
+      }
+    }
+    delete _mobileIndicatorSeries[id];
+    delete _mobileIndicators[id];
+  } else {
+    // Aktivieren: Series erzeugen + Daten setzen
+    if (!_mobileChart) return;
+    const series = _createMobileIndicatorSeries(def);
+    if (!series) return;
+    _mobileIndicatorSeries[id] = series;
+    _mobileIndicators[id] = true;
+    // Aktuelle Candles holen
+    const candles = (_mobileLastData && _mobileLastData.candles) ? _mobileLastData.candles : (window.currentCandles || []);
+    const data = _computeMobileIndicator(def, candles);
+    _setIndicatorData(def, series, data);
+  }
+
+  // Modal neu rendern (Toggle-Zustand)
+  openMobileIndicators();
+}
+
+function clearAllMobileIndicators() {
+  const ids = Object.keys(_mobileIndicators);
+  for (const id of ids) {
+    if (_mobileIndicators[id]) toggleMobileIndicator(id);
+  }
+  openMobileIndicators();
+}
+
+// Modal schliessen bei Klick auf Backdrop
+(function _wireMobileIndicatorsBackdrop(){
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('mobileIndicatorsModal');
+    if (modal) {
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeMobileIndicators(); });
+    }
+  });
+})();
+
+// ═══════════════════════════════════════════════
+// MOBILE BAR REPLAY
+// ═══════════════════════════════════════════════
+let _mobileReplay = {
+  active: false,
+  playing: false,
+  index: 0,        // wie viele Kerzen sichtbar
+  max: 0,
+  timer: null,
+  speed: 500,      // ms zwischen Schritten
+  savedCandles: null,  // Original-Daten (Backup)
+  savedTrades: null
+};
+const MOBILE_REPLAY_MIN_INDEX = 2;  // Minimum: 2 Kerzen müssen sichtbar sein
+
+function mobileReplayStart() {
+  // Daten holen — entweder aus _mobileLastData oder window-globals
+  const candles = (_mobileLastData && _mobileLastData.candles) || (typeof currentCandles !== 'undefined' ? currentCandles : null);
+  const trades  = (_mobileLastData && _mobileLastData.trades)  || (typeof lastResult !== 'undefined' && lastResult ? (lastResult.trades || []) : []);
+
+  if (!candles || candles.length < 5) {
+    try { (typeof showToast === 'function') && showToast('Erst Backtest laufen lassen oder Coin/TF wählen', 'info'); } catch(e){}
+    return;
+  }
+  if (!_mobileChart) {
+    try { (typeof showToast === 'function') && showToast('Chart ist noch nicht bereit', 'info'); } catch(e){}
+    return;
+  }
+
+  // Falls Live-Chart aktiv: pausieren waehrend Replay
+  try {
+    if (typeof liveChartActive !== 'undefined' && liveChartActive && typeof stopLiveChart === 'function') {
+      stopLiveChart();
+    }
+  } catch(e) {}
+
+  _mobileReplay.active = true;
+  _mobileReplay.playing = false;
+  _mobileReplay.waitingForSelection = true;   // ← warten auf User-Tap
+  _mobileReplay.max = candles.length;
+  _mobileReplay.index = _mobileReplay.max;     // Vollchart sichtbar bis Auswahl erfolgt
+  _mobileReplay.savedCandles = candles;
+  _mobileReplay.savedTrades  = trades;
+
+  // Panel + Instruction sichtbar
+  const panel = document.getElementById('mobileReplayPanel');
+  if (panel) panel.style.display = 'flex';
+  const inst = document.getElementById('mobileReplayInstruction');
+  if (inst) inst.style.display = 'block';
+  const btn = document.getElementById('mobileReplayBtn');
+  if (btn) { btn.textContent = '⏯ WÄHLE'; btn.style.background = '#fbbf24'; btn.style.color = '#0a0a0a'; }
+
+  // Cursor-Mode aktivieren damit Tap nicht ein Zeichentool startet
+  try { if (typeof setMobileDrawTool === 'function') setMobileDrawTool('cursor', document.querySelector('.mdt-btn')); } catch(e){}
+
+  // Slider initialisieren — Range = ganzer Chart
+  const slider = document.getElementById('mobileReplaySlider');
+  if (slider) {
+    slider.min = MOBILE_REPLAY_MIN_INDEX;
+    slider.max = _mobileReplay.max;
+    slider.value = _mobileReplay.max;
+  }
+  // Speed aus Select uebernehmen
+  const spdSel = document.getElementById('mobileReplaySpeed');
+  if (spdSel) _mobileReplay.speed = parseInt(spdSel.value) || 500;
+
+  // Chart bleibt mit allen Kerzen sichtbar — KEIN sofortiges Slicen
+  _mobileReplayUpdateUI();
+
+  try { (typeof showToast === 'function') && showToast('Tippe auf die Kerze ab der Replay starten soll', 'info'); } catch(e){}
+}
+
+// User hat eine Kerze gewählt → Startpunkt setzen
+function _mobileReplaySelectCandle(candleIndex) {
+  if (!_mobileReplay.active || !_mobileReplay.savedCandles) return;
+  const idx = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, candleIndex + 1));
+  _mobileReplay.index = idx;
+  _mobileReplay.waitingForSelection = false;
+
+  // Instruction ausblenden
+  const inst = document.getElementById('mobileReplayInstruction');
+  if (inst) inst.style.display = 'none';
+  const btn = document.getElementById('mobileReplayBtn');
+  if (btn) { btn.textContent = '⏯ AKTIV'; btn.style.background = '#22c55e'; btn.style.color = '#0a0a0a'; }
+
+  // Slider auf Position
+  const slider = document.getElementById('mobileReplaySlider');
+  if (slider) { slider.min = MOBILE_REPLAY_MIN_INDEX; slider.value = idx; }
+
+  _mobileReplayDraw();
+  _mobileReplayUpdateUI();
+
+  try { (typeof showToast === 'function') && showToast('Position gesetzt — ▶ zum Abspielen', 'success'); } catch(e){}
+}
+
+function mobileReplayExit() {
+  if (_mobileReplay.timer) { clearInterval(_mobileReplay.timer); _mobileReplay.timer = null; }
+  _mobileReplay.playing = false;
+  _mobileReplay.active = false;
+  _mobileReplay.waitingForSelection = false;
+
+  // Volle Daten wiederherstellen
+  const candles = _mobileReplay.savedCandles;
+  const trades  = _mobileReplay.savedTrades || [];
+  _mobileReplay.savedCandles = null;
+  _mobileReplay.savedTrades = null;
+
+  // Panel + Instruction verstecken
+  const panel = document.getElementById('mobileReplayPanel');
+  if (panel) panel.style.display = 'none';
+  const inst = document.getElementById('mobileReplayInstruction');
+  if (inst) inst.style.display = 'none';
+  const btn = document.getElementById('mobileReplayBtn');
+  if (btn) { btn.textContent = '⏯ REPLAY'; btn.style.background = ''; btn.style.color = ''; }
+
+  // Chart komplett zurücksetzen → full setData mit allen Kerzen
+  if (candles && _mobileCandleSeries) {
+    _mobileChartInitialized = false;
+    _mobileLastCandleSig = '';
+    _mobileLastMarkerSig = '';
+    renderMobileChart(candles, trades);
+  }
+}
+
+function mobileReplayToggle() {
+  if (!_mobileReplay.active) return;
+  // Wenn User noch keine Kerze gewählt hat → kein Play moeglich
+  if (_mobileReplay.waitingForSelection) {
+    try { (typeof showToast === 'function') && showToast('Erst eine Kerze antippen', 'info'); } catch(e){}
+    return;
+  }
+  const btn = document.getElementById('mobileReplayPlayBtn');
+
+  if (_mobileReplay.playing) {
+    _mobileReplay.playing = false;
+    if (_mobileReplay.timer) { clearInterval(_mobileReplay.timer); _mobileReplay.timer = null; }
+    if (btn) { btn.textContent = '▶'; btn.style.background = '#22c55e'; btn.style.borderColor = '#16a34a'; }
+    return;
+  }
+
+  // Play
+  _mobileReplay.playing = true;
+  if (btn) { btn.textContent = '⏸'; btn.style.background = '#f59e0b'; btn.style.borderColor = '#d97706'; }
+
+  if (_mobileReplay.index >= _mobileReplay.max) {
+    _mobileReplay.index = MOBILE_REPLAY_MIN_INDEX;
+  }
+
+  _mobileReplay.timer = setInterval(() => {
+    if (!_mobileReplay.active) return;
+    if (_mobileReplay.index >= _mobileReplay.max) {
+      _mobileReplay.playing = false;
+      clearInterval(_mobileReplay.timer);
+      _mobileReplay.timer = null;
+      const b = document.getElementById('mobileReplayPlayBtn');
+      if (b) { b.textContent = '▶'; b.style.background = '#22c55e'; b.style.borderColor = '#16a34a'; }
+      return;
+    }
+    _mobileReplay.index++;
+    _mobileReplayStepDraw();   // incremental .update() — schneller als full setData
+    _mobileReplayUpdateUI();
+  }, _mobileReplay.speed);
+}
+
+function mobileReplayStep(dir) {
+  if (!_mobileReplay.active || _mobileReplay.waitingForSelection) return;
+  // Wenn am Spielen → erst pausieren
+  if (_mobileReplay.playing) mobileReplayToggle();
+  _mobileReplay.index = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, _mobileReplay.index + dir));
+  _mobileReplayDraw();
+  _mobileReplayUpdateUI();
+}
+
+function mobileReplaySeek(val) {
+  if (!_mobileReplay.active || _mobileReplay.waitingForSelection) return;
+  if (_mobileReplay.playing) mobileReplayToggle();
+  _mobileReplay.index = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, parseInt(val) | 0));
+  _mobileReplayDraw();
+  _mobileReplayUpdateUI();
+}
+
+function mobileReplaySpeedChange() {
+  const sel = document.getElementById('mobileReplaySpeed');
+  if (!sel) return;
+  _mobileReplay.speed = parseInt(sel.value) || 500;
+  // Bei laufendem Replay: Timer neu mit neuer Speed
+  if (_mobileReplay.playing) {
+    clearInterval(_mobileReplay.timer);
+    _mobileReplay.timer = setInterval(() => {
+      if (!_mobileReplay.active) return;
+      if (_mobileReplay.index >= _mobileReplay.max) {
+        _mobileReplay.playing = false;
+        clearInterval(_mobileReplay.timer);
+        _mobileReplay.timer = null;
+        const b = document.getElementById('mobileReplayPlayBtn');
+        if (b) { b.textContent = '▶'; b.style.background = '#22c55e'; b.style.borderColor = '#16a34a'; }
+        return;
+      }
+      _mobileReplay.index++;
+      _mobileReplayStepDraw();
+      _mobileReplayUpdateUI();
+    }, _mobileReplay.speed);
+  }
+}
+
+// Full re-render: alle sichtbaren Kerzen via setData
+function _mobileReplayDraw() {
+  if (!_mobileCandleSeries || !_mobileReplay.savedCandles) return;
+  const sliced = _mobileReplay.savedCandles.slice(0, _mobileReplay.index);
+  if (sliced.length < 2) return;
+  // Konvertieren
+  const data = [];
+  for (const c of sliced) {
+    const t = Math.floor((c.ts || c.time || 0) / 1000);
+    if (!t) continue;
+    data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+  }
+  try { _mobileCandleSeries.setData(data); } catch(e){}
+
+  // Trade-Marker fuer sichtbare Trades
+  _mobileReplayUpdateMarkers(sliced);
+
+  // Indikatoren neu rechnen auf den sichtbaren Kerzen
+  try { _updateMobileIndicators(sliced); } catch(e){}
+}
+
+// Incremental: nur die LETZTE Kerze hinzufuegen (waehrend Play — viel schneller)
+function _mobileReplayStepDraw() {
+  if (!_mobileCandleSeries || !_mobileReplay.savedCandles) return;
+  const idx = _mobileReplay.index;
+  const c = _mobileReplay.savedCandles[idx - 1];
+  if (!c) return;
+  const t = Math.floor((c.ts || c.time || 0) / 1000);
+  if (!t) return;
+  try {
+    _mobileCandleSeries.update({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+  } catch(e) {
+    // Fallback: full setData
+    _mobileReplayDraw();
+    return;
+  }
+
+  // Marker + Indikatoren alle 5 Schritte aktualisieren (Performance)
+  if (idx % 5 === 0 || idx === _mobileReplay.max) {
+    const sliced = _mobileReplay.savedCandles.slice(0, idx);
+    _mobileReplayUpdateMarkers(sliced);
+    try { _updateMobileIndicators(sliced); } catch(e){}
+  }
+}
+
+function _mobileReplayUpdateMarkers(visibleCandles) {
+  if (!_mobileCandleSeries || !_mobileReplay.savedTrades) return;
+  if (visibleCandles.length === 0) return;
+  const maxTs = visibleCandles[visibleCandles.length - 1].ts || (visibleCandles[visibleCandles.length - 1].time * 1000);
+  const trades = _mobileReplay.savedTrades;
+  const markers = [];
+  for (const t of trades) {
+    if (t.entryTs && t.entryTs <= maxTs) {
+      markers.push({
+        time: Math.floor(t.entryTs / 1000),
+        position: t.dir === 'long' ? 'belowBar' : 'aboveBar',
+        color: t.dir === 'long' ? '#22c55e' : '#ef4444',
+        shape: t.dir === 'long' ? 'arrowUp' : 'arrowDown',
+        text: t.dir === 'long' ? 'L' : 'S'
+      });
+    }
+    if (t.exitTs && t.exitTs <= maxTs) {
+      const win = (t.pnlUsd || 0) >= 0;
+      markers.push({
+        time: Math.floor(t.exitTs / 1000),
+        position: win ? 'aboveBar' : 'belowBar',
+        color: win ? '#22c55e' : '#ef4444',
+        shape: 'circle',
+        text: win ? '✓' : '✗'
+      });
+    }
+  }
+  markers.sort((a, b) => a.time - b.time);
+  try { _mobileCandleSeries.setMarkers(markers); } catch(e){}
+}
+
+function _mobileReplayUpdateUI() {
+  const slider = document.getElementById('mobileReplaySlider');
+  const counter = document.getElementById('mobileReplayCounter');
+  if (slider) {
+    slider.max = _mobileReplay.max;
+    slider.value = _mobileReplay.index;
+  }
+  if (counter) {
+    counter.textContent = _mobileReplay.index + ' / ' + _mobileReplay.max;
+  }
+}
+
+// Wenn Live-Chart manuell gestartet wird, Replay auto-beenden
+(function _wireMobileReplayLiveGuard(){
+  try {
+    const origToggle = window.onMobileLiveToggle;
+    if (typeof origToggle === 'function') {
+      window.onMobileLiveToggle = function() {
+        if (_mobileReplay && _mobileReplay.active) mobileReplayExit();
+        return origToggle.apply(this, arguments);
+      };
+    }
+  } catch(e){}
+})();
 
 // ── Mobile Chart-Toolbar Setup (Coin + TF + Live) ──
 function initMobileChartToolbar() {
@@ -19049,6 +19628,22 @@ function _hookMobileChartRedraw() {
   });
   // Click-Handler für Selection (nur im Cursor-Mode)
   _mobileChart.subscribeClick((param) => {
+    // ── Bar Replay: User wählt Start-Kerze ──
+    if (typeof _mobileReplay !== 'undefined' && _mobileReplay.active && _mobileReplay.waitingForSelection) {
+      if (!param.time) return;
+      const targetT = param.time;  // Sekunden (UTC)
+      const candles = _mobileReplay.savedCandles;
+      if (!candles) return;
+      // Index suchen: exakter Match oder nächster Nachbar
+      let bestIdx = -1, bestDist = Infinity;
+      for (let i = 0; i < candles.length; i++) {
+        const t = Math.floor((candles[i].ts || candles[i].time || 0) / 1000);
+        const d = Math.abs(t - targetT);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      if (bestIdx >= 0) _mobileReplaySelectCandle(bestIdx);
+      return;
+    }
     if (_mobileDrawTool !== 'cursor') return;
     if (!param.point) { mdsDeselect(); return; }
     const hit = hitTestMobileDrawings(param.point.x, param.point.y);
@@ -36060,7 +36655,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 21:30 UTC';
+const APP_BUILD = '2026-05-15 23:45 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
