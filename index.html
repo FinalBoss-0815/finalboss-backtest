@@ -18866,6 +18866,14 @@ function updateLiveOHLC() {
 }
 
 function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay, yShift) {
+  // Mobile: für den Haupt-Chart die Lightweight-Charts-Engine nutzen statt unserer Canvas
+  // (Replay-Chart und andere Canvases bleiben unberührt — die werden eh selten auf Mobile genutzt)
+  if (canvasId === 'tradeChart' && typeof _isMobile === 'function' && _isMobile()) {
+    if (typeof renderMobileChart === 'function') {
+      try { renderMobileChart(candles, trades); } catch(e) {}
+    }
+    return;
+  }
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -35142,7 +35150,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 17:00 UTC';
+const APP_BUILD = '2026-05-15 17:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
