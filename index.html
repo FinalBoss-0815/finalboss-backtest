@@ -812,6 +812,35 @@ html, body {
 /* Desktop: Vollbild-Button verstecken */
 @media (min-width: 901px) {
   .mobile-only-chart-fs-btn { display: none !important; }
+  #mobileDesktopHint { display: none !important; }
+}
+
+/* Mobile: Chart-Tab ausblenden — Chart-Bedienung am Phone ist nicht praktikabel */
+@media (max-width: 900px) {
+  .tab-btn[data-tab="chart"] { display: none !important; }
+  /* Falls User trotzdem im Chart-Tab landet (z.B. via Saved-State): keine Toolbar zeigen */
+  .tab-content#tab-chart .chart-area { min-height: 220px; }
+}
+
+/* Mobile Desktop-Hint Banner */
+#mobileDesktopHint {
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.10));
+  border: 1px solid rgba(245,158,11,0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+#mobileDesktopHint strong { color: #fbbf24; }
+#mobileDesktopHint .mdh-close {
+  margin-left: auto; background: none; border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 16px;
+  padding: 0 4px; line-height: 1;
 }
 
 /* Small phones */
@@ -1033,6 +1062,25 @@ input[type=number] { -moz-appearance:textfield }
   <div id="progressFill" style="height:100%;background:var(--blue);width:0%;transition:width 0.3s ease;border-radius:0 2px 2px 0"></div>
   <span id="progressLabel" style="position:absolute;right:24px;top:4px;font-size:11px;color:var(--text-muted)"></span>
 </div>
+<!-- Mobile-Only: Hinweis auf Desktop-Features (dismissible) -->
+<div id="mobileDesktopHint">
+  <span style="font-size:16px;line-height:1">💻</span>
+  <div style="flex:1">
+    <strong>Mehr Power am Desktop:</strong> Live-Chart mit Zeichentools, Bar-Replay, Indikatoren &amp; Backtest-Overlay. Auf dem Laptop öffnen für die volle Erfahrung.
+  </div>
+  <button class="mdh-close" onclick="(function(b){b.parentElement.style.display='none';try{localStorage.setItem('fb_mobileHintDismissed','1')}catch(e){}})(this)" aria-label="Hinweis schliessen">✕</button>
+</div>
+<script>
+// Mobile-Hint: nicht zeigen wenn bereits weggeklickt
+(function(){
+  try {
+    if (localStorage.getItem('fb_mobileHintDismissed') === '1') {
+      const h = document.getElementById('mobileDesktopHint');
+      if (h) h.style.display = 'none';
+    }
+  } catch(e) {}
+})();
+</script>
 
 <!-- Market Sentiment Bar (Fear & Greed + BTC Dominanz + Total Market Cap) -->
 <div id="marketBar" style="display:flex;gap:18px;padding:8px 24px;background:var(--bg-card);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap;font-size:11px">
@@ -34961,7 +35009,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 15:30 UTC';
+const APP_BUILD = '2026-05-15 16:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
