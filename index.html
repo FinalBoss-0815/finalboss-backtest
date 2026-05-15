@@ -22492,8 +22492,27 @@ window.addEventListener('resize', () => {
   let touchViewStart = 0;
   let touchViewEnd = 0;
   let touchYShift = 0;
+  let _isTouchActive = false;
+  let _touchRedrawScheduled = false;
+  // Pan-Lock fuer Y-Achse: waehrend Touch-Interaktion Preisbereich einfrieren (kein Jitter)
+  function _scheduleTouchRedraw() {
+    if (_touchRedrawScheduled) return;
+    _touchRedrawScheduled = true;
+    requestAnimationFrame(() => {
+      _touchRedrawScheduled = false;
+      if (currentCandles && lastResult) {
+        try { drawTradeChart(currentCandles, lastResult.trades); } catch (e) {}
+      }
+    });
+  }
 
   canvas.addEventListener('touchstart', (e) => {
+    _isTouchActive = true;
+    // Y-Pan-Lock einfrieren auf aktuellen Preisbereich → kein Springen waehrend Touch
+    if (chartScaleState) {
+      _panLockedMinPrice = chartScaleState.minPrice;
+      _panLockedMaxPrice = chartScaleState.maxPrice;
+    }
     if (e.touches.length === 1) {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
@@ -22523,9 +22542,10 @@ window.addEventListener('resize', () => {
       // Vertical
       const dy = (e.touches[0].clientY - touchStartY) / rect.height;
       chartYShift = touchYShift + dy;
-      if (currentCandles && lastResult) drawTradeChart(currentCandles, lastResult.trades);
+      _scheduleTouchRedraw();
     } else if (e.touches.length === 2) {
       const dist = Math.abs(e.touches[0].clientX - e.touches[1].clientX);
+      if (dist < 5) return; // ignoriere zu kleine Distanzen
       const factor = touchStartDist / dist;
       const center = (touchViewStart + touchViewEnd) / 2;
       const halfSpan = (touchViewEnd - touchViewStart) / 2 * factor;
@@ -22536,10 +22556,21 @@ window.addEventListener('resize', () => {
       if (te > tMaxE) { te = tMaxE; ts = Math.max(0, te - tSpan); }
       chartViewStart = ts; chartViewEnd = te;
       if (chartViewEnd - chartViewStart < 0.005) return;
-      if (currentCandles && lastResult) drawTradeChart(currentCandles, lastResult.trades);
+      _scheduleTouchRedraw();
     }
     e.preventDefault();
   }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+      _isTouchActive = false;
+      // Y-Pan-Lock loesen → Chart darf wieder auto-fit
+      _panLockedMinPrice = null;
+      _panLockedMaxPrice = null;
+      // Final redraw mit aktualisiertem Y-Range
+      _scheduleTouchRedraw();
+    }
+  });
 })();
 
 // ═══════════════════════════════════════════════
@@ -34923,7 +34954,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 14:30 UTC';
+const APP_BUILD = '2026-05-15 15:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
