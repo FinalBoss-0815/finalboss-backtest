@@ -11047,6 +11047,11 @@ function populateStrategies() {
     opt.textContent = '[' + d + '/10] ' + s.name;
     sel.appendChild(opt);
   });
+  // Default-Auswahl: Trend-Pullback — fires zuverlaessig + identisch mit Demo-Button
+  // (statt alphabetisch erste "Day-of-Week Effect" die selten Trades erzeugt)
+  const defaultName = "Trend-Pullback";
+  const defaultIdx = STRATEGIES.findIndex(s => s.name === defaultName);
+  if (defaultIdx >= 0) sel.value = String(defaultIdx);
   sel.addEventListener('change', updateStrategyParams);
   updateStrategyParams();
   // csInit fuer 'strategySelect' wird im DOMContentLoaded-Handler ausgefuehrt
@@ -34836,7 +34841,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-13 12:30 UTC';
+const APP_BUILD = '2026-05-14 19:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
