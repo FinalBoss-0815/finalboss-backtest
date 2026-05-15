@@ -10612,9 +10612,19 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
           const fundingTs = position._lastFundingTs + FUNDING_INTERVAL_MS;
           const rateAtTs = _getFundingRateAtTs(fundingTs);
           if (rateAtTs !== 0) {
-            const positionSizeUsd = position.riskUsd / (Math.abs(position.entry - position.sl) / position.entry);
-            const fundingCost = positionSizeUsd * rateAtTs * (position.dir === 'long' ? 1 : -1);
-            position._fundingCost += fundingCost;
+            // Safe positionSizeUsd: skip wenn riskDist zu klein → Infinity-Bug verhindern
+            const _riskDist = Math.abs(position.entry - position.sl);
+            const _riskDistPct = position.entry > 0 ? _riskDist / position.entry : 0;
+            if (_riskDistPct >= 0.0005 && isFinite(_riskDistPct)) {
+              let positionSizeUsd = position.riskUsd / _riskDistPct;
+              // Cap auf max 100x riskUsd (entspricht 1% SL-Distance) damit Infinity unmöglich
+              const _maxSize = position.riskUsd * 1000;
+              if (positionSizeUsd > _maxSize) positionSizeUsd = _maxSize;
+              if (isFinite(positionSizeUsd) && positionSizeUsd > 0) {
+                const fundingCost = positionSizeUsd * rateAtTs * (position.dir === 'long' ? 1 : -1);
+                if (isFinite(fundingCost)) position._fundingCost += fundingCost;
+              }
+            }
           }
           position._lastFundingTs = fundingTs;
         }
@@ -10765,9 +10775,18 @@ async function runEngine(candles, strategy, params, splitDate, startBalance, ris
           const fundingTs = position._lastFundingTs + FUNDING_INTERVAL_MS;
           const rateAtTs = _getFundingRateAtTs(fundingTs);
           if (rateAtTs !== 0) {
-            const positionSizeUsd = position.riskUsd / (Math.abs(position.entry - position.sl) / position.entry);
-            const fundingCost = positionSizeUsd * rateAtTs * (position.dir === 'long' ? 1 : -1);
-            position._fundingCost += fundingCost;
+            // Safe positionSizeUsd: skip wenn riskDist zu klein → Infinity-Bug verhindern
+            const _riskDist = Math.abs(position.entry - position.sl);
+            const _riskDistPct = position.entry > 0 ? _riskDist / position.entry : 0;
+            if (_riskDistPct >= 0.0005 && isFinite(_riskDistPct)) {
+              let positionSizeUsd = position.riskUsd / _riskDistPct;
+              const _maxSize = position.riskUsd * 1000;
+              if (positionSizeUsd > _maxSize) positionSizeUsd = _maxSize;
+              if (isFinite(positionSizeUsd) && positionSizeUsd > 0) {
+                const fundingCost = positionSizeUsd * rateAtTs * (position.dir === 'long' ? 1 : -1);
+                if (isFinite(fundingCost)) position._fundingCost += fundingCost;
+              }
+            }
           }
           position._lastFundingTs = fundingTs;
         }
@@ -34841,7 +34860,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-14 19:00 UTC';
+const APP_BUILD = '2026-05-14 19:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
