@@ -18638,6 +18638,8 @@ function renderMobileChart(candles, trades) {
 
   // Indikatoren aktualisieren (falls welche aktiv sind)
   try { if (typeof _updateMobileIndicators === 'function') _updateMobileIndicators(candles); } catch(e) {}
+  // Overlays re-skalieren falls Main-Range sich geaendert hat
+  try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e) {}
 }
 
 // Reset Mobile-Chart-State (z.B. bei neuem Coin/TF/Backtest)
@@ -19314,28 +19316,21 @@ async function toggleMobileOverlay(symbol) {
     const data = await _mobileFetchOverlayCandles(symbol, interval, startMs, endMs + 60000);
     if (data.length === 0) throw new Error('Keine Daten');
 
-    // Series anlegen mit eigener Skala
-    const scaleId = 'overlay_' + symbol;
+    // Series anlegen auf MAIN-Skala (right) — damit Pinch-Zoom mitläuft
     const series = _mobileChart.addLineSeries({
       color: def.color,
       lineWidth: 2,
-      priceScaleId: scaleId,
+      priceScaleId: 'right',
       lastValueVisible: false,
       priceLineVisible: false,
       crosshairMarkerVisible: false,
       title: def.label
     });
-    series.setData(data);
-    // Eigene Skala unsichtbar konfigurieren — Coin floated frei ueber Chart
-    try {
-      _mobileChart.priceScale(scaleId).applyOptions({
-        scaleMargins: { top: 0.08, bottom: 0.08 },
-        visible: false,
-        autoScale: true
-      });
-    } catch(e){}
 
-    _mobileOverlays[symbol] = { series, color: def.color, label: def.label, loading: false };
+    // Daten erstmal als rawData speichern — dann skaliert in den main range zeichnen
+    _mobileOverlays[symbol] = { series, color: def.color, label: def.label, rawData: data, loading: false };
+    _rescaleMobileOverlay(_mobileOverlays[symbol]);
+    _wireOverlayRescaleHooks();
     try { (typeof showToast === 'function') && showToast(def.label + ' Overlay hinzugefügt', 'success'); } catch(e){}
     openMobileOverlay();
   } catch (err) {
@@ -19354,6 +19349,92 @@ function clearAllMobileOverlays() {
   }
   _mobileOverlays = {};
   openMobileOverlay();
+}
+
+// Skaliert die rawData eines Overlays auf den sichtbaren Bereich des Hauptcharts
+// So bleiben die Lines im selben Preis-Range wie die Candles — sie bewegen sich
+// proportional mit beim Pinch-Zoom oder Pan.
+function _rescaleMobileOverlay(o) {
+  if (!o || !o.series || !o.rawData || !_mobileChart) return;
+  const candles = (_mobileLastData && _mobileLastData.candles) || [];
+  if (candles.length === 0) return;
+
+  // Sichtbaren Time-Range holen (Sekunden, UTC) — Fallback: alle Daten
+  let visFrom = -Infinity, visTo = Infinity;
+  try {
+    const r = _mobileChart.timeScale().getVisibleRange();
+    if (r && typeof r.from === 'number' && typeof r.to === 'number') {
+      visFrom = r.from; visTo = r.to;
+    }
+  } catch(e) {}
+
+  // Main-Chart: sichtbare Low/High-Range
+  let mMin = Infinity, mMax = -Infinity;
+  for (const c of candles) {
+    const t = Math.floor((c.ts || c.time || 0) / 1000);
+    if (t < visFrom || t > visTo) continue;
+    if (c.low  < mMin) mMin = c.low;
+    if (c.high > mMax) mMax = c.high;
+  }
+  if (mMin === Infinity) {
+    for (const c of candles) {
+      if (c.low  < mMin) mMin = c.low;
+      if (c.high > mMax) mMax = c.high;
+    }
+  }
+
+  // Overlay: sichtbare Value-Range
+  let oMin = Infinity, oMax = -Infinity;
+  for (const d of o.rawData) {
+    if (d.time < visFrom || d.time > visTo) continue;
+    if (d.value < oMin) oMin = d.value;
+    if (d.value > oMax) oMax = d.value;
+  }
+  if (oMin === Infinity) {
+    for (const d of o.rawData) {
+      if (d.value < oMin) oMin = d.value;
+      if (d.value > oMax) oMax = d.value;
+    }
+  }
+
+  if (mMin === Infinity || oMin === Infinity) return;
+  const oRange = (oMax - oMin) || 1;
+  // mRange darf nicht 0 sein, sonst kollabiert die Linie
+  const mRange = (mMax - mMin) || Math.max(mMin * 0.05, 0.01);
+
+  // Lineare Abbildung [oMin,oMax] → [mMin,mMax]
+  const scaled = o.rawData.map(d => ({
+    time: d.time,
+    value: ((d.value - oMin) / oRange) * mRange + mMin
+  }));
+  try { o.series.setData(scaled); } catch(e){}
+}
+
+function _rescaleAllMobileOverlays() {
+  for (const sym in _mobileOverlays) {
+    _rescaleMobileOverlay(_mobileOverlays[sym]);
+  }
+}
+
+// rAF-gedrosselter Re-Skalierungs-Trigger (vermeidet Spam bei kontinuierlichem Pinch)
+let _overlayRescaleRaf = null;
+function _scheduleOverlayRescale() {
+  if (_overlayRescaleRaf) return;
+  _overlayRescaleRaf = requestAnimationFrame(() => {
+    _overlayRescaleRaf = null;
+    _rescaleAllMobileOverlays();
+  });
+}
+
+// Hooks auf Visible-Range-Changes (Pinch, Pan, Zoom)
+let _overlayHooksWired = false;
+function _wireOverlayRescaleHooks() {
+  if (_overlayHooksWired || !_mobileChart) return;
+  try {
+    _mobileChart.timeScale().subscribeVisibleTimeRangeChange(_scheduleOverlayRescale);
+    _mobileChart.timeScale().subscribeVisibleLogicalRangeChange(_scheduleOverlayRescale);
+    _overlayHooksWired = true;
+  } catch(e){}
 }
 
 // Wenn der Haupt-Coin oder TF wechselt → alle Overlays neu laden (neuer Zeitraum)
@@ -36855,7 +36936,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 00:30 UTC';
+const APP_BUILD = '2026-05-16 01:15 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
