@@ -725,6 +725,24 @@ html, body {
   /* Charts */
   .chart-container { padding: 10px; }
   .chart-container canvas { height: 200px !important; }
+  /* Mobile-Only Fullscreen-Button für den Chart */
+  .mobile-only-chart-fs-btn {
+    display: block;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 90;
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    color: #0a0a0a;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    touch-action: manipulation;
+  }
 
   /* Tables */
   .trades-table-wrap { padding: 8px; }
@@ -764,6 +782,36 @@ html, body {
 
   /* Coin chips */
   .coin-chip { font-size: 11px; padding: 6px 10px; }
+}
+
+/* Chart Fullscreen Modus — funktioniert auf allen Bildschirmgrössen */
+#mainChartArea:fullscreen,
+#mainChartArea:-webkit-full-screen { background: #0a0a0a; padding: 8px; }
+#mainChartArea:fullscreen #mobileChartFullscreenBtn,
+#mainChartArea:-webkit-full-screen #mobileChartFullscreenBtn { display: none !important; }
+#mainChartArea:fullscreen #mobileChartFullscreenExitBtn,
+#mainChartArea:-webkit-full-screen #mobileChartFullscreenExitBtn {
+  display: block !important;
+  position: absolute; top: 8px; right: 8px; z-index: 100;
+  background: rgba(239,68,68,0.95); color: #fff; border: none;
+  padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 800;
+  cursor: pointer;
+}
+/* Fallback (JS-Klasse) falls Browser Fullscreen-API nicht unterstützt (z.B. iOS Safari) */
+.mainChartArea-fs {
+  position: fixed !important; inset: 0 !important;
+  z-index: 99999 !important; background: #0a0a0a !important; padding: 8px !important;
+}
+.mainChartArea-fs #mobileChartFullscreenBtn { display: none !important; }
+.mainChartArea-fs #mobileChartFullscreenExitBtn {
+  display: block !important;
+  position: fixed; top: 12px; right: 12px; z-index: 100000;
+  background: rgba(239,68,68,0.95); color: #fff; border: none;
+  padding: 10px 16px; border-radius: 8px; font-weight: 800; cursor: pointer;
+}
+/* Desktop: Vollbild-Button verstecken */
+@media (min-width: 901px) {
+  .mobile-only-chart-fs-btn { display: none !important; }
 }
 
 /* Small phones */
@@ -2116,7 +2164,11 @@ input[type=number] { -moz-appearance:textfield }
         <span id="chartBtStatus" style="font-size:10px;color:var(--text-muted)"></span>
         <button id="chartBtClear" onclick="clearBacktestOverlay()" style="padding:2px 8px;font-size:10px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:3px;cursor:pointer" title="Backtest-Overlay entfernen">✕ Clear</button>
       </div>
-      <div class="chart-area" style="flex:1;min-height:0;position:relative">
+      <div class="chart-area" id="mainChartArea" style="flex:1;min-height:0;position:relative">
+        <!-- Mobile-only: Vollbild + Landscape Button -->
+        <button id="mobileChartFullscreenBtn" onclick="enterChartFullscreen()" class="mobile-only-chart-fs-btn" aria-label="Chart Vollbild" title="Chart im Vollbild öffnen (Querformat)">📱 Vollbild</button>
+        <!-- Exit-Button nur im Vollbild sichtbar -->
+        <button id="mobileChartFullscreenExitBtn" onclick="exitChartFullscreen()" style="display:none" aria-label="Vollbild schließen">✕ Schliessen</button>
         <div id="drawToolbar" class="tv-toolbar">
           <!-- Cursor -->
           <button class="tv-group-btn active" onclick="setDrawTool(null)" id="tool-cursor" title="Cursor">
@@ -20702,6 +20754,17 @@ document.addEventListener('click', (e) => {
     // Klick auf das Info-Icon soll NICHT den Tab wechseln (es zeigt nur den Tooltip)
     if (e.target.closest && e.target.closest('.info-icon')) return;
     openTab(tabBtn.dataset.tab);
+    // Auto-Fullscreen+Landscape beim Chart-Tab auf Mobile (User-Gesture-safe)
+    // Wird nur EINMAL pro Sitzung getriggert — danach respektieren wir User-Wahl
+    if (tabBtn.dataset.tab === 'chart'
+        && window.innerWidth <= 900
+        && !window._chartAutoFsTriggered
+        && !window._chartAutoFsDisabled) {
+      window._chartAutoFsTriggered = true;
+      if (typeof enterChartFullscreen === 'function') {
+        try { enterChartFullscreen(); } catch (err) {}
+      }
+    }
   }
 });
 
@@ -34860,7 +34923,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-14 19:30 UTC';
+const APP_BUILD = '2026-05-15 14:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
@@ -34910,6 +34973,88 @@ function _safeRemoveItem(key) {
     applyVersion();
   }
 })();
+
+// ═══════════════════════════════════════════════
+//  CHART FULLSCREEN + LANDSCAPE — Mobile UX Fix
+// ═══════════════════════════════════════════════
+function enterChartFullscreen() {
+  const el = document.getElementById('mainChartArea');
+  if (!el) return;
+
+  // Versuch 1: native Fullscreen API (Android/Desktop)
+  const reqFs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  let fsPromise = null;
+  if (reqFs) {
+    try { fsPromise = reqFs.call(el); } catch (e) {}
+  }
+
+  // Versuch 2: JS-Fallback-Klasse (iOS Safari unterstuetzt requestFullscreen oft nicht)
+  el.classList.add('mainChartArea-fs');
+
+  // Versuch 3: Landscape-Orientation locken (Android Chrome; auf iOS ignoriert)
+  function lockLandscape() {
+    if (screen.orientation && screen.orientation.lock) {
+      try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+    }
+  }
+  if (fsPromise && typeof fsPromise.then === 'function') {
+    fsPromise.then(lockLandscape).catch(() => lockLandscape());
+  } else {
+    setTimeout(lockLandscape, 100);
+  }
+
+  // Chart neu zeichnen nach Layout-Shift
+  setTimeout(() => {
+    if (typeof currentCandles !== 'undefined' && currentCandles && typeof lastResult !== 'undefined' && lastResult) {
+      if (typeof drawTradeChart === 'function') {
+        try { drawTradeChart(currentCandles, lastResult.trades); } catch (e) {}
+      }
+    }
+    window.dispatchEvent(new Event('resize'));
+  }, 350);
+}
+
+function exitChartFullscreen() {
+  const el = document.getElementById('mainChartArea');
+  if (!el) return;
+  // User hat manuell geschlossen → nicht mehr auto-triggern in dieser Session
+  window._chartAutoFsDisabled = true;
+  el.classList.remove('mainChartArea-fs');
+  // Native Fullscreen verlassen
+  const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
+    try { exitFs.call(document); } catch (e) {}
+  }
+  // Orientation freigeben
+  if (screen.orientation && screen.orientation.unlock) {
+    try { screen.orientation.unlock(); } catch (e) {}
+  }
+  setTimeout(() => {
+    if (typeof currentCandles !== 'undefined' && currentCandles && typeof lastResult !== 'undefined' && lastResult) {
+      if (typeof drawTradeChart === 'function') {
+        try { drawTradeChart(currentCandles, lastResult.trades); } catch (e) {}
+      }
+    }
+    window.dispatchEvent(new Event('resize'));
+  }, 350);
+}
+
+// Wenn User per Browser-Geste (Back-Button, ESC) Fullscreen verlässt → Klasse aufräumen
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(ev => {
+  document.addEventListener(ev, () => {
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    if (!isFs) {
+      const el = document.getElementById('mainChartArea');
+      if (el) el.classList.remove('mainChartArea-fs');
+      // User hat per Back-Button/ESC verlassen → kein Auto-Retrigger
+      window._chartAutoFsDisabled = true;
+      if (screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (e) {}
+      }
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 200);
+    }
+  });
+});
 
 // ── Version-Info-Modal mit Update-Check ──
 function showVersionInfo() {
