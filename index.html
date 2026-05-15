@@ -811,27 +811,20 @@ html, body {
   background: rgba(239,68,68,0.95); color: #fff; border: none;
   padding: 10px 16px; border-radius: 8px; font-weight: 800; cursor: pointer;
 }
-/* Desktop: Mobile-Spezifika verstecken */
-@media (min-width: 901px) {
-  .mobile-only-chart-fs-btn { display: none !important; }
-  #mobileDesktopHint { display: none !important; }
-  .mobile-only-chart { display: none !important; }
-}
+/* Mobile-Spezifika werden via .is-mobile-device Klasse auf <html> kontrolliert
+   (statt @media, damit Landscape-Flip auf grossen Handys keinen Wechsel triggert) */
+html:not(.is-mobile-device) .mobile-only-chart-fs-btn,
+html:not(.is-mobile-device) #mobileDesktopHint,
+html:not(.is-mobile-device) .mobile-only-chart { display: none !important; }
 
-/* Mobile: Statt unserer Canvas-Engine -> TradingView Lightweight Chart */
-@media (max-width: 900px) {
-  /* Desktop-Chart-Komponenten verstecken */
-  #tab-chart .tv-toolbar,
-  #tab-chart #drawToolbar,
-  #tab-chart #tradeChart,
-  #tab-chart #tradeChartOverlay,
-  #tab-chart #drawSettingsPanel,
-  #tab-chart #drawEditBar { display: none !important; }
-  /* Mobile-Chart-Container ist sichtbar */
-  .mobile-only-chart { display: block !important; }
-  /* Chart-Tab BLEIBT sichtbar — Mobile-User können jetzt auch chart-en */
-  .tab-content#tab-chart .chart-area { min-height: 60vh; }
-}
+html.is-mobile-device #tab-chart .tv-toolbar,
+html.is-mobile-device #tab-chart #drawToolbar,
+html.is-mobile-device #tab-chart #tradeChart,
+html.is-mobile-device #tab-chart #tradeChartOverlay,
+html.is-mobile-device #tab-chart #drawSettingsPanel,
+html.is-mobile-device #tab-chart #drawEditBar { display: none !important; }
+html.is-mobile-device .mobile-only-chart { display: block !important; }
+html.is-mobile-device .tab-content#tab-chart .chart-area { min-height: 60vh; }
 
 /* Mobile Desktop-Hint Banner */
 #mobileDesktopHint {
@@ -18256,7 +18249,23 @@ let _mobileCandleSeries = null;
 let _mobileEmaSeries = null;
 let _mobileLastData = null;
 
-function _isMobile() { return window.innerWidth <= 900; }
+// Mobile-Detection: orientierungs-unabhängig (Math.min checkt die KURZE Seite)
+// + Touch-Capability als Fallback. Wird einmal beim ersten Aufruf gecached.
+let _isMobileCache = null;
+function _isMobile() {
+  if (_isMobileCache !== null) return _isMobileCache;
+  const shortSide = Math.min(window.screen ? window.screen.width : window.innerWidth,
+                              window.screen ? window.screen.height : window.innerHeight);
+  const touch = (navigator.maxTouchPoints || 0) > 1;
+  _isMobileCache = shortSide <= 900 || (touch && shortSide <= 1100);
+  // CSS-Klasse setzen damit Styles auch im Landscape-Flip stabil bleiben
+  if (_isMobileCache && document.documentElement && !document.documentElement.classList.contains('is-mobile-device')) {
+    document.documentElement.classList.add('is-mobile-device');
+  }
+  return _isMobileCache;
+}
+// Beim Page-Load sofort initialisieren damit Klasse vor allem anderen gesetzt ist
+_isMobile();
 
 function renderMobileChart(candles, trades) {
   if (typeof LightweightCharts === 'undefined') {
@@ -35150,7 +35159,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 17:30 UTC';
+const APP_BUILD = '2026-05-15 18:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
