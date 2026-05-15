@@ -863,6 +863,118 @@ html.is-mobile-device .mobile-only-chart-toolbar { display: flex; }
 #mobileLiveBtn { color: #00e676; border-color: #00e676; font-weight: 800; }
 #mobileLiveBtn.active { background: rgba(0,230,118,0.18); color: #00e676; border-color: #00e676; }
 
+/* Mobile Drawing Toolbar — vertikaler Strip rechts am Chart */
+.mobile-only-draw-toolbar {
+  display: none;
+  position: absolute;
+  right: 6px;
+  top: 60px;
+  z-index: 95;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(13,17,23,0.85);
+  backdrop-filter: blur(4px);
+  padding: 5px;
+  border-radius: 8px;
+  border: 1px solid rgba(75,85,99,0.5);
+}
+html.is-mobile-device .mobile-only-draw-toolbar { display: flex; }
+.mdt-btn {
+  background: rgba(31,41,55,0.95);
+  color: #e6edf3;
+  border: 1px solid rgba(75,85,99,0.6);
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  touch-action: manipulation;
+}
+.mdt-btn.active { background: rgba(245,158,11,0.30); color: #fbbf24; border-color: #f59e0b; }
+.mdt-btn.mdt-danger { color: #ef4444; }
+.mobile-only-chart-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  display: none;
+}
+html.is-mobile-device .mobile-only-chart-overlay { display: block; }
+.mobile-only-draw-hint {
+  display: none;
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 96;
+  background: rgba(245,158,11,0.95);
+  color: #0a0a0a;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.mobile-only-draw-hint.show { display: block; }
+
+/* Settings-Panel für ausgewählte Zeichnung — sticky am unteren Rand des Charts */
+.mobile-only-draw-settings {
+  display: none;
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 97;
+  background: rgba(13,17,23,0.96);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(245,158,11,0.5);
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.mobile-only-draw-settings.show { display: block; }
+.mds-swatch {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: inline-block;
+  padding: 0;
+}
+.mds-swatch.active { border-color: #fff; transform: scale(1.1); }
+.mds-width {
+  background: #1c2333;
+  color: #e6edf3;
+  border: 1px solid #374151;
+  padding: 5px 9px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 11px;
+}
+.mds-width.active { background: rgba(245,158,11,0.25); border-color: #f59e0b; color: #fbbf24; }
+.mds-fib-level {
+  background: #1c2333;
+  color: #6b7280;
+  border: 1px solid #374151;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 10px;
+  font-family: monospace;
+  white-space: nowrap;
+}
+.mds-fib-level.active { background: rgba(245,158,11,0.25); border-color: #f59e0b; color: #fbbf24; }
+.mds-fib-level.ext { font-style: italic; }
+.mds-fib-level.ext.active { color: #06b6d4; border-color: #06b6d4; background: rgba(6,182,212,0.15); }
+
 /* Mobile Desktop-Hint Banner */
 #mobileDesktopHint {
   background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.10));
@@ -2278,6 +2390,42 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <!-- Mobile-only Chart-Container (TradingView Lightweight Charts) -->
         <div id="mobileChartContainer" class="mobile-only-chart" style="position:absolute;inset:0;background:#0d1117"></div>
+        <!-- Mobile Drawing Tools — vertikaler Strip rechts -->
+        <div id="mobileDrawToolbar" class="mobile-only-draw-toolbar">
+          <button class="mdt-btn active" onclick="setMobileDrawTool('cursor', this)" title="Cursor / Pan">↖</button>
+          <button class="mdt-btn" onclick="setMobileDrawTool('hline', this)" title="Horizontale Linie (1× tippen)">─</button>
+          <button class="mdt-btn" onclick="setMobileDrawTool('vline', this)" title="Vertikale Linie (1× tippen)">│</button>
+          <button class="mdt-btn" onclick="setMobileDrawTool('trendline', this)" title="Trendlinie (2× tippen)">╱</button>
+          <button class="mdt-btn" onclick="setMobileDrawTool('rect', this)" title="Rechteck (2× tippen)">▭</button>
+          <button class="mdt-btn" onclick="setMobileDrawTool('fibo', this)" title="Fibonacci (2× tippen)">𝓕</button>
+          <button class="mdt-btn mdt-danger" onclick="clearMobileDrawings()" title="Alle Zeichnungen löschen">🗑</button>
+        </div>
+        <!-- Overlay Canvas für Free-Form Zeichnungen (Trendlinien, Rechtecke, Fibo) -->
+        <canvas id="mobileDrawOverlay" class="mobile-only-chart-overlay"></canvas>
+        <!-- Hint-Banner während Zeichnung -->
+        <div id="mobileDrawHint" class="mobile-only-draw-hint"></div>
+        <!-- Settings-Panel für ausgewählte Zeichnung -->
+        <div id="mobileDrawingSettings" class="mobile-only-draw-settings">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span id="mdsLabel" style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-right:4px">Zeichnung</span>
+            <div style="display:flex;gap:3px" id="mdsColorRow"></div>
+            <div style="display:flex;gap:3px;margin-left:2px" id="mdsWidthRow"></div>
+            <button onclick="mdsToggleDashed()" id="mdsDashBtn" title="Linien-Stil" style="background:#1c2333;color:#e6edf3;border:1px solid #374151;padding:5px 8px;border-radius:5px;font-size:12px;cursor:pointer">━━</button>
+            <button onclick="mdsDeleteSelected()" title="Löschen" style="background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid #ef4444;padding:5px 9px;border-radius:5px;cursor:pointer;font-size:12px;margin-left:auto">🗑</button>
+            <button onclick="mdsDeselect()" title="Schließen" style="background:none;color:#9ca3af;border:none;padding:4px 6px;cursor:pointer;font-size:16px">✕</button>
+          </div>
+          <!-- Fibonacci-spezifisch: Level-Toggles (nur wenn Fibo selektiert) -->
+          <div id="mdsFiboLevels" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid #1f2937">
+            <div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Levels</div>
+            <div id="mdsFiboLevelsRow" style="display:flex;gap:4px;flex-wrap:wrap;max-height:80px;overflow-y:auto"></div>
+            <div style="display:flex;gap:5px;align-items:center;margin-top:6px">
+              <span style="font-size:10px;color:#9ca3af;font-weight:600">Eigenes Level:</span>
+              <input id="mdsFiboCustomInput" type="number" step="0.1" placeholder="z.B. 66.8" style="flex:1;min-width:0;background:#1c2333;color:#e6edf3;border:1px solid #374151;padding:5px 8px;border-radius:5px;font-size:11px;outline:none">
+              <span style="font-size:11px;color:#6b7280">%</span>
+              <button onclick="mdsAddFiboCustomLevel()" style="background:rgba(34,197,94,0.20);color:#22c55e;border:1px solid #22c55e;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">+ Add</button>
+            </div>
+          </div>
+        </div>
         <div id="drawToolbar" class="tv-toolbar">
           <!-- Cursor -->
           <button class="tv-group-btn active" onclick="setDrawTool(null)" id="tool-cursor" title="Cursor">
@@ -18354,11 +18502,18 @@ function renderMobileChart(candles, trades) {
       wickUpColor: '#22c55e', wickDownColor: '#ef4444',
       priceLineVisible: true, lastValueVisible: true
     });
+    // Drawing-Overlay aktivieren + Pan/Zoom-Redraw-Hook
+    try {
+      if (typeof initMobileDrawOverlay === 'function') initMobileDrawOverlay();
+      if (typeof _hookMobileChartRedraw === 'function') _hookMobileChartRedraw();
+    } catch(e) {}
     // Resize handler
     window.addEventListener('resize', () => {
       if (_mobileChart && container.clientWidth && container.clientHeight) {
         _mobileChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
       }
+      // Overlay auch neu zeichnen
+      if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 50);
     });
   }
 
@@ -18602,6 +18757,492 @@ function onMobileLiveToggle() {
     });
   }
 });
+
+// ═══════════════════════════════════════════════
+//  MOBILE DRAWING TOOLS — Overlay-Canvas auf Lightweight Charts
+// ═══════════════════════════════════════════════
+let _mobileDrawTool = 'cursor';
+let _mobileDrawings = []; // {type, p1:{time,price}, p2:{time,price}?, color}
+let _mobilePriceLines = []; // Lightweight-priceLine-Refs (hlines)
+let _mobileDrawingPoint1 = null; // Temp während Multi-Tap-Drawing
+const MDT_COLORS = { trendline: '#06b6d4', rect: '#a855f7', fibo: '#fbbf24', vline: '#ef4444' };
+
+function setMobileDrawTool(tool, btn) {
+  _mobileDrawTool = tool;
+  _mobileDrawingPoint1 = null;
+  // Buttons aktualisieren
+  document.querySelectorAll('.mdt-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Hint
+  const hint = document.getElementById('mobileDrawHint');
+  if (hint) {
+    if (tool === 'cursor') {
+      hint.classList.remove('show'); hint.textContent = '';
+    } else {
+      const msgs = {
+        hline: 'Tippe auf Chart für horizontale Linie',
+        vline: 'Tippe auf Chart für vertikale Linie',
+        trendline: 'Tippe Punkt 1 für Trendlinie',
+        rect: 'Tippe Punkt 1 für Rechteck',
+        fibo: 'Tippe Hoch oder Tief für Fibonacci'
+      };
+      hint.textContent = msgs[tool] || '';
+      hint.classList.add('show');
+    }
+  }
+  // Overlay-Canvas Touch-Capture an/aus
+  const overlay = document.getElementById('mobileDrawOverlay');
+  if (overlay) overlay.style.pointerEvents = (tool === 'cursor') ? 'none' : 'auto';
+}
+
+function clearMobileDrawings() {
+  _mobileDrawings = [];
+  _mobileDrawingPoint1 = null;
+  if (_mobileCandleSeries) {
+    _mobilePriceLines.forEach(pl => { try { _mobileCandleSeries.removePriceLine(pl); } catch(e) {} });
+    _mobilePriceLines = [];
+  }
+  redrawMobileOverlay();
+}
+
+// Touch-to-Chart-Coordinate: Pixel → Time + Price via Lightweight Charts API
+function _mobilePixelToTimePrice(clientX, clientY) {
+  if (!_mobileChart || !_mobileCandleSeries) return null;
+  const container = document.getElementById('mobileChartContainer');
+  if (!container) return null;
+  const rect = container.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const time = _mobileChart.timeScale().coordinateToTime(x);
+  const price = _mobileCandleSeries.coordinateToPrice(y);
+  if (time == null || price == null) return null;
+  return { time, price, x, y };
+}
+
+// Overlay-Canvas: Trendlinien / Rechtecke / Fibo zeichnen
+function redrawMobileOverlay() {
+  const overlay = document.getElementById('mobileDrawOverlay');
+  if (!overlay || !_mobileChart || !_mobileCandleSeries) return;
+  const container = document.getElementById('mobileChartContainer');
+  if (!container) return;
+  const w = container.clientWidth, h = container.clientHeight;
+  if (!w || !h) return;
+  const dpr = window.devicePixelRatio || 1;
+  overlay.width = w * dpr; overlay.height = h * dpr;
+  overlay.style.width = w + 'px'; overlay.style.height = h + 'px';
+  const ctx = overlay.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const ts = _mobileChart.timeScale();
+  const tp = (t, p) => ({
+    x: ts.timeToCoordinate(t),
+    y: _mobileCandleSeries.priceToCoordinate(p)
+  });
+
+  for (let i = 0; i < _mobileDrawings.length; i++) {
+    const d = _mobileDrawings[i];
+    const isSelected = (i === _mobileSelectedDrawing);
+    if (d.type === 'hline') continue; // hlines werden via priceLine API nativ gezeichnet
+    const a = tp(d.p1.time, d.p1.price);
+    if (a.x == null || a.y == null) continue;
+    const baseWidth = d.width || 2;
+    const lw = isSelected ? baseWidth + 1 : baseWidth;
+    const color = d.color || MDT_COLORS[d.type] || '#06b6d4';
+    if (d.dashed) ctx.setLineDash([6,4]); else ctx.setLineDash([]);
+    if (d.type === 'vline') {
+      ctx.strokeStyle = color; ctx.lineWidth = lw;
+      ctx.beginPath(); ctx.moveTo(a.x, 0); ctx.lineTo(a.x, h); ctx.stroke();
+    } else if (d.p2) {
+      const b = tp(d.p2.time, d.p2.price);
+      if (b.x == null || b.y == null) continue;
+      if (d.type === 'trendline') {
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.fillStyle = color;
+        const dot = isSelected ? 5 : 3;
+        ctx.beginPath(); ctx.arc(a.x, a.y, dot, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x, b.y, dot, 0, Math.PI*2); ctx.fill();
+      } else if (d.type === 'rect') {
+        ctx.fillStyle = color + (isSelected ? '33' : '22');
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        const rx = Math.min(a.x, b.x), ry = Math.min(a.y, b.y);
+        const rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y);
+        ctx.fillRect(rx, ry, rw, rh);
+        ctx.strokeRect(rx, ry, rw, rh);
+      } else if (d.type === 'fibo') {
+        const levels = (d.levels && d.levels.length) ? d.levels.slice() : MDS_FIB_DEFAULT_LEVELS.slice();
+        levels.sort((x,y) => x-y);
+        const minP = Math.min(d.p1.price, d.p2.price);
+        const maxP = Math.max(d.p1.price, d.p2.price);
+        const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
+        // Farbpalette: standard farbenfroh, oder uniform-color wenn selektiert/custom
+        const stdPalette = ['#22c55e','#06b6d4','#fbbf24','#f59e0b','#ef4444','#a855f7','#22c55e'];
+        for (let j = 0; j < levels.length; j++) {
+          const lvl = levels[j];
+          const price = maxP - (maxP - minP) * lvl;
+          const c = _mobileCandleSeries.priceToCoordinate(price);
+          if (c == null) continue;
+          // Extension-Level (>1.0 oder <0) = cyan-akzentuiert, Retracement = standard
+          const isExt = lvl > 1.0 || lvl < 0;
+          const lineCol = isSelected ? color : (isExt ? '#06b6d4' : stdPalette[j % stdPalette.length]);
+          ctx.strokeStyle = lineCol; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(xL, c); ctx.lineTo(xR, c); ctx.stroke();
+          ctx.fillStyle = lineCol; ctx.font = (isSelected ? 'bold ' : '') + '10px sans-serif';
+          const pct = (lvl * 100).toFixed(lvl % 1 === 0 ? 0 : 1) + '%';
+          ctx.fillText(pct + ' (' + price.toFixed(2) + ')', xR + 4, c + 3);
+        }
+      }
+    }
+    // Selection-Highlight: pulsierende Aura
+    if (isSelected) {
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.6;
+      if (d.type === 'trendline' && d.p2) {
+        const b = tp(d.p2.time, d.p2.price);
+        if (b.x != null && b.y != null) {
+          ctx.beginPath();
+          ctx.arc(a.x, a.y, 10, 0, Math.PI*2); ctx.stroke();
+          ctx.arc(b.x, b.y, 10, 0, Math.PI*2); ctx.stroke();
+        }
+      } else if (d.type === 'rect' && d.p2) {
+        const b = tp(d.p2.time, d.p2.price);
+        if (b.x != null && b.y != null) {
+          const rx = Math.min(a.x, b.x) - 3, ry = Math.min(a.y, b.y) - 3;
+          const rw = Math.abs(b.x - a.x) + 6, rh = Math.abs(b.y - a.y) + 6;
+          ctx.strokeRect(rx, ry, rw, rh);
+        }
+      } else if (d.type === 'vline') {
+        ctx.beginPath();
+        ctx.moveTo(a.x - 4, 0); ctx.lineTo(a.x - 4, h);
+        ctx.moveTo(a.x + 4, 0); ctx.lineTo(a.x + 4, h);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.setLineDash([]);
+}
+
+// Overlay-Touch-Handler — registriert beim ersten Init
+function initMobileDrawOverlay() {
+  const overlay = document.getElementById('mobileDrawOverlay');
+  if (!overlay || overlay._handlerSet) return;
+  overlay._handlerSet = true;
+  overlay.addEventListener('click', (e) => {
+    if (_mobileDrawTool === 'cursor' || _mobileDrawTool === 'delete') return;
+    const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
+    if (!tp) return;
+    // 1-Point Tools
+    if (_mobileDrawTool === 'hline') {
+      // Lightweight Charts priceLine API nutzen + im _mobileDrawings tracken fuer Selection
+      try {
+        const pl = _mobileCandleSeries.createPriceLine({
+          price: tp.price, color: '#06b6d4', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: tp.price.toFixed(2)
+        });
+        _mobilePriceLines.push(pl);
+        _mobileDrawings.push({
+          type: 'hline',
+          p1: { time: tp.time, price: tp.price },
+          color: '#06b6d4', width: 2, dashed: false,
+          _priceLineRef: pl
+        });
+      } catch(err) {}
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    if (_mobileDrawTool === 'vline') {
+      _mobileDrawings.push({ type: 'vline', p1: { time: tp.time, price: tp.price }, color: MDT_COLORS.vline });
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    // 2-Point Tools (trendline, rect, fibo)
+    if (!_mobileDrawingPoint1) {
+      _mobileDrawingPoint1 = { time: tp.time, price: tp.price };
+      const hint = document.getElementById('mobileDrawHint');
+      if (hint) hint.textContent = 'Tippe Punkt 2 zum Fertigstellen';
+    } else {
+      const newDrawing = {
+        type: _mobileDrawTool,
+        p1: _mobileDrawingPoint1,
+        p2: { time: tp.time, price: tp.price },
+        color: MDT_COLORS[_mobileDrawTool]
+      };
+      // Fibo: Default-Levels setzen
+      if (_mobileDrawTool === 'fibo') {
+        newDrawing.levels = MDS_FIB_DEFAULT_LEVELS.slice();
+      }
+      _mobileDrawings.push(newDrawing);
+      _mobileDrawingPoint1 = null;
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+    }
+  });
+}
+
+// Verfügbare Fibonacci-Levels (Retracement + Extension)
+const MDS_FIB_ALL_LEVELS = [
+  { v: 0, label: '0%' },
+  { v: 0.118, label: '11.8%' },
+  { v: 0.236, label: '23.6%' },
+  { v: 0.382, label: '38.2%' },
+  { v: 0.5, label: '50%' },
+  { v: 0.618, label: '61.8%' },
+  { v: 0.786, label: '78.6%' },
+  { v: 0.886, label: '88.6%' },
+  { v: 1.0, label: '100%' },
+  { v: 1.272, label: '127.2%', ext: true },
+  { v: 1.414, label: '141.4%', ext: true },
+  { v: 1.618, label: '161.8%', ext: true },
+  { v: 2.0, label: '200%', ext: true },
+  { v: 2.272, label: '227.2%', ext: true },
+  { v: 2.618, label: '261.8%', ext: true },
+  { v: 3.618, label: '361.8%', ext: true },
+  { v: 4.236, label: '423.6%', ext: true }
+];
+const MDS_FIB_DEFAULT_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
+
+function mdsToggleFiboLevel(value) {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d || d.type !== 'fibo') return;
+  if (!d.levels) d.levels = MDS_FIB_DEFAULT_LEVELS.slice();
+  const idx = d.levels.indexOf(value);
+  if (idx >= 0) d.levels.splice(idx, 1);
+  else { d.levels.push(value); d.levels.sort((a,b) => a-b); }
+  redrawMobileOverlay();
+  showMobileDrawingSettings();
+}
+
+// Custom-Level hinzufügen (User-Eingabe in %)
+function mdsAddFiboCustomLevel() {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d || d.type !== 'fibo') return;
+  const input = document.getElementById('mdsFiboCustomInput');
+  if (!input) return;
+  const raw = (input.value || '').trim();
+  if (!raw) return;
+  const pct = parseFloat(raw);
+  if (isNaN(pct)) { input.value = ''; return; }
+  const decimal = pct / 100;
+  if (!d.levels) d.levels = MDS_FIB_DEFAULT_LEVELS.slice();
+  // Duplikat-Check (mit Toleranz fuer Float-Rundung)
+  const exists = d.levels.some(L => Math.abs(L - decimal) < 0.0001);
+  if (!exists) {
+    d.levels.push(decimal);
+    d.levels.sort((a,b) => a-b);
+  }
+  input.value = '';
+  redrawMobileOverlay();
+  showMobileDrawingSettings();
+}
+
+// Bei jedem Pan/Zoom des Charts → Overlay neu zeichnen
+function _hookMobileChartRedraw() {
+  if (!_mobileChart || _mobileChart._overlayHooked) return;
+  _mobileChart._overlayHooked = true;
+  _mobileChart.timeScale().subscribeVisibleTimeRangeChange(() => {
+    redrawMobileOverlay();
+  });
+  // Click-Handler für Selection (nur im Cursor-Mode)
+  _mobileChart.subscribeClick((param) => {
+    if (_mobileDrawTool !== 'cursor') return;
+    if (!param.point) { mdsDeselect(); return; }
+    const hit = hitTestMobileDrawings(param.point.x, param.point.y);
+    if (hit >= 0) {
+      _mobileSelectedDrawing = hit;
+      showMobileDrawingSettings();
+    } else {
+      mdsDeselect();
+    }
+    redrawMobileOverlay();
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  MOBILE DRAWING: SELECTION + EDIT (Option C)
+// ═══════════════════════════════════════════════
+let _mobileSelectedDrawing = -1;
+const MDS_COLOR_PALETTE = ['#ef4444','#f59e0b','#fbbf24','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899','#ffffff'];
+
+// Hit-Test: gibt Index der getroffenen Zeichnung zurück (oder -1)
+function hitTestMobileDrawings(x, y) {
+  if (!_mobileChart || !_mobileCandleSeries) return -1;
+  const HIT_TOL = 16; // Pixel-Toleranz fuer Finger-Touch
+  const ts = _mobileChart.timeScale();
+  let bestIdx = -1, bestDist = HIT_TOL;
+  for (let i = 0; i < _mobileDrawings.length; i++) {
+    const d = _mobileDrawings[i];
+    const a = { x: ts.timeToCoordinate(d.p1.time), y: _mobileCandleSeries.priceToCoordinate(d.p1.price) };
+    if (a.x == null || a.y == null) continue;
+    let dist = Infinity;
+    if (d.type === 'hline') {
+      // Horizontal: nur y-Distanz zaehlt, x egal
+      dist = Math.abs(y - a.y);
+    } else if (d.type === 'vline') {
+      dist = Math.abs(x - a.x);
+    } else if (d.p2) {
+      const b = { x: ts.timeToCoordinate(d.p2.time), y: _mobileCandleSeries.priceToCoordinate(d.p2.price) };
+      if (b.x == null || b.y == null) continue;
+      if (d.type === 'trendline') {
+        dist = _distPointToSegment(x, y, a.x, a.y, b.x, b.y);
+      } else if (d.type === 'rect') {
+        const rx = Math.min(a.x, b.x), ry = Math.min(a.y, b.y);
+        const rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y);
+        // Inside rect = hit (Distanz 0)
+        if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) dist = 0;
+      } else if (d.type === 'fibo') {
+        // Pruefe Distanz zu jedem der 7 Levels
+        const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
+        const minP = Math.min(d.p1.price, d.p2.price);
+        const maxP = Math.max(d.p1.price, d.p2.price);
+        const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
+        if (x >= xL && x <= xR) {
+          let minLvlDist = Infinity;
+          for (const lvl of levels) {
+            const price = maxP - (maxP - minP) * lvl;
+            const c = _mobileCandleSeries.priceToCoordinate(price);
+            if (c != null) {
+              const dd = Math.abs(y - c);
+              if (dd < minLvlDist) minLvlDist = dd;
+            }
+          }
+          dist = minLvlDist;
+        }
+      }
+    }
+    if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+  }
+  return bestIdx;
+}
+function _distPointToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx*dx + dy*dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx = x1 + t * dx, cy = y1 + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
+// Settings-Panel anzeigen + befüllen
+function showMobileDrawingSettings() {
+  const panel = document.getElementById('mobileDrawingSettings');
+  if (!panel) return;
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) { mdsDeselect(); return; }
+  // Label
+  const label = document.getElementById('mdsLabel');
+  const labels = { trendline:'Trendlinie', rect:'Rechteck', fibo:'Fibonacci', hline:'H-Linie', vline:'V-Linie' };
+  if (label) label.textContent = labels[d.type] || 'Zeichnung';
+  // Color-Swatches
+  const colorRow = document.getElementById('mdsColorRow');
+  if (colorRow) {
+    colorRow.innerHTML = MDS_COLOR_PALETTE.map(c =>
+      `<button class="mds-swatch ${c === d.color ? 'active' : ''}" style="background:${c}" onclick="mdsSetColor('${c}')" title="${c}"></button>`
+    ).join('');
+  }
+  // Width-Buttons
+  const widthRow = document.getElementById('mdsWidthRow');
+  if (widthRow) {
+    const widths = [{ v: 1, l: '─' }, { v: 2, l: '━' }, { v: 3, l: '▬' }];
+    widthRow.innerHTML = widths.map(w =>
+      `<button class="mds-width ${(d.width || 2) === w.v ? 'active' : ''}" onclick="mdsSetWidth(${w.v})">${w.l}</button>`
+    ).join('');
+  }
+  // Dashed-Toggle
+  const dashBtn = document.getElementById('mdsDashBtn');
+  if (dashBtn) {
+    dashBtn.textContent = d.dashed ? '╴ ╴ ╴' : '━━━';
+    dashBtn.style.background = d.dashed ? 'rgba(245,158,11,0.25)' : '#1c2333';
+    dashBtn.style.borderColor = d.dashed ? '#f59e0b' : '#374151';
+  }
+  // Fibo-Level-UI nur zeigen wenn Fibo selektiert
+  const fiboBox = document.getElementById('mdsFiboLevels');
+  if (fiboBox) {
+    if (d.type === 'fibo') {
+      const levels = d.levels || MDS_FIB_DEFAULT_LEVELS;
+      const row = document.getElementById('mdsFiboLevelsRow');
+      if (row) {
+        // Preset-Levels rendern
+        let html = MDS_FIB_ALL_LEVELS.map(L => {
+          const active = levels.some(v => Math.abs(v - L.v) < 0.0001);
+          return `<button class="mds-fib-level ${active ? 'active' : ''} ${L.ext ? 'ext' : ''}" onclick="mdsToggleFiboLevel(${L.v})">${L.label}</button>`;
+        }).join('');
+        // Custom-Levels die nicht in Presets sind separat anzeigen (mit Lösch-Indikator)
+        const presetVals = MDS_FIB_ALL_LEVELS.map(L => L.v);
+        const customLevels = levels.filter(v => !presetVals.some(pv => Math.abs(pv - v) < 0.0001));
+        if (customLevels.length > 0) {
+          html += customLevels.map(v => {
+            const pct = (v * 100).toFixed(v % 1 === 0 ? 0 : 1) + '%';
+            return `<button class="mds-fib-level active" style="border-color:#22c55e;color:#22c55e;background:rgba(34,197,94,0.15)" onclick="mdsToggleFiboLevel(${v})" title="Eigenes Level — Tap zum Entfernen">★ ${pct}</button>`;
+          }).join('');
+        }
+        row.innerHTML = html;
+      }
+      fiboBox.style.display = 'block';
+    } else {
+      fiboBox.style.display = 'none';
+    }
+  }
+  panel.classList.add('show');
+}
+
+function mdsDeselect() {
+  _mobileSelectedDrawing = -1;
+  const panel = document.getElementById('mobileDrawingSettings');
+  if (panel) panel.classList.remove('show');
+  redrawMobileOverlay();
+}
+
+function mdsSetColor(color) {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) return;
+  d.color = color;
+  // Bei hline: native priceLine auch updaten
+  if (d.type === 'hline' && d._priceLineRef) {
+    try { d._priceLineRef.applyOptions({ color: color }); } catch(e) {}
+  }
+  redrawMobileOverlay();
+  showMobileDrawingSettings(); // refresh swatches
+}
+
+function mdsSetWidth(w) {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) return;
+  d.width = w;
+  if (d.type === 'hline' && d._priceLineRef) {
+    try { d._priceLineRef.applyOptions({ lineWidth: w }); } catch(e) {}
+  }
+  redrawMobileOverlay();
+  showMobileDrawingSettings();
+}
+
+function mdsToggleDashed() {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) return;
+  d.dashed = !d.dashed;
+  if (d.type === 'hline' && d._priceLineRef) {
+    try { d._priceLineRef.applyOptions({ lineStyle: d.dashed ? 2 : 0 }); } catch(e) {}
+  }
+  redrawMobileOverlay();
+  showMobileDrawingSettings();
+}
+
+function mdsDeleteSelected() {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) return;
+  // hline: priceLine vom Chart entfernen
+  if (d.type === 'hline' && d._priceLineRef && _mobileCandleSeries) {
+    try { _mobileCandleSeries.removePriceLine(d._priceLineRef); } catch(e) {}
+    _mobilePriceLines = _mobilePriceLines.filter(pl => pl !== d._priceLineRef);
+  }
+  _mobileDrawings.splice(_mobileSelectedDrawing, 1);
+  mdsDeselect();
+}
 
 // Tab-Aktivierung → Resize wenn Mobile-Chart sichtbar wird
 window.addEventListener('resize', () => {
@@ -35419,7 +36060,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 19:30 UTC';
+const APP_BUILD = '2026-05-15 21:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
