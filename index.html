@@ -18194,7 +18194,10 @@ function drawTradeChart(candles, trades) {
     trades = backtestOverlayTrades || [];
   }
   lastChartData = { candles, trades, viewStart: chartViewStart, viewEnd: chartViewEnd };
-  computeChartIndicators(candles);
+  // Performance: skip indicator-recompute waehrend Touch-Interaktion (gecached gut genug)
+  if (!window._chartFastMode) {
+    computeChartIndicators(candles);
+  }
   drawCandleChart('tradeChart', candles, trades, chartViewStart, chartViewEnd, false, chartYShift);
   // Update coin + timeframe + OHLC info in header
   const infoEl = document.getElementById('chartCoinInfo');
@@ -18690,7 +18693,9 @@ function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
+  // Mobile-Performance: waehrend Touch DPR auf 1 reduzieren (sonst 2-3x mehr Pixel auf Retina)
+  const _rawDpr = window.devicePixelRatio || 1;
+  const dpr = window._chartFastMode ? Math.min(_rawDpr, 1) : _rawDpr;
   const rect = canvas.getBoundingClientRect();
   const W = rect.width;
   const H = rect.height > 100 ? rect.height : 400;
@@ -22508,6 +22513,7 @@ window.addEventListener('resize', () => {
 
   canvas.addEventListener('touchstart', (e) => {
     _isTouchActive = true;
+    window._chartFastMode = true; // skip teures recompute waehrend Touch
     // Y-Pan-Lock einfrieren auf aktuellen Preisbereich → kein Springen waehrend Touch
     if (chartScaleState) {
       _panLockedMinPrice = chartScaleState.minPrice;
@@ -22564,10 +22570,11 @@ window.addEventListener('resize', () => {
   canvas.addEventListener('touchend', (e) => {
     if (e.touches.length === 0) {
       _isTouchActive = false;
+      window._chartFastMode = false; // wieder volle Qualitaet
       // Y-Pan-Lock loesen → Chart darf wieder auto-fit
       _panLockedMinPrice = null;
       _panLockedMaxPrice = null;
-      // Final redraw mit aktualisiertem Y-Range
+      // Final redraw mit aktualisiertem Y-Range + frischen Indikatoren
       _scheduleTouchRedraw();
     }
   });
@@ -34954,7 +34961,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-15 15:00 UTC';
+const APP_BUILD = '2026-05-15 15:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
