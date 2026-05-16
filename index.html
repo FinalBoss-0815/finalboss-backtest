@@ -19143,7 +19143,7 @@ function renderMobileChart(candles, trades) {
       height: container.clientHeight || 400,
       layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#9ca3af', fontSize: 11 },
       grid: { vertLines: { color: 'rgba(75,85,99,0.18)' }, horzLines: { color: 'rgba(75,85,99,0.18)' } },
-      crosshair: { mode: 1 }, // Normal
+      crosshair: { mode: 0 }, // Normal/Free — Crosshair folgt exakt dem Cursor (kein Snap zur Kerze)
       rightPriceScale: { borderColor: '#1f2937', scaleMargins: { top: 0.1, bottom: 0.1 } },
       // Free-Pan in beide Richtungen, KEIN fixLeftEdge (sonst kein History-Scrollen mehr)
       timeScale: {
@@ -19530,17 +19530,79 @@ let _mobileIndicatorSeries = {};   // { id: LineSeries | [LineSeries] }
 
 // Definitionen: id, label, kategorie, farben, compute(candles) → {time, value}[] oder [arr1, arr2, arr3]
 const MOBILE_INDICATORS_DEFS = [
+  // ── Volume ──
   { id: 'volume', label: 'Volume Bars (grün/rot)',  cat: 'Volume', color: '#22c55e', type: 'volume' },
   { id: 'vwap',   label: 'VWAP (Session)',          cat: 'Volume', color: '#ec4899', type: 'vwap' },
-  { id: 'ema20',  label: 'EMA 20',  cat: 'Moving Averages', color: '#fbbf24', period: 20,  type: 'ema' },
+  // ── Moving Averages ──
+  { id: 'ema9',   label: 'EMA 9',   cat: 'Moving Averages', color: '#ff6b6b', period: 9,   type: 'ema' },
+  { id: 'ema21',  label: 'EMA 21',  cat: 'Moving Averages', color: '#fbbf24', period: 21,  type: 'ema' },
   { id: 'ema50',  label: 'EMA 50',  cat: 'Moving Averages', color: '#f97316', period: 50,  type: 'ema' },
   { id: 'ema200', label: 'EMA 200', cat: 'Moving Averages', color: '#ef4444', period: 200, type: 'ema' },
   { id: 'sma20',  label: 'SMA 20',  cat: 'Moving Averages', color: '#60a5fa', period: 20,  type: 'sma' },
   { id: 'sma50',  label: 'SMA 50',  cat: 'Moving Averages', color: '#3b82f6', period: 50,  type: 'sma' },
   { id: 'sma200', label: 'SMA 200', cat: 'Moving Averages', color: '#a78bfa', period: 200, type: 'sma' },
-  { id: 'bb',     label: 'Bollinger Bands (20, 2)', cat: 'Bands', color: '#22d3ee', period: 20, mult: 2, type: 'bb' },
-  { id: 'patterns', label: 'Candle-Patterns (22)',  cat: 'Patterns', color: '#fbbf24', type: 'patterns' },
-  { id: 'chart_patterns', label: 'Chart-Patterns (12)', cat: 'Patterns', color: '#06b6d4', type: 'chart_patterns' }
+  { id: 'dema',   label: 'DEMA 21', cat: 'Moving Averages', color: '#ff6b6b', period: 21,  type: 'dema' },
+  { id: 'tema',   label: 'TEMA 21', cat: 'Moving Averages', color: '#ffa502', period: 21,  type: 'tema' },
+  { id: 'hma',    label: 'HMA 21',  cat: 'Moving Averages', color: '#00d2d3', period: 21,  type: 'hma' },
+  { id: 'wma',    label: 'WMA 20',  cat: 'Moving Averages', color: '#e0af68', period: 20,  type: 'wma' },
+  { id: 'zlema',  label: 'ZLEMA 21', cat: 'Moving Averages', color: '#7dcfff', period: 21, type: 'zlema' },
+  { id: 'smma',   label: 'SMMA 20', cat: 'Moving Averages', color: '#bb9af7', period: 20,  type: 'smma' },
+  { id: 'vwma',   label: 'VWMA 20', cat: 'Moving Averages', color: '#73daca', period: 20,  type: 'vwma' },
+  { id: 'kama',   label: 'KAMA 10', cat: 'Moving Averages', color: '#f7768e', period: 10,  type: 'kama' },
+  { id: 'mcginley', label: 'McGinley 14', cat: 'Moving Averages', color: '#ff9e64', period: 14, type: 'mcginley' },
+  { id: 'linreg', label: 'Lin. Regression 20', cat: 'Moving Averages', color: '#e0af68', period: 20, type: 'linreg' },
+  // ── Bands / Channels ──
+  { id: 'bb',        label: 'Bollinger Bands (20, 2)', cat: 'Bands & Channels', color: '#22d3ee', period: 20, mult: 2, type: 'bb' },
+  { id: 'keltner',   label: 'Keltner Channel (20, 2)', cat: 'Bands & Channels', color: '#f0883e', emaPeriod: 20, atrPeriod: 10, mult: 2, type: 'keltner' },
+  { id: 'donchian',  label: 'Donchian (20)',           cat: 'Bands & Channels', color: '#2ac3de', period: 20, type: 'donchian' },
+  { id: 'envelope',  label: 'Envelope (20, 2.5%)',     cat: 'Bands & Channels', color: '#9ece6a', period: 20, pct: 2.5, type: 'envelope' },
+  { id: 'priceChannel', label: 'Price Channel (20)',   cat: 'Bands & Channels', color: '#e0af68', period: 20, type: 'priceChannel' },
+  // ── Trend / Special Overlays ──
+  { id: 'supertrend', label: 'Supertrend (10, 3)', cat: 'Trend', color: '#3fb950', period: 10, mult: 3, type: 'supertrend' },
+  { id: 'parabolicSar', label: 'Parabolic SAR',    cat: 'Trend', color: '#ff9e64', afStart: 0.02, afStep: 0.02, afMax: 0.2, type: 'parabolicSar' },
+  { id: 'ichimoku',  label: 'Ichimoku Cloud',      cat: 'Trend', color: '#39d2c0', tenkan: 9, kijun: 26, senkouB: 52, type: 'ichimoku' },
+  { id: 'chandelier', label: 'Chandelier Exit (22, 3)', cat: 'Trend', color: '#c0caf5', period: 22, mult: 3, type: 'chandelier' },
+  { id: 'pivotPoints', label: 'Pivot Points (Day)', cat: 'Trend', color: '#8b949e', type: 'pivotPoints' },
+  { id: 'fractals',  label: 'Fractals (Bill Williams)', cat: 'Trend', color: '#7aa2f7', n: 2, type: 'fractals' },
+  // ── Patterns ──
+  { id: 'patterns',       label: 'Candle-Patterns (22)', cat: 'Patterns', color: '#fbbf24', type: 'patterns' },
+  { id: 'chart_patterns', label: 'Chart-Patterns (12)',  cat: 'Patterns', color: '#06b6d4', type: 'chart_patterns' },
+  // ── Oscillators / Panels (eigene Skala unten am Chart) ──
+  { id: 'rsi',         label: 'RSI (14)',         cat: 'Oscillators', color: '#bc8cff', period: 14, type: 'rsi', panel: true, range: [0,100], levels: [30,70] },
+  { id: 'macd',        label: 'MACD (12,26,9)',   cat: 'Oscillators', color: '#58a6ff', fast: 12, slow: 26, signal: 9, type: 'macd', panel: true },
+  { id: 'stoch',       label: 'Stochastic (14,3)', cat: 'Oscillators', color: '#ffa502', kPeriod: 14, dPeriod: 3, type: 'stoch', panel: true, range: [0,100], levels: [20,80] },
+  { id: 'adx',         label: 'ADX (14)',         cat: 'Oscillators', color: '#39d2c0', period: 14, type: 'adx', panel: true, range: [0,60] },
+  { id: 'cci',         label: 'CCI (20)',         cat: 'Oscillators', color: '#f85149', period: 20, type: 'cci', panel: true, levels: [-100,100] },
+  { id: 'williamsR',   label: 'Williams %R (14)', cat: 'Oscillators', color: '#d29922', period: 14, type: 'williamsR', panel: true, range: [-100,0], levels: [-20,-80] },
+  { id: 'mfi',         label: 'MFI (14)',         cat: 'Oscillators', color: '#3fb950', period: 14, type: 'mfi', panel: true, range: [0,100], levels: [20,80] },
+  { id: 'roc',         label: 'ROC (12)',         cat: 'Oscillators', color: '#7aa2f7', period: 12, type: 'roc', panel: true, levels: [0] },
+  { id: 'momentum',    label: 'Momentum (10)',    cat: 'Oscillators', color: '#bb9af7', period: 10, type: 'momentum', panel: true, levels: [0] },
+  { id: 'trix',        label: 'TRIX (15)',        cat: 'Oscillators', color: '#e0af68', period: 15, type: 'trix', panel: true, levels: [0] },
+  { id: 'stochRsi',    label: 'Stoch RSI (14)',   cat: 'Oscillators', color: '#2ac3de', rsiPeriod: 14, stochPeriod: 14, kSmooth: 3, dSmooth: 3, type: 'stochRsi', panel: true, range: [0,100], levels: [20,80] },
+  { id: 'ao',          label: 'Awesome Osc',      cat: 'Oscillators', color: '#9ece6a', type: 'ao', panel: true, levels: [0] },
+  { id: 'choppiness',  label: 'Choppiness (14)',  cat: 'Oscillators', color: '#ff9e64', period: 14, type: 'choppiness', panel: true, range: [0,100], levels: [38.2,61.8] },
+  { id: 'dpo',         label: 'DPO (20)',         cat: 'Oscillators', color: '#f7768e', period: 20, type: 'dpo', panel: true, levels: [0] },
+  { id: 'ultimateOsc', label: 'Ultimate Osc',     cat: 'Oscillators', color: '#73daca', p1: 7, p2: 14, p3: 28, type: 'ultimateOsc', panel: true, range: [0,100], levels: [30,70] },
+  { id: 'aroon',       label: 'Aroon (25)',       cat: 'Oscillators', color: '#7dcfff', period: 25, type: 'aroon', panel: true, range: [0,100] },
+  { id: 'ppo',         label: 'PPO (12,26,9)',    cat: 'Oscillators', color: '#bb9af7', fast: 12, slow: 26, signal: 9, type: 'ppo', panel: true, levels: [0] },
+  { id: 'kst',         label: 'KST',              cat: 'Oscillators', color: '#e0af68', type: 'kst', panel: true, levels: [0] },
+  { id: 'coppock',     label: 'Coppock',          cat: 'Oscillators', color: '#73daca', type: 'coppock', panel: true, levels: [0] },
+  { id: 'fisher',      label: 'Fisher Transform', cat: 'Oscillators', color: '#c0caf5', period: 9, type: 'fisher', panel: true, levels: [0] },
+  { id: 'rvi',         label: 'RVI (10)',         cat: 'Oscillators', color: '#7aa2f7', period: 10, type: 'rvi', panel: true, levels: [0] },
+  { id: 'connorsRsi',  label: 'Connors RSI',      cat: 'Oscillators', color: '#ffd93d', rsiP: 3, streakP: 2, type: 'connorsRsi', panel: true, range: [0,100], levels: [30,70] },
+  { id: 'squeezeMom',  label: 'Squeeze Mom.',     cat: 'Oscillators', color: '#3fb950', bbPeriod: 20, kcPeriod: 20, type: 'squeezeMom', panel: true, levels: [0] },
+  { id: 'vortex',      label: 'Vortex (14)',      cat: 'Oscillators', color: '#58a6ff', period: 14, type: 'vortex', panel: true },
+  { id: 'stc',         label: 'Schaff TC',        cat: 'Oscillators', color: '#d29922', period: 10, type: 'stc', panel: true, range: [0,100], levels: [25,75] },
+  // ── Volume-Based Panels ──
+  { id: 'obv',         label: 'OBV',              cat: 'Volume', color: '#8b949e', type: 'obv', panel: true },
+  { id: 'cmf',         label: 'CMF (20)',         cat: 'Volume', color: '#ff6348', period: 20, type: 'cmf', panel: true, levels: [0] },
+  { id: 'atr',         label: 'ATR (14)',         cat: 'Volatility', color: '#ffd93d', period: 14, type: 'atr', panel: true },
+  { id: 'forceIndex',  label: 'Force Index (13)', cat: 'Volume', color: '#2ac3de', period: 13, type: 'forceIndex', panel: true, levels: [0] },
+  { id: 'accDist',     label: 'Acc/Dist',         cat: 'Volume', color: '#9ece6a', type: 'accDist', panel: true },
+  { id: 'bop',         label: 'Balance of Power', cat: 'Oscillators', color: '#f7768e', period: 14, type: 'bop', panel: true, levels: [0] },
+  { id: 'massIndex',   label: 'Mass Index (25)',  cat: 'Volatility', color: '#ff9e64', period: 25, type: 'massIndex', panel: true, levels: [27] },
+  { id: 'vroc',        label: 'VROC (14)',        cat: 'Volume', color: '#ff6348', period: 14, type: 'vroc', panel: true, levels: [0] },
+  { id: 'klinger',     label: 'Klinger',          cat: 'Volume', color: '#f85149', type: 'klinger', panel: true, levels: [0] }
 ];
 
 // ═══════════════════════════════════════════════
@@ -20221,9 +20283,40 @@ function _candlesToCloseArr(candles) {
   for (let i = 0; i < candles.length; i++) closes[i] = candles[i].close;
   return closes;
 }
+function _candlesToHighArr(candles) {
+  const a = new Array(candles.length);
+  for (let i = 0; i < candles.length; i++) a[i] = candles[i].high;
+  return a;
+}
+function _candlesToLowArr(candles) {
+  const a = new Array(candles.length);
+  for (let i = 0; i < candles.length; i++) a[i] = candles[i].low;
+  return a;
+}
+function _candlesToOpenArr(candles) {
+  const a = new Array(candles.length);
+  for (let i = 0; i < candles.length; i++) a[i] = candles[i].open;
+  return a;
+}
+function _candlesToVolArr(candles) {
+  const a = new Array(candles.length);
+  for (let i = 0; i < candles.length; i++) a[i] = candles[i].volume || 0;
+  return a;
+}
 
 function _candlesToTime(c) {
   return Math.floor((c.ts || c.time || 0) / 1000);
+}
+
+// Konvertiert Array von Werten (parallel zu candles) in {time, value}[]
+function _toTimedSeries(candles, vals) {
+  const out = [];
+  for (let i = 0; i < candles.length; i++) {
+    const t = _candlesToTime(candles[i]);
+    if (!t || !isFinite(vals[i])) continue;
+    out.push({ time: t, value: vals[i] });
+  }
+  return out;
 }
 
 // VWAP: Session-VWAP, reset bei Tageswechsel (UTC-Mitternacht)
@@ -20248,50 +20341,217 @@ function _computeVWAP(candles) {
 function _computeMobileIndicator(def, candles) {
   if (!candles || candles.length === 0) return null;
   const closes = _candlesToCloseArr(candles);
+  const highs  = _candlesToHighArr(candles);
+  const lows   = _candlesToLowArr(candles);
+  const opens  = _candlesToOpenArr(candles);
+  const vols   = _candlesToVolArr(candles);
+  const T = (i) => _candlesToTime(candles[i]);
+  const I = Indicators;
 
-  if (def.type === 'ema' || def.type === 'sma') {
-    const vals = (def.type === 'ema') ? Indicators.ema(closes, def.period) : Indicators.sma(closes, def.period);
+  // Single-line MAs
+  if (def.type === 'ema')      return _toTimedSeries(candles, I.ema(closes, def.period));
+  if (def.type === 'sma')      return _toTimedSeries(candles, I.sma(closes, def.period));
+  if (def.type === 'dema')     return _toTimedSeries(candles, I.dema(closes, def.period));
+  if (def.type === 'tema')     return _toTimedSeries(candles, I.tema(closes, def.period));
+  if (def.type === 'hma')      return _toTimedSeries(candles, I.hma(closes, def.period));
+  if (def.type === 'wma')      return _toTimedSeries(candles, I.wma(closes, def.period));
+  if (def.type === 'zlema')    return _toTimedSeries(candles, I.zlema(closes, def.period));
+  if (def.type === 'smma')     return _toTimedSeries(candles, I.smma(closes, def.period));
+  if (def.type === 'vwma')     return _toTimedSeries(candles, I.vwma(closes, vols, def.period));
+  if (def.type === 'kama')     return _toTimedSeries(candles, I.kama(closes, def.period));
+  if (def.type === 'mcginley') return _toTimedSeries(candles, I.mcginley(closes, def.period));
+  if (def.type === 'linreg') {
+    const r = I.linearRegression(closes, def.period);
+    return _toTimedSeries(candles, r.line || r);
+  }
+
+  // Bands / Channels (multi-line)
+  if (def.type === 'bb') {
+    const bb = I.bollinger(closes, def.period, def.mult);
+    return [_toTimedSeries(candles, bb.upper), _toTimedSeries(candles, bb.mid), _toTimedSeries(candles, bb.lower)];
+  }
+  if (def.type === 'keltner') {
+    const kc = I.keltner(highs, lows, closes, def.emaPeriod, def.atrPeriod, def.mult);
+    return [_toTimedSeries(candles, kc.upper), _toTimedSeries(candles, kc.mid), _toTimedSeries(candles, kc.lower)];
+  }
+  if (def.type === 'donchian') {
+    const dc = I.donchian(highs, lows, def.period);
+    return [_toTimedSeries(candles, dc.upper), _toTimedSeries(candles, dc.mid), _toTimedSeries(candles, dc.lower)];
+  }
+  if (def.type === 'envelope') {
+    const ev = I.envelope(closes, def.period, def.pct);
+    return [_toTimedSeries(candles, ev.upper), _toTimedSeries(candles, ev.mid), _toTimedSeries(candles, ev.lower)];
+  }
+  if (def.type === 'priceChannel') {
+    const pc = I.priceChannel(highs, lows, def.period);
+    return [_toTimedSeries(candles, pc.upper), _toTimedSeries(candles, pc.mid || pc.middle), _toTimedSeries(candles, pc.lower)];
+  }
+
+  // Special overlays
+  if (def.type === 'supertrend') {
+    const st = I.supertrend(highs, lows, closes, def.period, def.mult);
     const out = [];
     for (let i = 0; i < candles.length; i++) {
-      const t = _candlesToTime(candles[i]);
-      if (!t || !isFinite(vals[i])) continue;
-      out.push({ time: t, value: vals[i] });
+      const t = T(i); if (!t || !isFinite(st.trend[i])) continue;
+      out.push({ time: t, value: st.trend[i], color: st.direction[i] > 0 ? '#22c55e' : '#ef4444' });
+    }
+    return out;
+  }
+  if (def.type === 'parabolicSar') {
+    const sar = I.parabolicSar(highs, lows, closes, def.afStart, def.afStep, def.afMax);
+    return _toTimedSeries(candles, sar);
+  }
+  if (def.type === 'ichimoku') {
+    const ich = I.ichimoku(highs, lows, closes, def.tenkan, def.kijun, def.senkouB);
+    return [
+      _toTimedSeries(candles, ich.tenkan),
+      _toTimedSeries(candles, ich.kijun),
+      _toTimedSeries(candles, ich.senkouA),
+      _toTimedSeries(candles, ich.senkouB),
+      _toTimedSeries(candles, ich.chikou || closes)
+    ];
+  }
+  if (def.type === 'chandelier') {
+    const ch = I.chandelierExit(highs, lows, closes, def.period, def.mult);
+    return [_toTimedSeries(candles, ch.longExit || ch.long), _toTimedSeries(candles, ch.shortExit || ch.short)];
+  }
+  if (def.type === 'pivotPoints') {
+    const pp = I.pivotPoints(candles);
+    // Erwartet { pp, r1, s1, r2, s2 } als Skalare oder Arrays
+    const lines = [];
+    const mkLine = (val, idx) => {
+      if (val == null) return null;
+      const arr = Array.isArray(val) ? val : new Array(candles.length).fill(val);
+      return _toTimedSeries(candles, arr);
+    };
+    return [mkLine(pp.pp), mkLine(pp.r1), mkLine(pp.s1), mkLine(pp.r2), mkLine(pp.s2)].filter(Boolean);
+  }
+  if (def.type === 'fractals') {
+    const fr = I.fractals(highs, lows, def.n);
+    // fr ist {up:[indices oder bool-array], down:[...]} oder {bull:[],bear:[]}
+    // → in eine Punkt-Linien-Serie (oben/unten) konvertieren
+    const upArr = [], dnArr = [];
+    for (let i = 0; i < candles.length; i++) {
+      const t = T(i); if (!t) continue;
+      if (fr.up && fr.up[i]) upArr.push({ time: t, value: highs[i] * 1.001 });
+      if (fr.down && fr.down[i]) dnArr.push({ time: t, value: lows[i] * 0.999 });
+    }
+    return [upArr, dnArr];
+  }
+
+  // VWAP/Volume special
+  if (def.type === 'vwap')   return _computeVWAP(candles);
+  if (def.type === 'volume') {
+    const out = [];
+    for (let i = 0; i < candles.length; i++) {
+      const c = candles[i]; const t = T(i); if (!t) continue;
+      const vol = c.volume || 0; if (!isFinite(vol) || vol <= 0) continue;
+      const bull = c.close >= c.open;
+      out.push({ time: t, value: vol, color: bull ? 'rgba(34, 197, 94, 0.55)' : 'rgba(239, 68, 68, 0.55)' });
     }
     return out;
   }
 
-  if (def.type === 'bb') {
-    const bb = Indicators.bollinger(closes, def.period, def.mult);
-    const upArr = [], midArr = [], loArr = [];
+  // Panel: Single-line oscillators
+  if (def.type === 'rsi')          return _toTimedSeries(candles, I.rsi(closes, def.period));
+  if (def.type === 'cci')          return _toTimedSeries(candles, I.cci(highs, lows, closes, def.period));
+  if (def.type === 'williamsR')    return _toTimedSeries(candles, I.williamsR(highs, lows, closes, def.period));
+  if (def.type === 'mfi')          return _toTimedSeries(candles, I.mfi(highs, lows, closes, vols, def.period));
+  if (def.type === 'roc')          return _toTimedSeries(candles, I.roc(closes, def.period));
+  if (def.type === 'momentum')     return _toTimedSeries(candles, I.momentum(closes, def.period));
+  if (def.type === 'trix')         return _toTimedSeries(candles, I.trix(closes, def.period));
+  if (def.type === 'choppiness')   return _toTimedSeries(candles, I.choppiness(highs, lows, closes, def.period));
+  if (def.type === 'dpo')          return _toTimedSeries(candles, I.dpo(closes, def.period));
+  if (def.type === 'ultimateOsc')  return _toTimedSeries(candles, I.ultimateOscillator(highs, lows, closes, def.p1, def.p2, def.p3));
+  if (def.type === 'coppock')      return _toTimedSeries(candles, I.coppock(closes));
+  if (def.type === 'connorsRsi')   return _toTimedSeries(candles, I.connorsRsi(closes, def.rsiP, def.streakP));
+  if (def.type === 'stc')          return _toTimedSeries(candles, I.schaffTrendCycle(closes, def.period));
+  if (def.type === 'atr')          return _toTimedSeries(candles, I.atr(highs, lows, closes, def.period));
+  if (def.type === 'obv')          return _toTimedSeries(candles, I.obv(closes, vols));
+  if (def.type === 'cmf')          return _toTimedSeries(candles, I.cmf(highs, lows, closes, vols, def.period));
+  if (def.type === 'forceIndex')   return _toTimedSeries(candles, I.forceIndex(closes, vols, def.period));
+  if (def.type === 'accDist')      return _toTimedSeries(candles, I.accDist(highs, lows, closes, vols));
+  if (def.type === 'bop')          return _toTimedSeries(candles, I.bop(opens, highs, lows, closes, def.period));
+  if (def.type === 'massIndex')    return _toTimedSeries(candles, I.massIndex(highs, lows));
+  if (def.type === 'vroc')         return _toTimedSeries(candles, I.vroc(vols, def.period));
+
+  // Panel: Multi-line oscillators
+  if (def.type === 'macd') {
+    const m = I.macd(closes, def.fast, def.slow, def.signal);
+    const histData = [];
     for (let i = 0; i < candles.length; i++) {
-      const t = _candlesToTime(candles[i]);
-      if (!t) continue;
-      if (isFinite(bb.upper[i])) upArr.push({ time: t, value: bb.upper[i] });
-      if (isFinite(bb.mid[i]))   midArr.push({ time: t, value: bb.mid[i] });
-      if (isFinite(bb.lower[i])) loArr.push({ time: t, value: bb.lower[i] });
+      const t = T(i); if (!t || !isFinite(m.hist[i])) continue;
+      histData.push({ time: t, value: m.hist[i], color: m.hist[i] >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)' });
     }
-    return [upArr, midArr, loArr];
+    return [_toTimedSeries(candles, m.macd), _toTimedSeries(candles, m.signal), histData];
   }
-
-  if (def.type === 'vwap') {
-    return _computeVWAP(candles);
+  if (def.type === 'stoch') {
+    const s = I.stochastic(highs, lows, closes, def.kPeriod, def.dPeriod);
+    return [_toTimedSeries(candles, s.k), _toTimedSeries(candles, s.d)];
   }
-
-  if (def.type === 'volume') {
-    // Histogram-Daten: time, value, color (grün/rot je Candle-Direction)
+  if (def.type === 'adx') {
+    const a = I.adx(highs, lows, closes, def.period);
+    return [_toTimedSeries(candles, a.adx), _toTimedSeries(candles, a.plusDI || a.pdi), _toTimedSeries(candles, a.minusDI || a.ndi)];
+  }
+  if (def.type === 'stochRsi') {
+    const sr = I.stochRsi(closes, def.rsiPeriod, def.stochPeriod, def.kSmooth, def.dSmooth);
+    return [_toTimedSeries(candles, sr.k), _toTimedSeries(candles, sr.d)];
+  }
+  if (def.type === 'ao') {
+    const ao = I.awesomeOscillator(highs, lows);
     const out = [];
     for (let i = 0; i < candles.length; i++) {
-      const c = candles[i];
-      const t = _candlesToTime(c);
-      if (!t) continue;
-      const vol = c.volume || c.vol || c.v || 0;
-      if (!isFinite(vol) || vol <= 0) continue;
-      const bullish = c.close >= c.open;
-      out.push({
-        time: t,
-        value: vol,
-        color: bullish ? 'rgba(34, 197, 94, 0.55)' : 'rgba(239, 68, 68, 0.55)'
-      });
+      const t = T(i); if (!t || !isFinite(ao[i])) continue;
+      const prev = i > 0 ? ao[i - 1] : ao[i];
+      const up = ao[i] >= prev;
+      out.push({ time: t, value: ao[i], color: up ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)' });
+    }
+    return out;
+  }
+  if (def.type === 'aroon') {
+    const ar = I.aroon(highs, lows, def.period);
+    return [_toTimedSeries(candles, ar.up), _toTimedSeries(candles, ar.down)];
+  }
+  if (def.type === 'ppo') {
+    const p = I.ppo(closes, def.fast, def.slow, def.signal);
+    const histData = [];
+    for (let i = 0; i < candles.length; i++) {
+      const t = T(i); if (!t || !isFinite(p.hist[i])) continue;
+      histData.push({ time: t, value: p.hist[i], color: p.hist[i] >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)' });
+    }
+    return [_toTimedSeries(candles, p.ppo), _toTimedSeries(candles, p.signal), histData];
+  }
+  if (def.type === 'kst') {
+    const k = I.kst(closes);
+    return [_toTimedSeries(candles, k.kst), _toTimedSeries(candles, k.signal)];
+  }
+  if (def.type === 'fisher') {
+    const f = I.fisherTransform(highs, lows, def.period);
+    return [_toTimedSeries(candles, f.fisher), _toTimedSeries(candles, f.trigger)];
+  }
+  if (def.type === 'rvi') {
+    const r = I.rvi(opens, highs, lows, closes, def.period);
+    return [_toTimedSeries(candles, r.rvi), _toTimedSeries(candles, r.signal)];
+  }
+  if (def.type === 'vortex') {
+    const v = I.vortex(highs, lows, closes, def.period);
+    return [_toTimedSeries(candles, v.plus || v.viPlus), _toTimedSeries(candles, v.minus || v.viMinus)];
+  }
+  if (def.type === 'klinger') {
+    const k = I.klinger(highs, lows, closes, vols);
+    return [_toTimedSeries(candles, k.klinger || k.kvo), _toTimedSeries(candles, k.signal)];
+  }
+  if (def.type === 'squeezeMom') {
+    const sq = I.squeezeMomentum(highs, lows, closes, def.bbPeriod, undefined, def.kcPeriod);
+    const out = [];
+    for (let i = 0; i < candles.length; i++) {
+      const t = T(i); if (!t || !isFinite(sq.value[i])) continue;
+      const prev = i > 0 ? sq.value[i - 1] : sq.value[i];
+      const up = sq.value[i] >= prev;
+      const color = sq.value[i] >= 0
+        ? (up ? 'rgba(34,197,94,0.9)' : 'rgba(34,197,94,0.5)')
+        : (up ? 'rgba(239,68,68,0.5)' : 'rgba(239,68,68,0.9)');
+      out.push({ time: t, value: sq.value[i], color });
     }
     return out;
   }
@@ -20299,51 +20559,119 @@ function _computeMobileIndicator(def, candles) {
   return null;
 }
 
+// Panel-Scale: jedes Panel-Indikator bekommt seine eigene Skala unten am Chart
+function _mobilePanelScaleId(id) { return 'mobile_panel_' + id; }
+function _ensureMobilePanelScale(id) {
+  if (!_mobileChart) return;
+  try {
+    _mobileChart.priceScale(_mobilePanelScaleId(id)).applyOptions({
+      scaleMargins: { top: 0.75, bottom: 0.02 },
+      visible: false
+    });
+  } catch(e){}
+}
+
 function _createMobileIndicatorSeries(def) {
   if (!_mobileChart) return null;
-  if (def.type === 'bb') {
-    // 3 Linien: upper (dashed), mid (solid), lower (dashed)
-    const upper = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    const mid   = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    const lower = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+  const C = def.color;
+
+  // Multi-Line BB-Family overlays (Bollinger/Keltner/Donchian/Envelope/PriceChannel)
+  if (def.type === 'bb' || def.type === 'keltner' || def.type === 'donchian' || def.type === 'envelope' || def.type === 'priceChannel') {
+    const opts = { color: C, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+    const upper = _mobileChart.addLineSeries({ ...opts, lineStyle: 2 });
+    const mid   = _mobileChart.addLineSeries({ ...opts, lineStyle: 0 });
+    const lower = _mobileChart.addLineSeries({ ...opts, lineStyle: 2 });
     return [upper, mid, lower];
   }
+  // Ichimoku — 5 Linien
+  if (def.type === 'ichimoku') {
+    const mk = (c, w, s) => _mobileChart.addLineSeries({ color: c, lineWidth: w, lineStyle: s || 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    return [mk('#22c55e',1), mk('#ef4444',1), mk('#06b6d4',1,2), mk('#ec4899',1,2), mk('#a78bfa',1,2)];
+  }
+  // Chandelier — 2 Linien
+  if (def.type === 'chandelier') {
+    const mk = (c) => _mobileChart.addLineSeries({ color: c, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    return [mk('#22c55e'), mk('#ef4444')];
+  }
+  // Pivot Points — bis zu 5 Linien (PP, R1, S1, R2, S2)
+  if (def.type === 'pivotPoints') {
+    const palette = ['#9ca3af','#ef4444','#22c55e','#f97316','#06b6d4'];
+    return palette.map(c => _mobileChart.addLineSeries({ color: c, lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }));
+  }
+  // Fractals — 2 Linien (oberer/unterer Marker als Dot-Line)
+  if (def.type === 'fractals') {
+    const mk = (c) => _mobileChart.addLineSeries({ color: c, lineWidth: 0, pointMarkersVisible: true, pointMarkersRadius: 3, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    return [mk('#22c55e'), mk('#ef4444')];
+  }
+  // Parabolic SAR — Punkte
+  if (def.type === 'parabolicSar') {
+    return _mobileChart.addLineSeries({ color: C, lineWidth: 0, pointMarkersVisible: true, pointMarkersRadius: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+  }
+  // Supertrend — colored Line per Punkt
+  if (def.type === 'supertrend') {
+    return _mobileChart.addLineSeries({ color: C, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+  }
+  // Volume Histogram (Bottom)
   if (def.type === 'volume') {
-    // Histogram am unteren Chart-Rand mit eigener Skala
     const hs = _mobileChart.addHistogramSeries({
-      color: def.color,
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'mobile_volume',
-      lastValueVisible: false,
-      priceLineVisible: false
+      color: C, priceFormat: { type: 'volume' }, priceScaleId: 'mobile_volume',
+      lastValueVisible: false, priceLineVisible: false
     });
-    // Skala konfigurieren: unten ~20% des Charts, unsichtbar
-    try {
-      _mobileChart.priceScale('mobile_volume').applyOptions({
-        scaleMargins: { top: 0.78, bottom: 0 },
-        visible: false
-      });
-    } catch(e){}
+    try { _mobileChart.priceScale('mobile_volume').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 }, visible: false }); } catch(e){}
     return hs;
   }
-  // Standard: Eine Linie
+
+  // ── PANEL INDIKATOREN ── (eigene Skala unten)
+  if (def.panel) {
+    const psId = _mobilePanelScaleId(def.id);
+    _ensureMobilePanelScale(def.id);
+    const lineOpts = { priceScaleId: psId, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+    const histOpts = { priceScaleId: psId, lastValueVisible: false, priceLineVisible: false };
+
+    // Multi-line panels
+    if (def.type === 'macd' || def.type === 'ppo') {
+      const macd = _mobileChart.addLineSeries({ ...lineOpts, color: '#58a6ff', lineWidth: 1.5 });
+      const sig  = _mobileChart.addLineSeries({ ...lineOpts, color: '#f97316', lineWidth: 1 });
+      const hist = _mobileChart.addHistogramSeries({ ...histOpts, color: 'rgba(34,197,94,0.6)' });
+      return [macd, sig, hist];
+    }
+    if (def.type === 'stoch' || def.type === 'stochRsi' || def.type === 'kst' || def.type === 'fisher' || def.type === 'rvi' || def.type === 'klinger') {
+      const a = _mobileChart.addLineSeries({ ...lineOpts, color: '#06b6d4', lineWidth: 1.5 });
+      const b = _mobileChart.addLineSeries({ ...lineOpts, color: '#f97316', lineWidth: 1 });
+      return [a, b];
+    }
+    if (def.type === 'adx') {
+      const adx = _mobileChart.addLineSeries({ ...lineOpts, color: '#fbbf24', lineWidth: 1.5 });
+      const di  = _mobileChart.addLineSeries({ ...lineOpts, color: '#22c55e', lineWidth: 1 });
+      const ndi = _mobileChart.addLineSeries({ ...lineOpts, color: '#ef4444', lineWidth: 1 });
+      return [adx, di, ndi];
+    }
+    if (def.type === 'aroon' || def.type === 'vortex') {
+      const a = _mobileChart.addLineSeries({ ...lineOpts, color: '#22c55e', lineWidth: 1.5 });
+      const b = _mobileChart.addLineSeries({ ...lineOpts, color: '#ef4444', lineWidth: 1.5 });
+      return [a, b];
+    }
+    if (def.type === 'ao' || def.type === 'squeezeMom') {
+      return _mobileChart.addHistogramSeries({ ...histOpts });
+    }
+    // Single-line panel
+    return _mobileChart.addLineSeries({ ...lineOpts, color: C, lineWidth: 1.5 });
+  }
+
+  // Standard: Eine Linie auf Hauptskala
   return _mobileChart.addLineSeries({
-    color: def.color,
-    lineWidth: 2,
-    priceLineVisible: false,
-    lastValueVisible: true,
-    crosshairMarkerVisible: false,
+    color: C, lineWidth: 2,
+    priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
     title: def.label.split(' ')[0] + (def.period ? ' ' + def.period : '')
   });
 }
 
 function _setIndicatorData(def, series, data) {
   if (!series || !data) return;
-  if (def.type === 'bb') {
-    if (Array.isArray(series) && Array.isArray(data) && data.length === 3) {
-      try { series[0].setData(data[0]); } catch(e){}
-      try { series[1].setData(data[1]); } catch(e){}
-      try { series[2].setData(data[2]); } catch(e){}
+  // Multi-Series-Indikatoren: data ist ein Array von Arrays parallel zu series-Array
+  if (Array.isArray(series) && Array.isArray(data)) {
+    for (let k = 0; k < series.length && k < data.length; k++) {
+      try { series[k].setData(data[k] || []); } catch(e){}
     }
     return;
   }
@@ -40482,7 +40810,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 05:35 UTC';
+const APP_BUILD = '2026-05-17 06:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
