@@ -842,8 +842,8 @@ html.is-mobile-device .mobile-only-chart { display: block !important; left: 52px
 html.is-mobile-device .mobile-only-chart-overlay { left: 52px !important; }
 /* Wichtig: Placement-Cursor muss dasselbe Koordinatensystem wie Chart haben (52px Toolbar-Offset) */
 html.is-mobile-device .mobile-place-cursor { left: 52px !important; }
-/* Während Placement-Mode: Scroll sperren ohne Body aus dem Flow zu nehmen
-   (kein position:fixed → kein Layout-Sprung beim Aktivieren/Deaktivieren) */
+/* Während Placement-Mode (NUR Mobile): Scroll sperren damit Finger-Drag nicht die Seite verschiebt.
+   Auf Desktop wird _lockBodyScroll() gar nicht aktiviert → kein Scrollbar-Toggle → kein Layout-Shift */
 html.fb-placement-active,
 body.fb-placement-active {
   overflow: hidden !important;
@@ -20805,8 +20805,13 @@ function _updateMobilePlacementInfo() {
   info.textContent = tp.price.toFixed(2) + ' · ' + timeStr;
 }
 
-// Scroll-Sperre nur via overflow:hidden + touch-action:none (kein position:fixed → kein Layout-Sprung)
+// Scroll-Sperre NUR auf Mobile — Desktop braucht kein Lock (Maus scrollt nicht über Chart hinaus)
+// → kein Scrollbar-Toggle → kein Layout-Shift → kein Ruckeln
+function _isMobileDevice() {
+  return document.documentElement.classList.contains('is-mobile-device');
+}
 function _lockBodyScroll() {
+  if (!_isMobileDevice()) return;
   document.documentElement.classList.add('fb-placement-active');
   document.body.classList.add('fb-placement-active');
 }
@@ -39989,7 +39994,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 01:10 UTC';
+const APP_BUILD = '2026-05-17 01:35 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
