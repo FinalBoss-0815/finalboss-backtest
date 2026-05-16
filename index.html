@@ -18905,12 +18905,13 @@ function renderMobileChart(candles, trades) {
     } catch(e){}
 
     // ─── Mausrad über Price-Axis = vertikaler Zoom (TradingView-Style) ───
-    // Reliable Approach: scaleMargins der Price-Scale per Wheel anpassen.
-    // Wheel up = Margins schrumpfen (Daten füllen mehr Chart-Höhe → "Zoom in")
-    // Wheel down = Margins wachsen (Daten werden vertikal komprimiert → "Zoom out")
+    // Reset auf Default scaleMargins (von eventuellem alten Build-Run mit Margin-Tweaking)
+    try { _mobileCandleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } }); } catch(_){}
+    // Wheel → synthetischer Drag auf der Price-Axis. LWC v4 hängt seine Handler an
+    // das Eltern-DIV der Axis-Canvas; nach mousedown hört es zusätzlich window ab.
     try {
       container.addEventListener('wheel', (e) => {
-        if (!_mobileChart || !_mobileCandleSeries) return;
+        if (!_mobileChart) return;
         const rect = container.getBoundingClientRect();
         const axisWidth = (_mobileChart.priceScale('right').width() || 60);
         const xRel = e.clientX - rect.left;
@@ -18919,18 +18920,49 @@ function renderMobileChart(candles, trades) {
         e.preventDefault();
         e.stopPropagation();
 
-        const ps = _mobileCandleSeries.priceScale();
-        const opts = ps.options() || {};
-        const sm = opts.scaleMargins || { top: 0.1, bottom: 0.1 };
-        // Wheel-Delta: positiv = nach unten = zoom out (Margins +); negativ = nach oben = zoom in (Margins −)
-        const dir = e.deltaY > 0 ? +1 : -1;
-        const step = 0.05;
-        const newTop = Math.max(0.0, Math.min(0.45, (sm.top || 0.1) + dir * step));
-        const newBot = Math.max(0.0, Math.min(0.45, (sm.bottom || 0.1) + dir * step));
+        // Right-most Axis-Canvas suchen
+        const canvases = container.querySelectorAll('canvas');
+        let axisCanvas = null;
+        for (const c of canvases) {
+          const cr = c.getBoundingClientRect();
+          if (cr.right >= rect.right - 4 && cr.width < rect.width * 0.5 && cr.width > 0) {
+            axisCanvas = c; break;
+          }
+        }
+        if (!axisCanvas) axisCanvas = canvases[canvases.length - 1];
+        if (!axisCanvas) return;
+
+        // Eltern-Element ist das Pane-DIV — DA hängt LWC seinen mousedown-Listener dran
+        const pane = axisCanvas.parentElement || axisCanvas;
+
+        // Drag-Distanz proportional zur Wheel-Stärke. wheel up (-) = drag up = zoom in
+        const dragPx = Math.sign(e.deltaY) * 40;
+        const cx = rect.right - axisWidth / 2;
+        const startY = rect.top + rect.height / 2;
+        const endY = startY + dragPx;
+
+        const base = { bubbles: true, cancelable: true, view: window, clientX: cx, screenX: cx, button: 0 };
+
+        // 1) mousedown → das Pane-Element (so trifft LWCs Listener)
         try {
-          ps.applyOptions({ scaleMargins: { top: newTop, bottom: newBot } });
+          pane.dispatchEvent(new MouseEvent('mousedown', { ...base, clientY: startY, screenY: startY, buttons: 1 }));
         } catch(_){}
-        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 30);
+        // Pointer-Variante parallel (manche LWC-Builds präferieren Pointer auf Hybrid-Geräten)
+        try {
+          pane.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientY: startY, screenY: startY, buttons: 1, pointerType: 'mouse', pointerId: 1, isPrimary: true }));
+        } catch(_){}
+
+        // 2) mousemove + mouseup → window (LWC bindet diese erst nach mousedown an window)
+        try {
+          window.dispatchEvent(new MouseEvent('mousemove', { ...base, clientY: endY, screenY: endY, buttons: 1 }));
+          window.dispatchEvent(new MouseEvent('mouseup',   { ...base, clientY: endY, screenY: endY, buttons: 0 }));
+        } catch(_){}
+        try {
+          window.dispatchEvent(new PointerEvent('pointermove', { ...base, clientY: endY, screenY: endY, buttons: 1, pointerType: 'mouse', pointerId: 1, isPrimary: true }));
+          window.dispatchEvent(new PointerEvent('pointerup',   { ...base, clientY: endY, screenY: endY, buttons: 0, pointerType: 'mouse', pointerId: 1, isPrimary: true }));
+        } catch(_){}
+
+        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 0);
       }, { passive: false });
     } catch(e){}
   }
@@ -40054,7 +40086,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 03:05 UTC';
+const APP_BUILD = '2026-05-17 03:20 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
