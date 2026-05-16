@@ -18758,7 +18758,10 @@ function updateFavUI() {
 // ═══════════════════════════════════════════════
 let _mobileChart = null;
 let _mobileCandleSeries = null;
-let _mobileVZoom = 1.0;  // Vertikaler Zoom-Faktor für Mausrad-über-Price-Axis (1=normal, <1=zoom-in, >1=zoom-out)
+// Absoluter Y-Range-Lock (Preis-Einheiten) — unabhängig von X-Zoom
+let _mobileVZoomCenter = null;     // Preis-Mittelpunkt
+let _mobileVZoomHalfSpan = null;   // halbe Preisspanne (max - center)
+let _mobileVZoom = 1.0;            // Legacy, nicht mehr aktiv genutzt
 let _mobileEmaSeries = null;
 let _mobileLastData = null;
 let _mobileChartInitialized = false;
@@ -18905,54 +18908,90 @@ function renderMobileChart(candles, trades) {
       }
     } catch(e){}
 
-    // ─── Mausrad über Price-Axis = vertikaler Zoom (TradingView-Style) ───
-    // Approach: autoscaleInfoProvider auf der Candle-Series gibt uns volle Kontrolle
-    // über das Price-Range. Wheel ändert einen Zoom-Faktor — LWC ruft den Provider
-    // bei jedem Render auf und scaliert die Daten entsprechend.
-    // scaleMargins zurücksetzen (falls aus früheren Builds verbogen)
+    // ─── X- und Y-Achse VOLLSTÄNDIG entkoppeln ───
+    // Strategie: autoscaleInfoProvider liefert IMMER den gelockten Y-Bereich zurück
+    // (absolute Preis-Werte, nicht aus dem aktuellen Auto-Fit abgeleitet).
+    // → Time-Zoom auf Body ändert NUR X (Provider gibt unveränderten Y-Range zurück)
+    // → Wheel auf Price-Axis ändert NUR halfSpan (Y zoomt um Center)
+    // → Doppelklick auf Axis: Lock leeren → einmaliges Auto-Fit → neu locken
     try { _mobileCandleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 }, autoScale: true }); } catch(_){}
 
-    _mobileVZoom = (typeof _mobileVZoom === 'number') ? _mobileVZoom : 1.0;
     try {
       _mobileCandleSeries.applyOptions({
         autoscaleInfoProvider: (originalProvider) => {
           const res = originalProvider();
-          if (!res || !res.priceRange) return res;
-          const min = res.priceRange.minValue;
-          const max = res.priceRange.maxValue;
-          if (!isFinite(min) || !isFinite(max) || max <= min) return res;
-          const center = (min + max) / 2;
-          const halfSpan = (max - min) / 2 * _mobileVZoom;
-          return {
-            priceRange: { minValue: center - halfSpan, maxValue: center + halfSpan },
-            margins: res.margins
-          };
+          // Lock gesetzt → absolute fixe Y-Range zurückgeben, unabhängig vom Time-Window
+          if (_mobileVZoomCenter != null && _mobileVZoomHalfSpan != null && _mobileVZoomHalfSpan > 0) {
+            return {
+              priceRange: {
+                minValue: _mobileVZoomCenter - _mobileVZoomHalfSpan,
+                maxValue: _mobileVZoomCenter + _mobileVZoomHalfSpan
+              },
+              margins: res ? res.margins : { above: 10, below: 10 }
+            };
+          }
+          // Kein Lock → normales Auto-Fit
+          return res;
         }
       });
     } catch(_){}
+
+    // Initial-Lock: nach Erst-Render aktuellen Y-Range einfangen und einfrieren
+    function _captureMobileYLock() {
+      if (!_mobileChart || !_mobileCandleSeries) return;
+      const cont = document.getElementById('mobileChartContainer');
+      if (!cont) return;
+      const ch = cont.clientHeight;
+      if (!ch) return;
+      const top = _mobileCandleSeries.coordinateToPrice(0);
+      const bot = _mobileCandleSeries.coordinateToPrice(ch);
+      if (top == null || bot == null) return;
+      const lo = Math.min(top, bot), hi = Math.max(top, bot);
+      if (!isFinite(lo) || !isFinite(hi) || hi <= lo) return;
+      _mobileVZoomCenter = (lo + hi) / 2;
+      _mobileVZoomHalfSpan = (hi - lo) / 2;
+    }
+    // Expose für setData-Pfade (Coin-Wechsel)
+    window._captureMobileYLock = _captureMobileYLock;
+    window._releaseMobileYLock = function() {
+      _mobileVZoomCenter = null;
+      _mobileVZoomHalfSpan = null;
+    };
+    setTimeout(_captureMobileYLock, 400);
 
     // Wheel-Handler: CAPTURE-Phase damit LWCs eigener Wheel-Zoom (Time-Axis) das Event NICHT mehr sieht
     try {
       container.addEventListener('wheel', (e) => {
         if (!_mobileChart || !_mobileCandleSeries) return;
         const rect = container.getBoundingClientRect();
-        // Axis-Breite robust ermitteln — die API gibt manchmal 0 oder absurde Werte zurück
         let axisWidth = 70;
         try {
           const aw = _mobileChart.priceScale('right').width();
           if (typeof aw === 'number' && aw >= 20 && aw <= 150) axisWidth = aw;
         } catch(_){}
         const xRel = e.clientX - rect.left;
-        // Strenge Boundary: nur die rechtesten axisWidth Pixel zählen als "über Price-Axis"
         const axisLeft = rect.width - axisWidth;
         const overPriceAxis = xRel >= axisLeft && xRel <= rect.width;
-        if (!overPriceAxis) return;  // ausserhalb → normales Wheel (Time-Zoom) durchlassen
+        if (!overPriceAxis) return;  // Body-Wheel → normales Time-Zoom
         e.preventDefault();
         e.stopImmediatePropagation();
 
-        // Wheel up = zoom in (halfSpan schrumpfen) | wheel down = zoom out
-        const factor = e.deltaY > 0 ? 1.10 : 0.91;  // ~10% pro Tick
-        _mobileVZoom = Math.max(0.05, Math.min(20, _mobileVZoom * factor));
+        // Falls noch kein Lock aktiv → aus aktuellem sichtbaren Bereich initialisieren
+        if (_mobileVZoomCenter == null || _mobileVZoomHalfSpan == null) {
+          const ch = container.clientHeight;
+          const top = _mobileCandleSeries.coordinateToPrice(0);
+          const bot = _mobileCandleSeries.coordinateToPrice(ch);
+          if (top != null && bot != null) {
+            const lo = Math.min(top, bot), hi = Math.max(top, bot);
+            _mobileVZoomCenter = (lo + hi) / 2;
+            _mobileVZoomHalfSpan = (hi - lo) / 2;
+          }
+        }
+        if (_mobileVZoomHalfSpan == null || _mobileVZoomHalfSpan <= 0) return;
+
+        // Wheel up (-) = zoom in (halfSpan schrumpft) | wheel down (+) = zoom out
+        const factor = e.deltaY > 0 ? 1.10 : 0.91;
+        _mobileVZoomHalfSpan = Math.max(_mobileVZoomCenter * 0.0001, _mobileVZoomHalfSpan * factor);
         try {
           _mobileCandleSeries.priceScale().applyOptions({ autoScale: true });
           _mobileCandleSeries.applyOptions({});
@@ -18960,7 +18999,7 @@ function renderMobileChart(candles, trades) {
         if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 20);
       }, { passive: false, capture: true });
 
-      // Doppelklick auf Price-Axis = Reset auf 1.0 (Auto-Fit)
+      // Doppelklick auf Price-Axis = Lock lösen, einmalig Auto-Fit, dann neu locken
       container.addEventListener('dblclick', (e) => {
         if (!_mobileChart || !_mobileCandleSeries) return;
         const rect = container.getBoundingClientRect();
@@ -18972,12 +19011,18 @@ function renderMobileChart(candles, trades) {
         const xRel = e.clientX - rect.left;
         if (xRel < rect.width - axisWidth) return;
         e.preventDefault();
-        _mobileVZoom = 1.0;
+        _mobileVZoomCenter = null;
+        _mobileVZoomHalfSpan = null;
         try {
           _mobileCandleSeries.priceScale().applyOptions({ autoScale: true });
           _mobileCandleSeries.applyOptions({});
         } catch(_){}
-        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 20);
+        // Nach Auto-Fit (nächster Frame) neu locken auf den frischen Bereich
+        setTimeout(() => {
+          if (typeof window._captureMobileYLock === 'function') window._captureMobileYLock();
+          try { _mobileCandleSeries.applyOptions({}); } catch(_){}
+        }, 80);
+        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 100);
       });
     } catch(e){}
   }
@@ -19004,14 +19049,20 @@ function renderMobileChart(candles, trades) {
   const sig = data.length + '|' + (firstC ? firstC.time : '') + '|' + (lastC ? (lastC.time + ':' + lastC.close) : '');
 
   if (!_mobileChartInitialized) {
-    // ERSTER Render — Full setData + fitContent (mit autoScale temporär an)
+    // ERSTER Render — fresh Auto-Fit, dann Y-Range capturen + locken
     try { _mobileChart.priceScale('right').applyOptions({ autoScale: true }); } catch(e){}
+    // Y-Lock leeren damit Provider erstes Auto-Fit durchlässt
+    _mobileVZoomCenter = null; _mobileVZoomHalfSpan = null;
     _mobileCandleSeries.setData(data);
     try { _mobileChart.timeScale().fitContent(); } catch(e) {}
-    // Nach Init: autoScale ausschalten damit User vertikal pannen kann
+    // Nach Auto-Fit den aktuellen Y-Range einfrieren — autoScale bleibt true,
+    // damit der Provider weiter feuert und den gelockten Range zurückgibt
     setTimeout(() => {
-      try { if (_mobileChart) _mobileChart.priceScale('right').applyOptions({ autoScale: false }); } catch(e){}
-    }, 300);
+      try {
+        if (typeof window._captureMobileYLock === 'function') window._captureMobileYLock();
+        if (_mobileCandleSeries) _mobileCandleSeries.applyOptions({});
+      } catch(e){}
+    }, 400);
     _mobileChartInitialized = true;
   } else if (sig !== _mobileLastCandleSig) {
     // Daten haben sich geaendert — pruefe was sich aendert
@@ -19105,6 +19156,9 @@ function resetMobileChart() {
   _mobileChartInitialized = false;
   _mobileLastCandleSig = '';
   _mobileLastMarkerSig = '';
+  // Y-Range-Lock zurücksetzen — neuer Coin hat eigenen Preisbereich
+  _mobileVZoomCenter = null;
+  _mobileVZoomHalfSpan = null;
   // Indikator-Series aufraeumen (Sentinels überspringen — keine echte Series)
   try {
     if (_mobileIndicatorSeries && _mobileChart) {
@@ -40101,7 +40155,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 03:55 UTC';
+const APP_BUILD = '2026-05-17 04:15 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
