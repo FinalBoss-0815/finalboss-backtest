@@ -936,6 +936,60 @@ html.is-mobile-device .mobile-only-draw-toolbar { display: flex; }
   display: none;
   touch-action: none;  /* Drag-Drawing: kein Pan/Scroll bei Touch-Gesten */
 }
+/* Zentrierter Placement-Cursor — TradingView-Style präzise Positionierung */
+.mobile-place-cursor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 92;
+  display: none;
+}
+html.is-mobile-device .mobile-place-cursor.active { display: block; }
+.mobile-place-cursor .mpc-hline,
+.mobile-place-cursor .mpc-vline {
+  position: absolute;
+  background: #fbbf24;
+  opacity: 0.85;
+}
+.mobile-place-cursor .mpc-hline { left: 0; right: 0; height: 1px; top: 50%; }
+.mobile-place-cursor .mpc-vline { top: 0; bottom: 0; width: 1px; left: 50%; }
+.mobile-place-cursor .mpc-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 22px; height: 22px;
+  border: 2px solid #fbbf24; border-radius: 50%;
+  background: rgba(13,17,23,0.7);
+  box-shadow: 0 0 0 2px rgba(251,191,36,0.25);
+}
+.mobile-place-cursor .mpc-center::after {
+  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 4px; height: 4px; background: #fbbf24; border-radius: 50%;
+}
+.mobile-place-cursor .mpc-info {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(20px, -30px);
+  background: rgba(13,17,23,0.92); border: 1px solid #fbbf24;
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 11px; font-weight: 700; color: #fbbf24;
+  font-family: monospace; white-space: nowrap;
+}
+.mobile-place-cursor .mpc-confirm {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, 30px);
+  pointer-events: auto;
+  background: #22c55e; border: 1px solid #16a34a; color: #0a0a0a;
+  font-weight: 700; font-size: 13px;
+  padding: 8px 16px; border-radius: 6px; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.mobile-place-cursor .mpc-confirm:hover { background: #16a34a; }
+.mobile-place-cursor .mpc-cancel {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, 72px);
+  pointer-events: auto;
+  background: rgba(127,29,29,0.85); border: 1px solid #b91c1c; color: #fff;
+  font-size: 11px; font-weight: 600;
+  padding: 5px 12px; border-radius: 5px; cursor: pointer;
+}
 html.is-mobile-device .mobile-only-chart-overlay { display: block; }
 .mobile-only-draw-hint {
   display: none;
@@ -2454,6 +2508,18 @@ input[type=number] { -moz-appearance:textfield }
           <button id="mobileCoinBtn" onclick="openMobileCoinPicker()" aria-label="Coin wählen"><span id="mobileCoinBtnLabel">BTC</span> ▾</button>
           <select id="mobileCoinSelect" onchange="onMobileCoinChange()" aria-label="Coin wählen" style="display:none"></select>
           <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
+          <select id="mobileTzSelect" onchange="setMobileChartTimezone(this.value)" aria-label="Zeitzone" title="Zeitzone für Chart-Anzeige">
+            <option value="local">Lokal</option>
+            <option value="UTC">UTC</option>
+            <option value="Europe/Zurich">CH (CET/CEST)</option>
+            <option value="Europe/London">London</option>
+            <option value="America/New_York">New York</option>
+            <option value="America/Los_Angeles">LA</option>
+            <option value="Asia/Tokyo">Tokyo</option>
+            <option value="Asia/Hong_Kong">Hong Kong</option>
+            <option value="Asia/Singapore">Singapore</option>
+            <option value="Australia/Sydney">Sydney</option>
+          </select>
           <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
           <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 VS</button>
           <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
@@ -2558,6 +2624,25 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <!-- Overlay Canvas für Free-Form Zeichnungen (Trendlinien, Rechtecke, Fibo) -->
         <canvas id="mobileDrawOverlay" class="mobile-only-chart-overlay"></canvas>
+        <!-- Placement-Cursor (mittiger Crosshair für präzise Position) -->
+        <div id="mobilePlaceCursor" class="mobile-place-cursor">
+          <div class="mpc-hline"></div>
+          <div class="mpc-vline"></div>
+          <div class="mpc-center"></div>
+          <div class="mpc-info" id="mpcInfo">—</div>
+          <button class="mpc-confirm" onclick="confirmMobilePlacement()">✓ Setzen</button>
+          <button class="mpc-cancel" onclick="cancelMobilePlacement()">Abbrechen</button>
+        </div>
+        <!-- Emoji-Picker Modal -->
+        <div id="mobileEmojiPicker" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:flex-start;justify-content:center;padding-top:8vh">
+          <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;width:90%;max-width:380px;max-height:75vh;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #1f2937">
+              <div style="font-size:14px;font-weight:700;color:#e6edf3">Emoji wählen</div>
+              <button onclick="closeMobileEmojiPicker()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;padding:0 4px">✕</button>
+            </div>
+            <div id="mobileEmojiGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:12px;overflow-y:auto"></div>
+          </div>
+        </div>
         <!-- Hint-Banner während Zeichnung -->
         <div id="mobileDrawHint" class="mobile-only-draw-hint"></div>
         <!-- Settings-Panel für ausgewählte Zeichnung -->
@@ -2707,6 +2792,10 @@ input[type=number] { -moz-appearance:textfield }
           <!-- Visibility -->
           <button class="tv-util-btn" onclick="toggleDrawVisibility()" id="visBtn" title="Ein-/Ausblenden">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <!-- Eraser / Hammer — Tap zum Löschen einer Zeichnung -->
+          <button class="tv-util-btn" onclick="toggleMobileEraser()" id="eraserBtn" title="Eraser — tippe auf Zeichnung zum Löschen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h17"/><path d="M21 3l-9 9-7-7 7-7"/><path d="M14.5 5.5l4 4"/></svg>
           </button>
 
           <div class="tv-toolbar-sep"></div>
@@ -18666,6 +18755,55 @@ function _isMobile() {
 // Beim Page-Load sofort initialisieren damit Klasse vor allem anderen gesetzt ist
 _isMobile();
 
+// ═══════════════════════════════════════════════
+// CHART-TIMEZONE: User-konfigurierbare Anzeige-Zeitzone
+// ═══════════════════════════════════════════════
+// Lightweight Charts speichert Zeiten als UTC-Sekunden. Mit timeFormatter / tickMarkFormatter
+// können wir die Display-Strings in beliebiger Zeitzone rendern.
+let _mobileChartTz = 'local';   // 'local' | 'UTC' | 'Europe/Zurich' | etc.
+try { _mobileChartTz = localStorage.getItem('fb_mobileChartTz') || 'local'; } catch(e){}
+
+function _mobileFormatTime(timeSec, format) {
+  const d = new Date(timeSec * 1000);
+  const tz = _mobileChartTz;
+  try {
+    const opts = (format === 'tickMark')
+      ? { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit', hour12: false }
+      : { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
+    if (tz !== 'local') opts.timeZone = (tz === 'UTC' ? 'UTC' : tz);
+    return new Intl.DateTimeFormat('de-DE', opts).format(d);
+  } catch(e) {
+    return d.toLocaleString();
+  }
+}
+
+function setMobileChartTimezone(tz) {
+  _mobileChartTz = tz || 'local';
+  try { localStorage.setItem('fb_mobileChartTz', _mobileChartTz); } catch(e){}
+  if (_mobileChart) {
+    try {
+      _mobileChart.applyOptions({
+        localization: {
+          locale: 'de-DE',
+          timeFormatter: (t) => _mobileFormatTime(t, 'tooltip')
+        },
+        timeScale: {
+          tickMarkFormatter: (t) => _mobileFormatTime(t, 'tickMark')
+        }
+      });
+    } catch(e){}
+  }
+  // Dropdown-UI synchronisieren
+  const sel = document.getElementById('mobileTzSelect');
+  if (sel && sel.value !== _mobileChartTz) sel.value = _mobileChartTz;
+  try {
+    if (typeof showToast === 'function') {
+      const label = tz === 'local' ? 'Lokale Zeitzone' : tz;
+      showToast('Zeitzone: ' + label, 'info');
+    }
+  } catch(e){}
+}
+
 function renderMobileChart(candles, trades) {
   if (typeof LightweightCharts === 'undefined') {
     // Library noch nicht geladen → später versuchen
@@ -18691,7 +18829,12 @@ function renderMobileChart(candles, trades) {
         secondsVisible: false,
         borderColor: '#1f2937',
         rightOffset: 5,
-        lockVisibleTimeRangeOnResize: false
+        lockVisibleTimeRangeOnResize: false,
+        tickMarkFormatter: (t) => _mobileFormatTime(t, 'tickMark')
+      },
+      localization: {
+        locale: 'de-DE',
+        timeFormatter: (t) => _mobileFormatTime(t, 'tooltip')
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
@@ -20492,10 +20635,267 @@ function initMobileChartToolbar() {
     const totalCoins = coinSel.querySelectorAll('option').length;
     cntEl.textContent = '(' + totalCoins + ')';
   }
+  // Zeitzonen-Dropdown auf gespeicherten Wert setzen
+  const tzSel = document.getElementById('mobileTzSelect');
+  if (tzSel && _mobileChartTz) tzSel.value = _mobileChartTz;
 }
 // Beim Laden initialisieren — etwas Delay damit DOM ready ist
 window.addEventListener('DOMContentLoaded', () => {
   setTimeout(initMobileChartToolbar, 100);
+});
+
+// ═══════════════════════════════════════════════
+// PLACEMENT-CURSOR — TradingView-style präzise Positionierung
+// ═══════════════════════════════════════════════
+// Tool wählen → mittiger Crosshair erscheint → User pant Chart bis Position passt → "Setzen"
+let _mobilePlacement = null;  // { tool, pointsCollected: [{time, price}] }
+
+function _getChartCenterTP() {
+  const container = document.getElementById('mobileChartContainer');
+  if (!container || !_mobileChart || !_mobileCandleSeries) return null;
+  const rect = container.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const time = _mobileChart.timeScale().coordinateToTime(cx);
+  const price = _mobileCandleSeries.coordinateToPrice(cy);
+  if (time == null || price == null) return null;
+  // ── MAGNET-Snap: auf nächste OHLC der Center-Kerze snappen ──
+  let outPrice = price;
+  if (typeof drawMagnet !== 'undefined' && drawMagnet) {
+    const candles = (_mobileLastData && _mobileLastData.candles) || [];
+    if (candles.length > 0) {
+      // Finde Kerze deren ts (in sek) am nächsten an `time` liegt
+      let best = candles[0], bestDist = Infinity;
+      for (const c of candles) {
+        const ct = Math.floor((c.ts || c.time || 0) / 1000);
+        const d = Math.abs(ct - time);
+        if (d < bestDist) { bestDist = d; best = c; }
+      }
+      if (best) {
+        const cands = [best.open, best.high, best.low, best.close];
+        let snap = outPrice, minD = Infinity;
+        for (const v of cands) {
+          const dd = Math.abs(v - outPrice);
+          if (dd < minD) { minD = dd; snap = v; }
+        }
+        outPrice = snap;
+      }
+    }
+  }
+  return { time, price: outPrice };
+}
+
+// ═══════════════════════════════════════════════
+// MAGNET-Toggle: Bridge zur Desktop-Funktion + visuelles Feedback
+// ═══════════════════════════════════════════════
+// (toggleMagnet() existiert bereits global — wir hooken hier nur visuell)
+(function _wireMobileMagnet(){
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('magnetBtn');
+    if (!btn) return;
+    // Init-State setzen
+    btn.classList.toggle('active', typeof drawMagnet !== 'undefined' && !!drawMagnet);
+    // Patch toggleMagnet to also update placement-cursor live
+    const orig = window.toggleMagnet;
+    if (typeof orig === 'function') {
+      window.toggleMagnet = function() {
+        orig();
+        // Force placement-cursor info refresh
+        if (typeof _updateMobilePlacementInfo === 'function') _updateMobilePlacementInfo();
+        // Visuelles Feedback
+        const b = document.getElementById('magnetBtn');
+        if (b) {
+          b.classList.toggle('active', !!drawMagnet);
+          b.style.color = drawMagnet ? '#fbbf24' : '';
+        }
+        try { if (typeof showToast === 'function') showToast('Magnet ' + (drawMagnet ? 'an (OHLC-Snap)' : 'aus'), 'info'); } catch(e){}
+      };
+    }
+  });
+})();
+
+// ═══════════════════════════════════════════════
+// ERASER / HAMMER — Tap auf Zeichnung zum Löschen
+// ═══════════════════════════════════════════════
+let _mobileEraserActive = false;
+function toggleMobileEraser() {
+  _mobileEraserActive = !_mobileEraserActive;
+  const btn = document.getElementById('eraserBtn');
+  if (btn) {
+    btn.classList.toggle('active', _mobileEraserActive);
+    btn.style.color = _mobileEraserActive ? '#ef4444' : '';
+  }
+  // Cancel any active placement
+  if (_mobileEraserActive) {
+    if (typeof cancelMobilePlacement === 'function') cancelMobilePlacement();
+    // Overlay-Pointer aktivieren um Taps abzufangen
+    const overlay = document.getElementById('mobileDrawOverlay');
+    if (overlay) overlay.style.pointerEvents = 'auto';
+    try { if (typeof showToast === 'function') showToast('Eraser an — tippe auf Zeichnung zum Löschen', 'info'); } catch(e){}
+  } else {
+    const overlay = document.getElementById('mobileDrawOverlay');
+    if (overlay) overlay.style.pointerEvents = 'none';
+    try { if (typeof showToast === 'function') showToast('Eraser aus', 'info'); } catch(e){}
+  }
+}
+
+function _updateMobilePlacementInfo() {
+  if (!_mobilePlacement) return;
+  const tp = _getChartCenterTP();
+  const info = document.getElementById('mpcInfo');
+  if (!info) return;
+  if (!tp) { info.textContent = '—'; return; }
+  const d = new Date(tp.time * 1000);
+  const tz = _mobileChartTz || 'local';
+  let timeStr;
+  try {
+    const opts = { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit', hour12: false };
+    if (tz !== 'local') opts.timeZone = (tz === 'UTC' ? 'UTC' : tz);
+    timeStr = new Intl.DateTimeFormat('de-DE', opts).format(d);
+  } catch(e) { timeStr = d.toLocaleString(); }
+  info.textContent = tp.price.toFixed(2) + ' · ' + timeStr;
+}
+
+function startMobilePlacement(tool) {
+  _mobilePlacement = { tool, pointsCollected: [] };
+  const pc = document.getElementById('mobilePlaceCursor');
+  if (pc) pc.classList.add('active');
+  _updateMobilePlacementInfo();
+  // Auf jede Chart-Bewegung das Info-Display updaten
+  try {
+    if (_mobileChart && !_mobileChart._placementHook) {
+      _mobileChart._placementHook = true;
+      _mobileChart.timeScale().subscribeVisibleTimeRangeChange(_updateMobilePlacementInfo);
+    }
+  } catch(e){}
+}
+
+function cancelMobilePlacement() {
+  _mobilePlacement = null;
+  const pc = document.getElementById('mobilePlaceCursor');
+  if (pc) pc.classList.remove('active');
+  // Tool zurück auf Cursor
+  try { setMobileDrawTool('cursor', null); } catch(e){}
+}
+
+function confirmMobilePlacement() {
+  if (!_mobilePlacement) return;
+  const tp = _getChartCenterTP();
+  if (!tp) return;
+  const tool = _mobilePlacement.tool;
+  _mobilePlacement.pointsCollected.push({ time: tp.time, price: tp.price });
+  const need = MDT_POINT_COUNT[tool] || 2;
+  const points = _mobilePlacement.pointsCollected;
+
+  if (points.length >= need) {
+    _commitMobilePlacement(tool, points);
+    _mobilePlacement = null;
+    const pc = document.getElementById('mobilePlaceCursor');
+    if (pc) pc.classList.remove('active');
+    setMobileDrawTool('cursor', null);
+  } else {
+    // Weiter sammeln — Hint updaten
+    const info = document.getElementById('mpcInfo');
+    if (info) info.textContent += '  (Punkt ' + (points.length) + '/' + need + ' gesetzt)';
+    try { if (typeof showToast === 'function') showToast('Punkt ' + points.length + ' von ' + need + ' gesetzt', 'success'); } catch(e){}
+  }
+}
+
+function _commitMobilePlacement(tool, points) {
+  const p1 = points[0], p2 = points[1], p3 = points[2];
+
+  // 1-Punkt Tools
+  if (tool === 'hline') {
+    try {
+      const pl = _mobileCandleSeries.createPriceLine({ price: p1.price, color: '#06b6d4', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: p1.price.toFixed(2) });
+      _mobilePriceLines.push(pl);
+      _mobileDrawings.push({ type:'hline', p1, color:'#06b6d4', width:2, lineStyle:'solid', _priceLineRef: pl });
+    } catch(e){}
+    redrawMobileOverlay(); return;
+  }
+  if (tool === 'vline') { _mobileDrawings.push({ type:'vline', p1, color:MDT_COLORS.vline, width:2, lineStyle:'solid' }); redrawMobileOverlay(); return; }
+  if (tool === 'crossmark') { _mobileDrawings.push({ type:'crossmark', p1, color:MDT_COLORS.crossmark }); redrawMobileOverlay(); return; }
+  if (tool === 'pricelabel') { _mobileDrawings.push({ type:'pricelabel', p1, color:MDT_COLORS.pricelabel, fontSize:11 }); redrawMobileOverlay(); return; }
+  if (tool === 'text' || tool === 'anchtext' || tool === 'label') {
+    const txt = prompt(tool === 'text' ? 'Text:' : tool === 'anchtext' ? 'Verankerter Text:' : 'Label-Text:', '');
+    if (txt && txt.trim()) {
+      _mobileDrawings.push({ type:tool, p1, text:txt.trim(), color:MDT_COLORS[tool] || '#fff', fontSize: tool === 'label' ? 11 : 13 });
+      redrawMobileOverlay();
+    }
+    return;
+  }
+  if (tool === 'emoji') {
+    openMobileEmojiPicker(p1);
+    return;
+  }
+  // 2-Punkt Tools
+  if (p2 && (tool === 'trendline' || tool === 'ray' || tool === 'rect' || tool === 'fibo' || tool === 'arrow' ||
+             tool === 'ellipse' || tool === 'infline' || tool === 'trendangle' || tool === 'srline' || tool === 'flattop' ||
+             tool === 'fibext' || tool === 'fibfan' || tool === 'fibtime' || tool === 'measure' || tool === 'daterange' ||
+             tool === 'infoline' || tool === 'disjointchan' || tool === 'fibchannel' || tool === 'fibarc' ||
+             tool === 'highlighter' || tool === 'regchannel' || tool === 'gannfan' || tool === 'gannbox' || tool === 'callout')) {
+    const d = { type:tool, p1, p2, color:MDT_COLORS[tool] || '#06b6d4', width:2, lineStyle:'solid' };
+    if (tool === 'fibo') d.levels = MDS_FIB_DEFAULT_LEVELS.slice();
+    if (tool === 'rect' || tool === 'flattop' || tool === 'gannbox' || tool === 'callout') d.fillOpacity = 0.15;
+    if (tool === 'highlighter') d.width = 12;
+    if (tool === 'callout') d.text = prompt('Callout-Text:', 'Info') || 'Info';
+    _mobileDrawings.push(d); redrawMobileOverlay(); return;
+  }
+  // 3-Punkt Tools
+  if (p2 && p3 && (tool === 'channel' || tool === 'pitchfork' || tool === 'triangle' || tool === 'longPos' || tool === 'shortPos')) {
+    const d = { type:tool, p1, p2, p3, color:MDT_COLORS[tool] || '#06b6d4', width:2, lineStyle:'solid', fillOpacity: 0.15 };
+    _mobileDrawings.push(d); redrawMobileOverlay(); return;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// EMOJI-PICKER — Modal mit Trading-relevanten Emojis
+// ═══════════════════════════════════════════════
+const MOBILE_EMOJI_LIST = [
+  // Trading-Sentiment
+  '📈','📉','🚀','🎯','⚡','🔥','💎','💰','📊','🐂',
+  '🐻','💸','💵','🤑','💹','🏦','⛔','✅','❌','⚠️',
+  // Status
+  '🔴','🟢','🟡','🔵','⭐','🌟','🌈','☀️','🌙','⚪',
+  // Moods
+  '👀','🤔','💪','🏆','🎰','🌊','⏰','📌','🔔','🎪',
+  '☠️','💀','🤡','👻','🦄','🧨','🎬','🎭','🎨','🎲',
+  // Marker
+  '👆','👇','👈','👉','🔼','🔽','◀','▶','⏫','⏬',
+  // Spezial
+  '🦋','🐍','🦁','🐺','🐉','🌋','💧','💯','♻️','💤'
+];
+let _mobileEmojiTargetPoint = null;
+
+function openMobileEmojiPicker(p1) {
+  _mobileEmojiTargetPoint = p1 || null;
+  const modal = document.getElementById('mobileEmojiPicker');
+  const grid = document.getElementById('mobileEmojiGrid');
+  if (!modal || !grid) return;
+  grid.innerHTML = MOBILE_EMOJI_LIST.map(e =>
+    `<button onclick="pickMobileEmoji('${e}')" style="background:#1c2333;border:1px solid #1f2937;border-radius:6px;padding:8px 4px;font-size:22px;cursor:pointer;transition:all 0.12s" onmouseover="this.style.background='rgba(245,158,11,0.18)';this.style.borderColor='#f59e0b'" onmouseout="this.style.background='#1c2333';this.style.borderColor='#1f2937'" aria-label="Emoji ${e}">${e}</button>`
+  ).join('');
+  modal.style.display = 'flex';
+}
+
+function closeMobileEmojiPicker() {
+  const modal = document.getElementById('mobileEmojiPicker');
+  if (modal) modal.style.display = 'none';
+}
+
+function pickMobileEmoji(emoji) {
+  if (_mobileEmojiTargetPoint) {
+    _mobileDrawings.push({ type:'emoji', p1: _mobileEmojiTargetPoint, text: emoji, color: '#fff', fontSize: 28 });
+    redrawMobileOverlay();
+  }
+  _mobileEmojiTargetPoint = null;
+  closeMobileEmojiPicker();
+}
+
+// Backdrop schliesst Picker
+document.addEventListener('DOMContentLoaded', () => {
+  const m = document.getElementById('mobileEmojiPicker');
+  if (m) m.addEventListener('click', (e) => { if (e.target === m) closeMobileEmojiPicker(); });
 });
 
 function onMobileCoinChange() {
@@ -20713,16 +21113,22 @@ function setMobileDrawTool(tool, btn) {
       hint.classList.add('show');
     }
   }
-  // Overlay-Canvas Touch-Capture an/aus
-  // Cursor-Mode: auto wenn etwas selektiert (für Anker-Drag), sonst none (Chart pannt)
-  // Andere Tools: immer auto (für Drag-Drawing)
+  // Eraser auto-deaktivieren wenn auf ein Drawing-Tool / Cursor gewechselt wird
+  if (_mobileEraserActive) {
+    _mobileEraserActive = false;
+    const eb = document.getElementById('eraserBtn');
+    if (eb) { eb.classList.remove('active'); eb.style.color = ''; }
+  }
+  // Overlay-Canvas + Placement-Cursor State
   const overlay = document.getElementById('mobileDrawOverlay');
-  if (overlay) {
-    if (tool === 'cursor') {
-      overlay.style.pointerEvents = (_mobileSelectedDrawing >= 0) ? 'auto' : 'none';
-    } else {
-      overlay.style.pointerEvents = 'auto';
-    }
+  const pc = document.getElementById('mobilePlaceCursor');
+  if (tool === 'cursor' || tool === 'delete') {
+    if (pc) pc.classList.remove('active');
+    _mobilePlacement = null;
+    if (overlay) overlay.style.pointerEvents = (_mobileSelectedDrawing >= 0) ? 'auto' : 'none';
+  } else {
+    if (overlay) overlay.style.pointerEvents = 'none';
+    if (typeof startMobilePlacement === 'function') startMobilePlacement(tool);
   }
 }
 
@@ -20790,18 +21196,23 @@ function redrawMobileOverlay() {
       ctx.strokeStyle = color; ctx.lineWidth = lw;
       ctx.beginPath(); ctx.moveTo(a.x, 0); ctx.lineTo(a.x, h); ctx.stroke();
     } else if (d.type === 'text') {
-      // Text-Label mit Hintergrund-Pill für Lesbarkeit
+      // Text-Label mit Hintergrund-Pill für Lesbarkeit + optionale Rotation
       const text = d.text || '';
       const fs = d.fontSize || 13;
+      const rot = (d.rotation || 0) * Math.PI / 180;
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      if (rot) ctx.rotate(rot);
       ctx.font = (isSelected ? 'bold ' : '') + fs + 'px Liberation Sans, Arial, sans-serif';
       const m = ctx.measureText(text);
       const pad = 5;
       ctx.fillStyle = 'rgba(13,17,23,0.85)';
-      ctx.fillRect(a.x - pad, a.y - fs - pad/2, m.width + pad * 2, fs + pad);
+      ctx.fillRect(-pad, -fs - pad/2, m.width + pad * 2, fs + pad);
       ctx.strokeStyle = color; ctx.lineWidth = 1;
-      ctx.strokeRect(a.x - pad, a.y - fs - pad/2, m.width + pad * 2, fs + pad);
+      ctx.strokeRect(-pad, -fs - pad/2, m.width + pad * 2, fs + pad);
       ctx.fillStyle = color;
-      ctx.fillText(text, a.x, a.y - 2);
+      ctx.fillText(text, 0, -2);
+      ctx.restore();
     } else if (d.p2) {
       const b = tp(d.p2.time, d.p2.price);
       if (b.x == null || b.y == null) continue;
@@ -21220,8 +21631,13 @@ function redrawMobileOverlay() {
     }
     else if (d.type === 'emoji') {
       const fs = d.fontSize || 24;
+      const rot = (d.rotation || 0) * Math.PI / 180;
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      if (rot) ctx.rotate(rot);
       ctx.font = fs + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(d.text || '😊', a.x, a.y);
+      ctx.fillText(d.text || '😊', 0, 0);
+      ctx.restore();
       ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
     }
     else if (d.type === 'anchtext') {
@@ -21519,6 +21935,25 @@ function initMobileDrawOverlay() {
 
   // ── TAP-Tools (1 Punkt): hline, vline, text + Channel-Step-2 ──
   overlay.addEventListener('click', (e) => {
+    // ── ERASER-Modus: Tap auf Zeichnung → löschen ──
+    if (_mobileEraserActive) {
+      const rect = overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const hit = hitTestMobileDrawings(x, y);
+      if (hit >= 0) {
+        const d = _mobileDrawings[hit];
+        // hline: native priceLine entfernen
+        if (d && d.type === 'hline' && d._priceLineRef && _mobileCandleSeries) {
+          try { _mobileCandleSeries.removePriceLine(d._priceLineRef); } catch(err){}
+          _mobilePriceLines = _mobilePriceLines.filter(pl => pl !== d._priceLineRef);
+        }
+        _mobileDrawings.splice(hit, 1);
+        redrawMobileOverlay();
+        try { if (typeof showToast === 'function') showToast('Zeichnung gelöscht', 'success'); } catch(err){}
+      }
+      return;
+    }
     if (_mobileDrawTool === 'cursor' || _mobileDrawTool === 'delete') return;
     // Wenn wir gerade gedragged haben → kein Click-Event verarbeiten
     if (_mobileJustFinishedDrag) { _mobileJustFinishedDrag = false; return; }
@@ -22164,6 +22599,54 @@ function showMobileDrawingSettings() {
       rrBox.style.display = 'none';
     }
   }
+  // Font-Size + Rotation — für Text/Emoji/Annotation-Tools
+  const TEXT_LIKE = ['text','anchtext','callout','label','pricelabel','emoji'];
+  const showTextProps = TEXT_LIKE.indexOf(d.type) >= 0;
+  let fsBox = document.getElementById('mdsFontSizeBox');
+  if (!fsBox && showTextProps) {
+    fsBox = document.createElement('div');
+    fsBox.id = 'mdsFontSizeBox';
+    fsBox.style.cssText = 'margin-top:4px';
+    const cr = document.getElementById('mdsColorRow');
+    if (cr && cr.parentNode) cr.parentNode.insertBefore(fsBox, cr.nextSibling);
+  }
+  if (fsBox) {
+    if (showTextProps) {
+      const fs = d.fontSize || (d.type === 'emoji' ? 28 : 13);
+      fsBox.style.display = 'block';
+      fsBox.innerHTML =
+        '<div class="mds-section-title">Schrift-Grösse</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<input type="range" class="mds-opacity-slider" min="8" max="80" value="' + fs + '" oninput="mdsSetFontSize(this.value)">' +
+        '<span style="font-size:10px;color:#9ca3af;min-width:34px;text-align:right">' + fs + 'px</span>' +
+        '</div>';
+    } else {
+      fsBox.style.display = 'none';
+    }
+  }
+  // Rotation — nur Emoji + Text/Label (alle text-like aber Drehung macht für vline/hline keinen Sinn)
+  let rotBox = document.getElementById('mdsRotationBox');
+  if (!rotBox && showTextProps) {
+    rotBox = document.createElement('div');
+    rotBox.id = 'mdsRotationBox';
+    rotBox.style.cssText = 'margin-top:4px';
+    const ref = document.getElementById('mdsFontSizeBox') || document.getElementById('mdsColorRow');
+    if (ref && ref.parentNode) ref.parentNode.insertBefore(rotBox, ref.nextSibling);
+  }
+  if (rotBox) {
+    if (showTextProps) {
+      const rot = d.rotation || 0;
+      rotBox.style.display = 'block';
+      rotBox.innerHTML =
+        '<div class="mds-section-title">Rotation</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<input type="range" class="mds-opacity-slider" min="-180" max="180" value="' + rot + '" oninput="mdsSetRotation(this.value)">' +
+        '<span style="font-size:10px;color:#9ca3af;min-width:34px;text-align:right">' + rot + '°</span>' +
+        '</div>';
+    } else {
+      rotBox.style.display = 'none';
+    }
+  }
   // Text-Editor — nur für Text-Drawings
   let textBox = document.getElementById('mdsTextBox');
   const showText = (d.type === 'text');
@@ -22343,9 +22826,30 @@ function mdsSetRR(targetRR) {
 // Text-Inhalt ändern
 function mdsSetText(val) {
   const d = _mobileDrawings[_mobileSelectedDrawing];
-  if (!d || d.type !== 'text') return;
+  if (!d) return;
   d.text = val;
   redrawMobileOverlay();
+}
+
+// Font-Size für Text/Emoji/Annotation-Tools
+function mdsSetFontSize(val) {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) return;
+  d.fontSize = parseInt(val) || 13;
+  redrawMobileOverlay();
+  // Live-Label updaten
+  const lbl = document.querySelector('#mdsFontSizeBox span');
+  if (lbl) lbl.textContent = d.fontSize + 'px';
+}
+
+// Rotation in Grad (-180 bis 180)
+function mdsSetRotation(val) {
+  const d = _mobileDrawings[_mobileSelectedDrawing];
+  if (!d) return;
+  d.rotation = parseInt(val) || 0;
+  redrawMobileOverlay();
+  const lbl = document.querySelector('#mdsRotationBox span');
+  if (lbl) lbl.textContent = d.rotation + '°';
 }
 
 function mdsDeleteSelected() {
@@ -39176,7 +39680,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 20:30 UTC';
+const APP_BUILD = '2026-05-16 22:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
