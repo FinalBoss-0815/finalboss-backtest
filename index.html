@@ -21801,9 +21801,44 @@ function mobileReplayStep(dir) {
   if (!_mobileReplay.active || _mobileReplay.waitingForSelection) return;
   // Wenn am Spielen → erst pausieren
   if (_mobileReplay.playing) mobileReplayToggle();
-  _mobileReplay.index = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, _mobileReplay.index + dir));
-  _mobileReplayDraw(true);   // ← preserve view: User-Pan/Zoom bleibt erhalten
+  const newIdx = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, _mobileReplay.index + dir));
+  if (newIdx === _mobileReplay.index) return; // bereits am Anfang/Ende
+  _mobileReplay.index = newIdx;
+  if (dir > 0) {
+    // Vorwärts: inkrementelles series.update() — View bleibt erhalten,
+    // LWC shifted die View nur dann um 1 Bar nach rechts wenn der User
+    // am rechten Rand war (shiftVisibleRangeOnNewBar default = true).
+    _mobileReplayStepDrawForce();
+  } else {
+    // Rückwärts: braucht full setData (LWC hat keine removeBar-API).
+    // preserveView=true rettet die meiste Zeit den Zoom-Level.
+    _mobileReplayDraw(true);
+  }
   _mobileReplayUpdateUI();
+}
+
+// Wie _mobileReplayStepDraw aber OHNE Throttling — bei manuellem Step
+// wollen wir sofortiges Update von Indikatoren/Patterns/Overlays
+function _mobileReplayStepDrawForce() {
+  if (!_mobileCandleSeries || !_mobileReplay.savedCandles) return;
+  const idx = _mobileReplay.index;
+  const c = _mobileReplay.savedCandles[idx - 1];
+  if (!c) return;
+  const t = Math.floor((c.ts || c.time || 0) / 1000);
+  if (!t) return;
+  try {
+    _updateMobileSeriesData({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0 });
+  } catch(e) {
+    // Fallback: full setData mit preserveView
+    _mobileReplayDraw(true);
+    return;
+  }
+  const sliced = _mobileReplay.savedCandles.slice(0, idx);
+  _mobileReplayUpdateMarkers(sliced);
+  try { _updateMobileIndicators(sliced); } catch(e){}
+  try { if (typeof _updateMobilePatterns === 'function') _updateMobilePatterns(sliced); } catch(e){}
+  try { if (typeof _updateMobileChartPatterns === 'function') _updateMobileChartPatterns(sliced); } catch(e){}
+  try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e){}
 }
 
 function mobileReplaySeek(val) {
@@ -41749,7 +41784,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 12:00 UTC';
+const APP_BUILD = '2026-05-17 12:15 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
