@@ -18905,54 +18905,32 @@ function renderMobileChart(candles, trades) {
     } catch(e){}
 
     // ─── Mausrad über Price-Axis = vertikaler Zoom (TradingView-Style) ───
-    // Lightweight Charts hat eingebautes Drag-to-Zoom auf der Axis — wir synthesieren
-    // kurze Drag-Events bei jedem Wheel-Tick. Wheel up = drag up = zoom in,
-    // wheel down = drag down = zoom out.
+    // Reliable Approach: scaleMargins der Price-Scale per Wheel anpassen.
+    // Wheel up = Margins schrumpfen (Daten füllen mehr Chart-Höhe → "Zoom in")
+    // Wheel down = Margins wachsen (Daten werden vertikal komprimiert → "Zoom out")
     try {
       container.addEventListener('wheel', (e) => {
-        if (!_mobileChart) return;
+        if (!_mobileChart || !_mobileCandleSeries) return;
         const rect = container.getBoundingClientRect();
         const axisWidth = (_mobileChart.priceScale('right').width() || 60);
         const xRel = e.clientX - rect.left;
-        const overPriceAxis = xRel > (rect.width - axisWidth - 4);
+        const overPriceAxis = xRel > (rect.width - axisWidth - 6);
         if (!overPriceAxis) return;
         e.preventDefault();
         e.stopPropagation();
 
-        // Rightmost Canvas in der LWC-Tabellen-Struktur ist die Price-Axis
-        const canvases = container.querySelectorAll('canvas');
-        let axisCanvas = null;
-        for (const c of canvases) {
-          const cr = c.getBoundingClientRect();
-          // Price-Axis-Canvas: rechtsbündig, schmaler als die halbe Container-Breite
-          if (cr.right >= rect.right - 4 && cr.width < rect.width * 0.5 && cr.width > 0) {
-            axisCanvas = c; break;
-          }
-        }
-        if (!axisCanvas) axisCanvas = canvases[canvases.length - 1];
-        if (!axisCanvas) return;
-
-        // Drag-Distanz proportional zum Wheel-Delta — wheel down = drag down = zoom out
-        const dragPx = Math.sign(e.deltaY) * 22;
-        const cx = rect.right - axisWidth / 2;
-        const startY = rect.top + rect.height / 2;
-        const endY = startY + dragPx;
-
-        const init = { bubbles: true, cancelable: true, view: window, clientX: cx, button: 0 };
-        // Pointer-Events (LWC v4 nutzt diese intern auf Touch-Geräten)
+        const ps = _mobileCandleSeries.priceScale();
+        const opts = ps.options() || {};
+        const sm = opts.scaleMargins || { top: 0.1, bottom: 0.1 };
+        // Wheel-Delta: positiv = nach unten = zoom out (Margins +); negativ = nach oben = zoom in (Margins −)
+        const dir = e.deltaY > 0 ? +1 : -1;
+        const step = 0.05;
+        const newTop = Math.max(0.0, Math.min(0.45, (sm.top || 0.1) + dir * step));
+        const newBot = Math.max(0.0, Math.min(0.45, (sm.bottom || 0.1) + dir * step));
         try {
-          axisCanvas.dispatchEvent(new PointerEvent('pointerdown', { ...init, clientY: startY, buttons: 1, pointerType: 'mouse', isPrimary: true }));
-          axisCanvas.dispatchEvent(new PointerEvent('pointermove', { ...init, clientY: endY, buttons: 1, pointerType: 'mouse', isPrimary: true }));
-          axisCanvas.dispatchEvent(new PointerEvent('pointerup',   { ...init, clientY: endY, buttons: 0, pointerType: 'mouse', isPrimary: true }));
-        } catch(_) {}
-        // Fallback: Mouse-Events (für Desktop-Pfad in LWC)
-        try {
-          axisCanvas.dispatchEvent(new MouseEvent('mousedown', { ...init, clientY: startY, buttons: 1 }));
-          axisCanvas.dispatchEvent(new MouseEvent('mousemove', { ...init, clientY: endY, buttons: 1 }));
-          axisCanvas.dispatchEvent(new MouseEvent('mouseup',   { ...init, clientY: endY, buttons: 0 }));
-        } catch(_) {}
-        // Overlay nachzeichnen — Y-Koordinaten haben sich verschoben
-        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 0);
+          ps.applyOptions({ scaleMargins: { top: newTop, bottom: newBot } });
+        } catch(_){}
+        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 30);
       }, { passive: false });
     } catch(e){}
   }
@@ -40076,7 +40054,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 02:50 UTC';
+const APP_BUILD = '2026-05-17 03:05 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
