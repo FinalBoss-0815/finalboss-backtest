@@ -919,6 +919,7 @@ html.is-mobile-device .mobile-only-draw-toolbar { display: flex; }
   pointer-events: none;
   z-index: 90;
   display: none;
+  touch-action: none;  /* Drag-Drawing: kein Pan/Scroll bei Touch-Gesten */
 }
 html.is-mobile-device .mobile-only-chart-overlay { display: block; }
 .mobile-only-draw-hint {
@@ -20769,50 +20770,102 @@ function redrawMobileOverlay() {
         ctx.beginPath(); ctx.arc(b.x, b.y, dot, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(c3.x, c3.y, dot, 0, Math.PI*2); ctx.fill();
       } else if ((d.type === 'longPos' || d.type === 'shortPos') && d.p3) {
-        // Long/Short Position: Entry=p1, SL=p2, TP=p3
+        // ── Long/Short Position — TradingView-Style ──
         const c3 = tp(d.p3.time, d.p3.price);
         if (c3.x == null || c3.y == null) continue;
         const isLong = d.type === 'longPos';
-        const x1 = a.x, x2 = Math.max(b.x, c3.x);  // Box extends rightward
-        const entryY = a.y;
-        const slY = b.y;
-        const tpY = c3.y;
-        // SL-Box (rot)
-        ctx.fillStyle = 'rgba(239,68,68,0.20)';
-        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1;
-        ctx.fillRect(x1, Math.min(entryY, slY), x2 - x1, Math.abs(slY - entryY));
-        ctx.strokeRect(x1, Math.min(entryY, slY), x2 - x1, Math.abs(slY - entryY));
-        // TP-Box (grün)
-        ctx.fillStyle = 'rgba(34,197,94,0.20)';
-        ctx.strokeStyle = '#22c55e';
-        ctx.fillRect(x1, Math.min(entryY, tpY), x2 - x1, Math.abs(tpY - entryY));
-        ctx.strokeRect(x1, Math.min(entryY, tpY), x2 - x1, Math.abs(tpY - entryY));
-        // Entry-Linie (gelb, dicker)
-        ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+        const x1 = Math.min(a.x, c3.x);
+        const x2 = Math.max(a.x, c3.x, b.x);
+        const entryY = a.y, slY = b.y, tpY = c3.y;
+        const op = (d.fillOpacity != null) ? d.fillOpacity : 0.18;
+        const opHex = Math.floor(op * 255).toString(16).padStart(2,'0');
+        // TP-Zone (grün) — vom Entry hoch zum TP
+        const tpRectY = Math.min(entryY, tpY), tpRectH = Math.abs(tpY - entryY);
+        ctx.fillStyle = '#26a69a' + opHex;     // TradingView green
+        ctx.fillRect(x1, tpRectY, x2 - x1, tpRectH);
+        ctx.strokeStyle = '#26a69a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x1, tpRectY, x2 - x1, tpRectH);
+        // SL-Zone (rot) — vom Entry runter/hoch zum SL
+        const slRectY = Math.min(entryY, slY), slRectH = Math.abs(slY - entryY);
+        ctx.fillStyle = '#ef5350' + opHex;     // TradingView red
+        ctx.fillRect(x1, slRectY, x2 - x1, slRectH);
+        ctx.strokeStyle = '#ef5350';
+        ctx.strokeRect(x1, slRectY, x2 - x1, slRectH);
+        // Entry-Linie (dünn, hell)
+        ctx.strokeStyle = isSelected ? '#fbbf24' : '#9ca3af';
+        ctx.lineWidth = isSelected ? 2 : 1;
         ctx.beginPath(); ctx.moveTo(x1, entryY); ctx.lineTo(x2, entryY); ctx.stroke();
-        // R:R berechnen + Label
-        const riskPx = Math.abs(slY - entryY);
-        const rewardPx = Math.abs(tpY - entryY);
-        const rr = riskPx > 0 ? (rewardPx / riskPx) : 0;
+        // TP/SL-Edges (etwas dicker, voll-deckend)
+        ctx.strokeStyle = '#26a69a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x1, tpY); ctx.lineTo(x2, tpY); ctx.stroke();
+        ctx.strokeStyle = '#ef5350';
+        ctx.beginPath(); ctx.moveTo(x1, slY); ctx.lineTo(x2, slY); ctx.stroke();
+        // ── Labels INSIDE Boxes (TradingView-Style) ──
         const riskPrice = Math.abs(d.p2.price - d.p1.price);
         const rewardPrice = Math.abs(d.p3.price - d.p1.price);
+        const rr = riskPrice > 0 ? (rewardPrice / riskPrice) : 0;
+        const profitPct = (rewardPrice / d.p1.price * 100);
+        const lossPct = (riskPrice / d.p1.price * 100);
+        // Profit-Label (oben in TP-Box, zentriert)
         ctx.font = 'bold 11px Liberation Sans, sans-serif';
-        ctx.fillStyle = '#fbbf24';
-        const label = (isLong ? 'LONG' : 'SHORT') + '  R:R ' + rr.toFixed(2);
-        const labelM = ctx.measureText(label);
-        ctx.fillStyle = 'rgba(13,17,23,0.85)';
-        ctx.fillRect(x1 + 4, entryY - 14, labelM.width + 8, 14);
-        ctx.fillStyle = '#fbbf24';
-        ctx.fillText(label, x1 + 8, entryY - 3);
-        // Entry / SL / TP Preis-Labels rechts
-        ctx.font = '10px sans-serif';
-        ctx.fillStyle = '#fbbf24'; ctx.fillText('Entry ' + d.p1.price.toFixed(2), x2 + 4, entryY + 3);
-        ctx.fillStyle = '#ef4444'; ctx.fillText('SL ' + d.p2.price.toFixed(2) + ' (-' + riskPrice.toFixed(2) + ')', x2 + 4, slY + 3);
-        ctx.fillStyle = '#22c55e'; ctx.fillText('TP ' + d.p3.price.toFixed(2) + ' (+' + rewardPrice.toFixed(2) + ')', x2 + 4, tpY + 3);
-        // Anker-Dots
-        ctx.fillStyle = '#fbbf24';
-        const dot = isSelected ? 5 : 3;
-        ctx.beginPath(); ctx.arc(a.x, a.y, dot, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        const tpCenterX = (x1 + x2) / 2;
+        const tpLabelY = (entryY + tpY) / 2;
+        if (Math.abs(tpY - entryY) > 32) {
+          ctx.fillText('Profit', tpCenterX, tpLabelY - 4);
+          ctx.font = '10px Liberation Sans, sans-serif';
+          ctx.fillText('+' + profitPct.toFixed(2) + '%  (' + rr.toFixed(2) + 'R)', tpCenterX, tpLabelY + 9);
+        } else if (Math.abs(tpY - entryY) > 14) {
+          ctx.font = '10px Liberation Sans, sans-serif';
+          ctx.fillText('+' + profitPct.toFixed(2) + '%  ' + rr.toFixed(2) + 'R', tpCenterX, tpLabelY + 3);
+        }
+        // Loss-Label (mitte in SL-Box, zentriert)
+        const slLabelY = (entryY + slY) / 2;
+        ctx.font = 'bold 11px Liberation Sans, sans-serif';
+        ctx.fillStyle = '#fff';
+        if (Math.abs(slY - entryY) > 32) {
+          ctx.fillText('Loss', tpCenterX, slLabelY - 4);
+          ctx.font = '10px Liberation Sans, sans-serif';
+          ctx.fillText('-' + lossPct.toFixed(2) + '%  (1R)', tpCenterX, slLabelY + 9);
+        } else if (Math.abs(slY - entryY) > 14) {
+          ctx.font = '10px Liberation Sans, sans-serif';
+          ctx.fillText('-' + lossPct.toFixed(2) + '%', tpCenterX, slLabelY + 3);
+        }
+        ctx.textAlign = 'left';
+        // ── Header-Badge (oben links, TradingView-Look) ──
+        ctx.font = 'bold 10px Liberation Sans, sans-serif';
+        const headerText = (isLong ? 'Long' : 'Short') + ' Position';
+        const headerM = ctx.measureText(headerText);
+        const headerY = Math.min(tpRectY, slRectY) - 16;
+        ctx.fillStyle = isLong ? '#26a69a' : '#ef5350';
+        ctx.fillRect(x1, headerY, headerM.width + 12, 16);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(headerText, x1 + 6, headerY + 11);
+        // ── Preis-Labels am rechten Rand (kompakt, TV-Style) ──
+        ctx.font = '10px Liberation Sans, sans-serif';
+        const _drawPriceTag = (y, txt, bg) => {
+          const m = ctx.measureText(txt);
+          ctx.fillStyle = bg;
+          ctx.fillRect(x2 + 2, y - 7, m.width + 8, 14);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(txt, x2 + 6, y + 3);
+        };
+        _drawPriceTag(tpY, d.p3.price.toFixed(2), '#26a69a');
+        _drawPriceTag(entryY, d.p1.price.toFixed(2), '#6b7280');
+        _drawPriceTag(slY, d.p2.price.toFixed(2), '#ef5350');
+        // Anker-Dots an den 3 Edges (für Selection sichtbar)
+        if (isSelected) {
+          ctx.fillStyle = '#fbbf24';
+          const dot = 5;
+          ctx.beginPath(); ctx.arc(x1, entryY, dot, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x1, tpY, dot, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x1, slY, dot, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x2, entryY, dot, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x2, tpY, dot, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x2, slY, dot, 0, Math.PI*2); ctx.fill();
+        }
       } else if (d.type === 'fibo') {
         const levels = (d.levels && d.levels.length) ? d.levels.slice() : MDS_FIB_DEFAULT_LEVELS.slice();
         levels.sort((x,y) => x-y);
@@ -20867,21 +20920,90 @@ function redrawMobileOverlay() {
     }
   }
   ctx.setLineDash([]);
+
+  // ── DRAG-Preview (während User zieht): leichte gestrichelte Linie der pending Zeichnung ──
+  if (_mobileIsDragging && _mobileDragStart && _mobileDragCurrent) {
+    const tool = _mobileDrawTool;
+    const previewColor = MDT_COLORS[tool] || '#06b6d4';
+    const pa = tp(_mobileDragStart.time, _mobileDragStart.price);
+    const pb = tp(_mobileDragCurrent.time, _mobileDragCurrent.price);
+    if (pa.x != null && pa.y != null && pb.x != null && pb.y != null) {
+      ctx.globalAlpha = 0.75;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = previewColor; ctx.lineWidth = 2;
+      if (tool === 'trendline' || tool === 'ray') {
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      } else if (tool === 'rect' || tool === 'channel') {
+        const rx = Math.min(pa.x, pb.x), ry = Math.min(pa.y, pb.y);
+        const rw = Math.abs(pb.x - pa.x), rh = Math.abs(pb.y - pa.y);
+        ctx.strokeRect(rx, ry, rw, rh);
+      } else if (tool === 'fibo') {
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pa.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pa.x, pb.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      } else if (tool === 'longPos' || tool === 'shortPos') {
+        const isLong = tool === 'longPos';
+        const entryY = pa.y, tpY = pb.y;
+        const slY = isLong ? entryY + (entryY - tpY) : entryY + (entryY - tpY);
+        const x1 = Math.min(pa.x, pb.x), x2 = Math.max(pa.x, pb.x);
+        ctx.strokeStyle = '#22c55e';
+        ctx.strokeRect(x1, Math.min(entryY, tpY), x2 - x1, Math.abs(tpY - entryY));
+        ctx.strokeStyle = '#ef4444';
+        ctx.strokeRect(x1, Math.min(entryY, slY), x2 - x1, Math.abs(slY - entryY));
+      }
+      // Anker-Dots
+      ctx.setLineDash([]);
+      ctx.fillStyle = previewColor;
+      ctx.beginPath(); ctx.arc(pa.x, pa.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(pb.x, pb.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.setLineDash([]);
 }
 
-// Overlay-Touch-Handler — registriert beim ersten Init
+// Drag-State für TradingView-style click+drag Drawing
+let _mobileDragStart = null;     // { time, price } — Punkt 1
+let _mobileDragCurrent = null;   // { time, price } — aktuelle Maus/Finger-Position
+let _mobileIsDragging = false;
+let _mobileChannelStep = null;   // Für Channel: { p1, p2 } warten auf Punkt 3
+
+// Welche Tools nutzen click+drag (statt Tap)? — alle Multi-Punkt-Tools
+const MDT_DRAG_TOOLS = ['trendline','ray','rect','fibo','channel','longPos','shortPos'];
+
 function initMobileDrawOverlay() {
   const overlay = document.getElementById('mobileDrawOverlay');
   if (!overlay || overlay._handlerSet) return;
   overlay._handlerSet = true;
+
+  // ── TAP-Tools (1 Punkt): hline, vline, text + Channel-Step-2 ──
   overlay.addEventListener('click', (e) => {
     if (_mobileDrawTool === 'cursor' || _mobileDrawTool === 'delete') return;
+    // Wenn wir gerade gedragged haben → kein Click-Event verarbeiten
+    if (_mobileJustFinishedDrag) { _mobileJustFinishedDrag = false; return; }
     const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
     if (!tp) return;
     const tool = _mobileDrawTool;
-    const need = MDT_POINT_COUNT[tool] || 2;
 
-    // ── 1-Punkt Tools ──
+    // Channel: Schritt 2 (3. Punkt nach Drag der ersten Linie)
+    if (tool === 'channel' && _mobileChannelStep) {
+      const newDrawing = {
+        type: 'channel',
+        p1: _mobileChannelStep.p1,
+        p2: _mobileChannelStep.p2,
+        p3: { time: tp.time, price: tp.price },
+        color: MDT_COLORS.channel,
+        width: 2,
+        lineStyle: 'solid',
+        fillOpacity: 0.08
+      };
+      _mobileDrawings.push(newDrawing);
+      _mobileChannelStep = null;
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+
+    // 1-Punkt-Tools
     if (tool === 'hline') {
       try {
         const pl = _mobileCandleSeries.createPriceLine({
@@ -20889,17 +21011,15 @@ function initMobileDrawOverlay() {
         });
         _mobilePriceLines.push(pl);
         _mobileDrawings.push({
-          type: 'hline',
-          p1: { time: tp.time, price: tp.price },
-          color: '#06b6d4', width: 2, dashed: false,
-          _priceLineRef: pl
+          type: 'hline', p1: { time: tp.time, price: tp.price },
+          color: '#06b6d4', width: 2, lineStyle: 'solid', _priceLineRef: pl
         });
       } catch(err) {}
       setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
       return;
     }
     if (tool === 'vline') {
-      _mobileDrawings.push({ type: 'vline', p1: { time: tp.time, price: tp.price }, color: MDT_COLORS.vline, width: 2 });
+      _mobileDrawings.push({ type: 'vline', p1: { time: tp.time, price: tp.price }, color: MDT_COLORS.vline, width: 2, lineStyle: 'solid' });
       redrawMobileOverlay();
       setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
       return;
@@ -20908,80 +21028,100 @@ function initMobileDrawOverlay() {
       const text = prompt('Text eingeben:', '');
       if (text && text.trim()) {
         _mobileDrawings.push({
-          type: 'text',
-          p1: { time: tp.time, price: tp.price },
-          text: text.trim(),
-          color: MDT_COLORS.text,
-          fontSize: 13
+          type: 'text', p1: { time: tp.time, price: tp.price },
+          text: text.trim(), color: MDT_COLORS.text, fontSize: 13
         });
         redrawMobileOverlay();
       }
       setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
       return;
     }
-
-    // ── 2-Punkt Tools (trendline, ray, rect, fibo) ──
-    if (need === 2) {
-      if (!_mobileDrawingPoint1) {
-        _mobileDrawingPoint1 = { time: tp.time, price: tp.price };
-        const hint = document.getElementById('mobileDrawHint');
-        if (hint) hint.textContent = 'Tippe Punkt 2 zum Fertigstellen';
-      } else {
-        const newDrawing = {
-          type: tool,
-          p1: _mobileDrawingPoint1,
-          p2: { time: tp.time, price: tp.price },
-          color: MDT_COLORS[tool],
-          width: 2,
-          dashed: false
-        };
-        if (tool === 'fibo') newDrawing.levels = MDS_FIB_DEFAULT_LEVELS.slice();
-        if (tool === 'rect') newDrawing.fillOpacity = 0.15;
-        _mobileDrawings.push(newDrawing);
-        _mobileDrawingPoint1 = null;
-        redrawMobileOverlay();
-        setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
-      }
-      return;
-    }
-
-    // ── 3-Punkt Tools (channel, longPos, shortPos) ──
-    if (need === 3) {
-      const hint = document.getElementById('mobileDrawHint');
-      if (!_mobileDrawingPoint1) {
-        _mobileDrawingPoint1 = { time: tp.time, price: tp.price };
-        if (hint) {
-          if (tool === 'longPos') hint.textContent = '🟢 Long: Tippe SL (Stop Loss)';
-          else if (tool === 'shortPos') hint.textContent = '🔴 Short: Tippe SL (Stop Loss)';
-          else hint.textContent = 'Tippe Punkt 2';
-        }
-      } else if (!_mobileDrawingPoint2) {
-        _mobileDrawingPoint2 = { time: tp.time, price: tp.price };
-        if (hint) {
-          if (tool === 'longPos' || tool === 'shortPos') hint.textContent = '🎯 Tippe TP (Take Profit)';
-          else hint.textContent = 'Tippe Punkt 3 zum Fertigstellen';
-        }
-      } else {
-        const newDrawing = {
-          type: tool,
-          p1: _mobileDrawingPoint1,
-          p2: _mobileDrawingPoint2,
-          p3: { time: tp.time, price: tp.price },
-          color: MDT_COLORS[tool],
-          width: 2,
-          dashed: false
-        };
-        if (tool === 'channel') newDrawing.fillOpacity = 0.08;
-        _mobileDrawings.push(newDrawing);
-        _mobileDrawingPoint1 = null;
-        _mobileDrawingPoint2 = null;
-        redrawMobileOverlay();
-        setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
-      }
-      return;
-    }
   });
+
+  // ── DRAG-Tools: Pointer-Events (deckt Mouse + Touch + Pen ab) ──
+  overlay.addEventListener('pointerdown', (e) => {
+    if (_mobileDrawTool === 'cursor' || _mobileDrawTool === 'delete') return;
+    if (MDT_DRAG_TOOLS.indexOf(_mobileDrawTool) < 0) return;
+    // Channel ist nur drag bei Schritt 1 — Schritt 2 ist Tap
+    if (_mobileDrawTool === 'channel' && _mobileChannelStep) return;
+    const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
+    if (!tp) return;
+    _mobileDragStart = { time: tp.time, price: tp.price };
+    _mobileDragCurrent = { time: tp.time, price: tp.price };
+    _mobileIsDragging = true;
+    try { overlay.setPointerCapture(e.pointerId); } catch(err){}
+    e.preventDefault();
+  });
+
+  overlay.addEventListener('pointermove', (e) => {
+    if (!_mobileIsDragging) return;
+    const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
+    if (!tp) return;
+    _mobileDragCurrent = { time: tp.time, price: tp.price };
+    redrawMobileOverlay();   // zeichnet Preview
+  });
+
+  const endDrag = (e) => {
+    if (!_mobileIsDragging) return;
+    _mobileIsDragging = false;
+    try { overlay.releasePointerCapture(e.pointerId); } catch(err){}
+    _mobileJustFinishedDrag = true;   // verhindert dass das anschliessende 'click' nochmal feuert
+    setTimeout(() => { _mobileJustFinishedDrag = false; }, 50);
+    if (!_mobileDragStart || !_mobileDragCurrent) {
+      _mobileDragStart = null; _mobileDragCurrent = null;
+      return;
+    }
+    const p1 = _mobileDragStart;
+    const p2 = _mobileDragCurrent;
+    _mobileDragStart = null; _mobileDragCurrent = null;
+    // Minimum-Distance (in Sekunden): ignorier "Tap"-artige kurze Drags
+    if (Math.abs(p2.time - p1.time) < 1 && Math.abs(p2.price - p1.price) / Math.max(1e-9, Math.abs(p1.price)) < 0.0005) {
+      redrawMobileOverlay();
+      return;
+    }
+    const tool = _mobileDrawTool;
+    // Long/Short Position: 1 Drag = Entry → TP. SL wird auto auf 1:1 R:R gesetzt.
+    if (tool === 'longPos' || tool === 'shortPos') {
+      const isLong = tool === 'longPos';
+      const entryPrice = p1.price;
+      const tpPrice = p2.price;
+      const risk = Math.abs(tpPrice - entryPrice);
+      const slPrice = isLong ? (entryPrice - risk) : (entryPrice + risk);
+      _mobileDrawings.push({
+        type: tool,
+        p1: { time: p1.time, price: entryPrice },
+        p2: { time: p1.time, price: slPrice },
+        p3: { time: p2.time, price: tpPrice },
+        color: MDT_COLORS[tool], width: 2, lineStyle: 'solid', fillOpacity: 0.18
+      });
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    // Channel: 1 Drag = erste Linie, dann warten auf Tap für Punkt 3
+    if (tool === 'channel') {
+      _mobileChannelStep = { p1: p1, p2: p2 };
+      const hint = document.getElementById('mobileDrawHint');
+      if (hint) hint.textContent = 'Tippe für 3. Punkt (parallele Linie)';
+      redrawMobileOverlay();
+      return;
+    }
+    // Standard 2-Punkt-Tools (trendline, ray, rect, fibo)
+    const newDrawing = {
+      type: tool, p1: p1, p2: p2,
+      color: MDT_COLORS[tool], width: 2, lineStyle: 'solid'
+    };
+    if (tool === 'fibo') newDrawing.levels = MDS_FIB_DEFAULT_LEVELS.slice();
+    if (tool === 'rect') newDrawing.fillOpacity = 0.15;
+    _mobileDrawings.push(newDrawing);
+    redrawMobileOverlay();
+    setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+  };
+  overlay.addEventListener('pointerup', endDrag);
+  overlay.addEventListener('pointercancel', endDrag);
 }
+
+let _mobileJustFinishedDrag = false;
 
 // Verfügbare Fibonacci-Levels (Retracement + Extension)
 const MDS_FIB_ALL_LEVELS = [
@@ -38285,7 +38425,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 17:00 UTC';
+const APP_BUILD = '2026-05-16 17:45 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
