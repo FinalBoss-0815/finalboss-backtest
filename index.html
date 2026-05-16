@@ -819,12 +819,35 @@ html:not(.is-mobile-device) #mobileDesktopHint { display: none !important; }
 /* ── LWC-Chart-Migration: alte Canvas-Toolbar + alten Chart verstecken,
    LWC-Chart + neuen Toolbar auch auf Desktop zeigen. CSS-basiert für leichten Revert. ── */
 #oldChartToolbar { display: none !important; }
-#chartBtOverlayBar #chartBtClear { /* kompakter Status bleibt sichtbar */ }
 .chart-area #tradeChart,
 .chart-area #tradeChartOverlay { display: none !important; }
 .mobile-only-chart { display: block !important; }
-.mobile-only-chart-toolbar { display: flex !important; }
 .mobile-only-draw-toolbar { display: flex !important; }
+/* Toolbar als richtige Top-Bar im normalen Flow (vorher floating absolute über Chart) */
+#chartCard > .mobile-only-chart-toolbar {
+  display: flex !important;
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  max-width: none !important;
+  width: 100%;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  padding: 6px 8px !important;
+  margin-bottom: 2px !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  box-sizing: border-box;
+}
+/* Vollbild-Button im Toolbar: passendes Styling */
+#chartCard > .mobile-only-chart-toolbar #mobileChartFullscreenBtn {
+  background: #1e40af !important;
+  border: 1px solid #3b82f6 !important;
+  color: #fff !important;
+  font-weight: 700;
+}
 /* Auf Desktop: Drawing-Toolbar etwas breiter und positioniert, da kein Touch-Optimierung nötig */
 html:not(.is-mobile-device) .mobile-only-chart { left: 52px !important; }
 html:not(.is-mobile-device) .mobile-only-chart-overlay { left: 52px !important; }
@@ -2531,46 +2554,50 @@ input[type=number] { -moz-appearance:textfield }
         <span id="chartBtStatus" style="font-size:10px;color:var(--text-muted)"></span>
         <button id="chartBtClear" onclick="clearBacktestOverlay()" style="padding:2px 8px;font-size:10px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:3px;cursor:pointer" title="Backtest-Overlay entfernen">✕ Clear</button>
       </div>
+      <!-- Mobile-only Chart-Toolbar — jetzt als richtige Top-Bar (statisch positioniert) -->
+      <div id="mobileChartToolbar" class="mobile-only-chart-toolbar">
+        <button id="mobileCoinBtn" onclick="openMobileCoinPicker()" aria-label="Coin wählen"><span id="mobileCoinBtnLabel">BTC</span> ▾</button>
+        <select id="mobileCoinSelect" onchange="onMobileCoinChange()" aria-label="Coin wählen" style="display:none"></select>
+        <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
+        <select id="mobileCandleTypeSelect" onchange="setMobileCandleType(this.value)" aria-label="Kerzen-Stil" title="Kerzen-Darstellung">
+          <option value="candle">Candles</option>
+          <option value="vector">Vektor Candles</option>
+          <option value="heikinashi">Heikin Ashi</option>
+          <option value="hollow">Hollow</option>
+          <option value="bar">OHLC Bars</option>
+          <option value="line">Linie</option>
+          <option value="area">Area</option>
+          <option value="baseline">Baseline</option>
+        </select>
+        <select id="mobileTzSelect" onchange="setMobileChartTimezone(this.value)" aria-label="Zeitzone" title="Zeitzone für Chart-Anzeige">
+          <option value="local">Lokal</option>
+          <option value="UTC">UTC</option>
+          <option value="Europe/Zurich">CH (CET/CEST)</option>
+          <option value="Europe/London">London</option>
+          <option value="America/New_York">New York</option>
+          <option value="America/Los_Angeles">LA</option>
+          <option value="Asia/Tokyo">Tokyo</option>
+          <option value="Asia/Hong_Kong">Hong Kong</option>
+          <option value="Asia/Singapore">Singapore</option>
+          <option value="Australia/Sydney">Sydney</option>
+        </select>
+        <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
+        <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 Overlay</button>
+        <button id="mobileEquityBtn" onclick="toggleMobileEquityOverlay()" aria-label="Equity-Overlay" title="Backtest-Equity-Kurve auf den Kerzen einblenden">💰 Equity</button>
+        <button id="mobileScreenshotBtn" onclick="mobileChartScreenshot()" aria-label="Screenshot speichern" title="Chart als PNG herunterladen">📷</button>
+        <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
+        <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ Bar Replay</button>
+        <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
+        <button id="mobileChartFullscreenBtn" onclick="enterChartFullscreen()" aria-label="Chart Vollbild" title="Chart im Vollbild öffnen (Querformat)">📱 Vollbild</button>
+      </div>
+      <!-- Strategy-Chip: zeigt aktuell ausgewählte Strategy, klickbar zum schnellen Wechseln -->
+      <div id="mobileChartStrategyChip" style="display:flex;align-items:center;gap:8px;padding:4px 6px 6px;font-size:12px;color:#9ca3af">
+        <span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Strategie</span>
+        <select id="mobileChartStrategySelect" onchange="_mobileSyncStrategyFromChip(this.value)" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;cursor:pointer;min-width:200px"></select>
+      </div>
       <div class="chart-area" id="mainChartArea" style="flex:1;min-height:0;position:relative">
-        <!-- Mobile-only: Vollbild + Landscape Button -->
-        <button id="mobileChartFullscreenBtn" onclick="enterChartFullscreen()" class="mobile-only-chart-fs-btn" aria-label="Chart Vollbild" title="Chart im Vollbild öffnen (Querformat)">📱 Vollbild</button>
         <!-- Exit-Button nur im Vollbild sichtbar -->
         <button id="mobileChartFullscreenExitBtn" onclick="exitChartFullscreen()" style="display:none" aria-label="Vollbild schließen">✕ Schliessen</button>
-        <!-- Mobile-only Chart-Toolbar (Coin + TF Selector) -->
-        <div id="mobileChartToolbar" class="mobile-only-chart-toolbar">
-          <button id="mobileCoinBtn" onclick="openMobileCoinPicker()" aria-label="Coin wählen"><span id="mobileCoinBtnLabel">BTC</span> ▾</button>
-          <select id="mobileCoinSelect" onchange="onMobileCoinChange()" aria-label="Coin wählen" style="display:none"></select>
-          <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
-          <select id="mobileCandleTypeSelect" onchange="setMobileCandleType(this.value)" aria-label="Kerzen-Stil" title="Kerzen-Darstellung">
-            <option value="candle">Candles</option>
-            <option value="vector">Vektor Candles</option>
-            <option value="heikinashi">Heikin Ashi</option>
-            <option value="hollow">Hollow</option>
-            <option value="bar">OHLC Bars</option>
-            <option value="line">Linie</option>
-            <option value="area">Area</option>
-            <option value="baseline">Baseline</option>
-          </select>
-          <select id="mobileTzSelect" onchange="setMobileChartTimezone(this.value)" aria-label="Zeitzone" title="Zeitzone für Chart-Anzeige">
-            <option value="local">Lokal</option>
-            <option value="UTC">UTC</option>
-            <option value="Europe/Zurich">CH (CET/CEST)</option>
-            <option value="Europe/London">London</option>
-            <option value="America/New_York">New York</option>
-            <option value="America/Los_Angeles">LA</option>
-            <option value="Asia/Tokyo">Tokyo</option>
-            <option value="Asia/Hong_Kong">Hong Kong</option>
-            <option value="Asia/Singapore">Singapore</option>
-            <option value="Australia/Sydney">Sydney</option>
-          </select>
-          <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
-          <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 Overlay</button>
-          <button id="mobileEquityBtn" onclick="toggleMobileEquityOverlay()" aria-label="Equity-Overlay" title="Backtest-Equity-Kurve auf den Kerzen einblenden">💰 Equity</button>
-          <button id="mobileScreenshotBtn" onclick="mobileChartScreenshot()" aria-label="Screenshot speichern" title="Chart als PNG herunterladen">📷</button>
-          <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
-          <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ Bar Replay</button>
-          <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
-        </div>
         <!-- Mobile Overlay-Coins Modal -->
         <div id="mobileOverlayModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:flex-start;justify-content:center;padding-top:8vh">
           <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;width:90%;max-width:400px;max-height:80vh;display:flex;flex-direction:column">
@@ -21954,34 +21981,16 @@ function _mobileReplayStepDraw() {
 }
 
 function _mobileReplayUpdateMarkers(visibleCandles) {
-  if (!_mobileCandleSeries || !_mobileReplay.savedTrades) return;
-  if (visibleCandles.length === 0) return;
-  const maxTs = visibleCandles[visibleCandles.length - 1].ts || (visibleCandles[visibleCandles.length - 1].time * 1000);
-  const trades = _mobileReplay.savedTrades;
-  const markers = [];
-  for (const t of trades) {
-    if (t.entryTs && t.entryTs <= maxTs) {
-      markers.push({
-        time: Math.floor(t.entryTs / 1000),
-        position: t.dir === 'long' ? 'belowBar' : 'aboveBar',
-        color: t.dir === 'long' ? '#22c55e' : '#ef4444',
-        shape: t.dir === 'long' ? 'arrowUp' : 'arrowDown',
-        text: t.dir === 'long' ? 'L' : 'S'
-      });
-    }
-    if (t.exitTs && t.exitTs <= maxTs) {
-      const win = (t.pnlUsd || 0) >= 0;
-      markers.push({
-        time: Math.floor(t.exitTs / 1000),
-        position: win ? 'aboveBar' : 'belowBar',
-        color: win ? '#22c55e' : '#ef4444',
-        shape: 'circle',
-        text: win ? '✓' : '✗'
-      });
-    }
+  // Im Bar-Replay zeigen wir KEINE Trade-Marker (L, S, ✓, ✗) — das wäre Spoiler:
+  // beim Lernen vom Setup will man NICHT sehen wo die Strategie später gewinnt/verliert.
+  // Stattdessen Trade-Cache leeren und _applyMobileMarkers aufrufen, damit Pattern-Marker
+  // (Candle + Chart) weiterhin korrekt angezeigt werden.
+  _mobileCachedTradeMarkers = [];
+  if (typeof _applyMobileMarkers === 'function') {
+    try { _applyMobileMarkers(); } catch(e){}
+  } else if (_mobileCandleSeries) {
+    try { _mobileCandleSeries.setMarkers([]); } catch(e){}
   }
-  markers.sort((a, b) => a.time - b.time);
-  try { _mobileCandleSeries.setMarkers(markers); } catch(e){}
 }
 
 function _mobileReplayUpdateUI() {
@@ -22602,7 +22611,53 @@ function initMobileChartToolbar() {
   if (ctSel && _mobileCandleType) ctSel.value = _mobileCandleType;
   // Vektor-Legende einblenden falls vector-Type gespeichert war
   if (typeof _updateMobileVectorLegendVisibility === 'function') _updateMobileVectorLegendVisibility();
+  // Strategy-Chip aufbauen — spiegelt strategySelect
+  _mobileSyncStrategyChip();
 }
+
+// Strategy-Chip mit dem Hauptselector synchronisieren — bidirektional.
+function _mobileSyncStrategyChip() {
+  const chip = document.getElementById('mobileChartStrategySelect');
+  const main = document.getElementById('strategySelect');
+  if (!chip || !main) return;
+  // Options aus dem Hauptselector kopieren (falls leer oder veraltet)
+  const mainOptions = Array.from(main.options).map(o => ({ value: o.value, text: o.text }));
+  const chipCurrent = chip.value;
+  // Re-render nur wenn Inhalt sich geändert hat
+  const sig = mainOptions.map(o => o.value + '|' + o.text).join('~');
+  if (chip.dataset.sig !== sig) {
+    chip.innerHTML = '';
+    for (const o of mainOptions) {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.text;
+      chip.appendChild(opt);
+    }
+    chip.dataset.sig = sig;
+  }
+  // Wert syncen
+  chip.value = main.value;
+}
+
+// Wenn User im Chip wechselt → Hauptselector mitziehen (triggert csSelect falls vorhanden)
+function _mobileSyncStrategyFromChip(value) {
+  const main = document.getElementById('strategySelect');
+  if (!main) return;
+  if (typeof csSelect === 'function') {
+    try { csSelect('strategySelect', value); return; } catch(e){}
+  }
+  main.value = value;
+  // change-Event manuell dispatchen falls csSelect nicht greift
+  try { main.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){}
+}
+
+// Bei jedem Tab-Switch zu Chart: Chip-Sync neu (falls Strategy-Liste sich änderte, z.B. KI-Strategy hinzu)
+document.addEventListener('DOMContentLoaded', () => {
+  const main = document.getElementById('strategySelect');
+  if (main) {
+    main.addEventListener('change', () => _mobileSyncStrategyChip());
+  }
+});
 // Beim Laden initialisieren — etwas Delay damit DOM ready ist
 window.addEventListener('DOMContentLoaded', () => {
   setTimeout(initMobileChartToolbar, 100);
@@ -41968,7 +42023,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 13:00 UTC';
+const APP_BUILD = '2026-05-17 13:45 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
