@@ -21737,6 +21737,8 @@ function mobileReplayExit() {
     _mobileLastMarkerSig = '';
     renderMobileChart(candles, trades);
   }
+  // Overlays neu skalieren ohne Replay-Cap (volle Range)
+  try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e){}
 }
 
 function mobileReplayToggle() {
@@ -21827,12 +21829,12 @@ function _mobileReplayDraw(preserveView) {
   if (!_mobileCandleSeries || !_mobileReplay.savedCandles) return;
   const sliced = _mobileReplay.savedCandles.slice(0, _mobileReplay.index);
   if (sliced.length < 2) return;
-  // Konvertieren
+  // Konvertieren — WICHTIG: Volume mitgeben für Vector-Candles + Volume-Indikatoren
   const data = [];
   for (const c of sliced) {
     const t = Math.floor((c.ts || c.time || 0) / 1000);
     if (!t) continue;
-    data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+    data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0 });
   }
   // View merken bevor wir setData aufrufen (setData kann View resetten)
   let savedRange = null;
@@ -21848,8 +21850,11 @@ function _mobileReplayDraw(preserveView) {
   // Trade-Marker fuer sichtbare Trades
   _mobileReplayUpdateMarkers(sliced);
 
-  // Indikatoren neu rechnen auf den sichtbaren Kerzen
+  // Indikatoren + Patterns + Overlay-Rescale neu rechnen auf den sichtbaren Kerzen
   try { _updateMobileIndicators(sliced); } catch(e){}
+  try { if (typeof _updateMobilePatterns === 'function') _updateMobilePatterns(sliced); } catch(e){}
+  try { if (typeof _updateMobileChartPatterns === 'function') _updateMobileChartPatterns(sliced); } catch(e){}
+  try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e){}
 }
 
 // Incremental: nur die LETZTE Kerze hinzufuegen (waehrend Play — viel schneller)
@@ -21861,18 +21866,21 @@ function _mobileReplayStepDraw() {
   const t = Math.floor((c.ts || c.time || 0) / 1000);
   if (!t) return;
   try {
-    _updateMobileSeriesData({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+    _updateMobileSeriesData({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0 });
   } catch(e) {
     // Fallback: full setData
     _mobileReplayDraw();
     return;
   }
 
-  // Marker + Indikatoren alle 5 Schritte aktualisieren (Performance)
+  // Marker + Indikatoren + Patterns alle 5 Schritte aktualisieren (Performance)
   if (idx % 5 === 0 || idx === _mobileReplay.max) {
     const sliced = _mobileReplay.savedCandles.slice(0, idx);
     _mobileReplayUpdateMarkers(sliced);
     try { _updateMobileIndicators(sliced); } catch(e){}
+    try { if (typeof _updateMobilePatterns === 'function') _updateMobilePatterns(sliced); } catch(e){}
+    try { if (typeof _updateMobileChartPatterns === 'function') _updateMobileChartPatterns(sliced); } catch(e){}
+    try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e){}
   }
 }
 
@@ -22159,12 +22167,32 @@ function _createMobileOverlaySeries(o, symbol) {
   });
 }
 
-// Setzt die Daten in die Series — je nach Mode anders skaliert
+// Setzt die Daten in die Series — je nach Mode anders skaliert.
+// Während Bar-Replay wird das Overlay auf den gleichen Zeitraum wie die sichtbaren
+// Replay-Candles geclippt, damit es nicht ins Future läuft (Lookahead-Bias verhindern).
 function _applyMobileOverlayData(o, symbol) {
   if (!o || !o.series || !o.rawData || !_mobileChart) return;
 
-  const candles = (_mobileLastData && _mobileLastData.candles) || [];
+  // Während Replay: Candles = nur die sliced Replay-Candles, NICHT _mobileLastData
+  const inReplay = (typeof _mobileReplay !== 'undefined' && _mobileReplay && _mobileReplay.active && _mobileReplay.savedCandles);
+  const candles = inReplay
+    ? _mobileReplay.savedCandles.slice(0, _mobileReplay.index)
+    : ((_mobileLastData && _mobileLastData.candles) || []);
   if (candles.length === 0) return;
+
+  // Replay-Cap: max Time (Sekunden) der sichtbaren Candles — Overlay wird darauf geclippt
+  let replayCapTime = Infinity;
+  if (inReplay && candles.length > 0) {
+    const lastC = candles[candles.length - 1];
+    replayCapTime = Math.floor((lastC.ts || lastC.time * 1000 || 0) / 1000);
+  }
+  const rawData = inReplay
+    ? o.rawData.filter(d => d.time <= replayCapTime)
+    : o.rawData;
+  if (rawData.length === 0) {
+    try { o.series.setData([]); } catch(e){}
+    return;
+  }
 
   // Sichtbaren Bereich holen (Sekunden, UTC). Fallback: alle Daten — dann
   // skaliert die Linie auf den GESAMTEN Datensatz, was nach erster Pan/Zoom-Aktion
@@ -22195,17 +22223,17 @@ function _applyMobileOverlayData(o, symbol) {
     }
   }
 
-  // Overlay: min/max im sichtbaren Bereich + Anker
+  // Overlay: min/max im sichtbaren Bereich + Anker (auf gefilterte rawData)
   let oMin = Infinity, oMax = -Infinity;
   let overlayAnchor = null;
-  for (const d of o.rawData) {
+  for (const d of rawData) {
     if (d.time < visFrom || d.time > visTo) continue;
     if (d.value < oMin) oMin = d.value;
     if (d.value > oMax) oMax = d.value;
     if (overlayAnchor == null) overlayAnchor = d.value;
   }
   if (oMin === Infinity) {
-    for (const d of o.rawData) {
+    for (const d of rawData) {
       if (d.value < oMin) oMin = d.value;
       if (d.value > oMax) oMax = d.value;
       if (overlayAnchor == null) overlayAnchor = d.value;
@@ -22220,7 +22248,7 @@ function _applyMobileOverlayData(o, symbol) {
   if (_mobileOverlayMode === 'shape') {
     const oRange = (oMax - oMin) || 1;
     const mRange = (mMax - mMin) || Math.max(mMin * 0.05, 0.01);
-    const scaled = o.rawData.map(d => ({
+    const scaled = rawData.map(d => ({
       time: d.time,
       value: ((d.value - oMin) / oRange) * mRange + mMin
     }));
@@ -22231,7 +22259,7 @@ function _applyMobileOverlayData(o, symbol) {
   // ── PERFORMANCE-MODE: Anker-Mapping — beide starten am ersten sichtbaren Wert
   //    auf gleicher Höhe (mainAnchor), divergieren dann nach echter relativer Performance.
   if (!overlayAnchor || !mainAnchor || overlayAnchor === 0) return;
-  const scaled = o.rawData.map(d => ({
+  const scaled = rawData.map(d => ({
     time: d.time,
     value: mainAnchor * (d.value / overlayAnchor)
   }));
@@ -41699,7 +41727,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 11:00 UTC';
+const APP_BUILD = '2026-05-17 11:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
