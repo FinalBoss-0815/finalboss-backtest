@@ -936,7 +936,7 @@ html.is-mobile-device .mobile-only-draw-toolbar { display: flex; }
   display: none;
   touch-action: none;  /* Drag-Drawing: kein Pan/Scroll bei Touch-Gesten */
 }
-/* Zentrierter Placement-Cursor — fein, präzise, Tap-to-Commit */
+/* Mobiler Placement-Cursor — weiss, gestrichelt, hauchdünn, frei beweglich */
 .mobile-place-cursor {
   position: absolute;
   inset: 0;
@@ -945,42 +945,54 @@ html.is-mobile-device .mobile-only-draw-toolbar { display: flex; }
   display: none;
 }
 html.is-mobile-device .mobile-place-cursor.active { display: block; }
-.mobile-place-cursor .mpc-hline,
+/* Horizontale + Vertikale Linie via dashed-Border (echte 1px gestrichelt) */
+.mobile-place-cursor .mpc-hline {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 0;
+  border-top: 1px dashed #ffffff;
+  opacity: 0.55;
+  pointer-events: none;
+}
 .mobile-place-cursor .mpc-vline {
   position: absolute;
-  background: #fbbf24;
-  opacity: 0.7;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 0;
+  border-left: 1px dashed #ffffff;
+  opacity: 0.55;
+  pointer-events: none;
 }
-.mobile-place-cursor .mpc-hline { left: 0; right: 0; height: 1px; top: 50%; }
-.mobile-place-cursor .mpc-vline { top: 0; bottom: 0; width: 1px; left: 50%; }
-/* Mini-Dot in der Mitte — präzise Positionsmarkierung */
+/* Mini-Punkt in der Mitte — 3px für maximale Präzision */
 .mobile-place-cursor .mpc-center {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  width: 5px; height: 5px;
-  background: #fbbf24;
+  width: 3px; height: 3px;
+  background: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(13,17,23,0.9);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+  pointer-events: none;
 }
-/* Info-Badge mit Preis + Zeit — etwas vom Mittelpunkt entfernt */
+/* Info-Badge mit Preis + Zeit */
 .mobile-place-cursor .mpc-info {
   position: absolute; top: 50%; left: 50%;
-  transform: translate(12px, -22px);
-  background: rgba(13,17,23,0.92); border: 1px solid rgba(251,191,36,0.7);
+  transform: translate(10px, -22px);
+  background: rgba(13,17,23,0.88); border: 1px solid rgba(255,255,255,0.4);
   border-radius: 3px; padding: 2px 6px;
-  font-size: 10px; font-weight: 600; color: #fbbf24;
+  font-size: 10px; font-weight: 600; color: #fff;
   font-family: monospace; white-space: nowrap;
+  pointer-events: none;
 }
-/* Hint-Badge unten — "Tippe um zu setzen (Punkt X/Y)" */
+/* Hint-Badge unten */
 .mobile-place-cursor .mpc-hint {
   position: absolute; bottom: 12px; left: 50%;
   transform: translateX(-50%);
-  pointer-events: none;
-  background: rgba(13,17,23,0.92); border: 1px solid rgba(251,191,36,0.5);
+  background: rgba(13,17,23,0.92); border: 1px solid rgba(255,255,255,0.3);
   border-radius: 4px; padding: 5px 10px;
-  font-size: 11px; color: #fbbf24; font-weight: 600;
+  font-size: 11px; color: #fff; font-weight: 600;
   white-space: nowrap;
+  pointer-events: none;
 }
-/* Cancel-Button oben rechts — kleines X für Notausgang */
 .mobile-place-cursor .mpc-cancel {
   position: absolute; top: 8px; right: 8px;
   pointer-events: auto;
@@ -988,6 +1000,13 @@ html.is-mobile-device .mobile-place-cursor.active { display: block; }
   font-size: 11px; font-weight: 600;
   width: 24px; height: 24px; border-radius: 50%;
   cursor: pointer; line-height: 1;
+}
+/* Capture-Layer: nimmt Touch/Maus-Events ab damit Cursor folgt + Tap commitet */
+.mobile-place-cursor .mpc-capture {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: crosshair;
 }
 html.is-mobile-device .mobile-only-chart-overlay { display: block; }
 .mobile-only-draw-hint {
@@ -2623,13 +2642,15 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <!-- Overlay Canvas für Free-Form Zeichnungen (Trendlinien, Rechtecke, Fibo) -->
         <canvas id="mobileDrawOverlay" class="mobile-only-chart-overlay"></canvas>
-        <!-- Placement-Cursor (feiner Crosshair, präzise Mitte, Tap-to-Commit) -->
+        <!-- Placement-Cursor (weiss, gestrichelt, frei beweglich, Tap-to-Commit) -->
         <div id="mobilePlaceCursor" class="mobile-place-cursor">
-          <div class="mpc-hline"></div>
-          <div class="mpc-vline"></div>
-          <div class="mpc-center"></div>
+          <!-- Capture-Layer: nimmt Pointer-Events ab, der Cursor folgt der Maus/Finger -->
+          <div class="mpc-capture" id="mpcCapture"></div>
+          <div class="mpc-hline" id="mpcHline"></div>
+          <div class="mpc-vline" id="mpcVline"></div>
+          <div class="mpc-center" id="mpcCenter"></div>
           <div class="mpc-info" id="mpcInfo">—</div>
-          <div class="mpc-hint" id="mpcHint">Tippe Chart um Punkt zu setzen</div>
+          <div class="mpc-hint" id="mpcHint">Bewege Cursor + tippe zum Setzen</div>
           <button class="mpc-cancel" onclick="cancelMobilePlacement()" title="Abbrechen">✕</button>
         </div>
         <!-- Emoji-Picker Modal -->
@@ -20649,12 +20670,28 @@ window.addEventListener('DOMContentLoaded', () => {
 // Tool wählen → mittiger Crosshair erscheint → User pant Chart bis Position passt → "Setzen"
 let _mobilePlacement = null;  // { tool, pointsCollected: [{time, price}] }
 
-function _getChartCenterTP() {
+// Cursor-Position (in Container-Pixel-Koordinaten) — wird von Pointer-Events upgedatet
+let _mobileCursorX = null, _mobileCursorY = null;
+
+function _setCursorPos(x, y) {
+  _mobileCursorX = x; _mobileCursorY = y;
+  const hline = document.getElementById('mpcHline');
+  const vline = document.getElementById('mpcVline');
+  const center = document.getElementById('mpcCenter');
+  const info = document.getElementById('mpcInfo');
+  if (hline) { hline.style.top = y + 'px'; }
+  if (vline) { vline.style.left = x + 'px'; }
+  if (center) { center.style.top = y + 'px'; center.style.left = x + 'px'; }
+  if (info) { info.style.top = y + 'px'; info.style.left = x + 'px'; }
+  _updateMobilePlacementInfo();
+}
+
+function _getCursorTP() {
   const container = document.getElementById('mobileChartContainer');
   if (!container || !_mobileChart || !_mobileCandleSeries) return null;
   const rect = container.getBoundingClientRect();
-  const cx = rect.width / 2;
-  const cy = rect.height / 2;
+  const cx = (_mobileCursorX != null) ? _mobileCursorX : rect.width / 2;
+  const cy = (_mobileCursorY != null) ? _mobileCursorY : rect.height / 2;
   const time = _mobileChart.timeScale().coordinateToTime(cx);
   const price = _mobileCandleSeries.coordinateToPrice(cy);
   if (time == null || price == null) return null;
@@ -20740,7 +20777,7 @@ function toggleMobileEraser() {
 
 function _updateMobilePlacementInfo() {
   if (!_mobilePlacement) return;
-  const tp = _getChartCenterTP();
+  const tp = _getCursorTP();
   const info = document.getElementById('mpcInfo');
   if (!info) return;
   if (!tp) { info.textContent = '—'; return; }
@@ -20759,14 +20796,61 @@ function startMobilePlacement(tool) {
   _mobilePlacement = { tool, pointsCollected: [] };
   const pc = document.getElementById('mobilePlaceCursor');
   if (pc) pc.classList.add('active');
-  _updateMobilePlacementInfo();
-  // Auf jede Chart-Bewegung das Info-Display updaten
-  try {
-    if (_mobileChart && !_mobileChart._placementHook) {
-      _mobileChart._placementHook = true;
-      _mobileChart.timeScale().subscribeVisibleTimeRangeChange(_updateMobilePlacementInfo);
+  // Cursor initial in Container-Mitte setzen
+  const container = document.getElementById('mobileChartContainer');
+  if (container) {
+    const rect = container.getBoundingClientRect();
+    _setCursorPos(rect.width / 2, rect.height / 2);
+  }
+  // Hint zurücksetzen
+  const hint = document.getElementById('mpcHint');
+  if (hint) hint.textContent = 'Bewege Cursor + tippe zum Setzen';
+  _wireMobilePlacementEvents();
+}
+
+// Pointer-Events — Cursor folgt Maus-Hover oder Touch-Drag, separater Tap committed
+function _wireMobilePlacementEvents() {
+  const cap = document.getElementById('mpcCapture');
+  if (!cap || cap._wired) return;
+  cap._wired = true;
+  const container = document.getElementById('mobileChartContainer');
+  function _xy(e) {
+    const r = container.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  let downPos = null, downTime = 0, moved = false, isDown = false;
+  cap.addEventListener('pointerdown', (e) => {
+    if (!_mobilePlacement) return;
+    const p = _xy(e);
+    downPos = p; downTime = Date.now(); moved = false; isDown = true;
+    try { cap.setPointerCapture(e.pointerId); } catch(err){}
+    e.preventDefault();
+  });
+  cap.addEventListener('pointermove', (e) => {
+    if (!_mobilePlacement) return;
+    const p = _xy(e);
+    // Mouse-Hover (kein Pointerdown) → Cursor folgt sofort
+    // Touch-Drag (mit Pointerdown) → Cursor folgt finger
+    if (!isDown || e.pointerType !== 'touch') {
+      _setCursorPos(p.x, p.y);
+    } else if (isDown) {
+      // Touch + Drag → Cursor folgt finger, Bewegungs-Flag setzen
+      _setCursorPos(p.x, p.y);
+      if (downPos && Math.hypot(p.x - downPos.x, p.y - downPos.y) > 5) moved = true;
     }
-  } catch(e){}
+  });
+  cap.addEventListener('pointerup', (e) => {
+    if (!_mobilePlacement) return;
+    try { cap.releasePointerCapture(e.pointerId); } catch(err){}
+    isDown = false;
+    const dt = Date.now() - downTime;
+    // Tap (nicht bewegt UND schnell): committen an aktueller Cursor-Position
+    // Drag (bewegt + länger): nur Cursor positioniert, KEIN Commit — User muss extra tippen
+    if (!moved && dt < 400) {
+      confirmMobilePlacement();
+    }
+    downPos = null;
+  });
 }
 
 function cancelMobilePlacement() {
@@ -20779,7 +20863,7 @@ function cancelMobilePlacement() {
 
 function confirmMobilePlacement() {
   if (!_mobilePlacement) return;
-  const tp = _getChartCenterTP();
+  const tp = _getCursorTP();
   if (!tp) return;
   const tool = _mobilePlacement.tool;
   _mobilePlacement.pointsCollected.push({ time: tp.time, price: tp.price });
@@ -39684,7 +39768,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 23:00 UTC';
+const APP_BUILD = '2026-05-16 23:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
