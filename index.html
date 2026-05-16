@@ -2530,7 +2530,8 @@ input[type=number] { -moz-appearance:textfield }
           <select id="mobileCoinSelect" onchange="onMobileCoinChange()" aria-label="Coin wählen" style="display:none"></select>
           <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
           <select id="mobileCandleTypeSelect" onchange="setMobileCandleType(this.value)" aria-label="Kerzen-Stil" title="Kerzen-Darstellung">
-            <option value="candle">Kerzen</option>
+            <option value="candle">Candles</option>
+            <option value="vector">Vektor Candles</option>
             <option value="heikinashi">Heikin Ashi</option>
             <option value="hollow">Hollow</option>
             <option value="bar">OHLC Bars</option>
@@ -18780,7 +18781,7 @@ let _mobileRawData = null;  // Letzte gesetzten Raw-OHLC-Daten (für Type-Switch
 function _createMobileMainSeries(type) {
   if (!_mobileChart) return null;
   const t = type || 'candle';
-  if (t === 'candle' || t === 'heikinashi') {
+  if (t === 'candle' || t === 'heikinashi' || t === 'vector') {
     return _mobileChart.addCandlestickSeries({
       upColor: '#22c55e', downColor: '#ef4444',
       borderUpColor: '#22c55e', borderDownColor: '#ef4444',
@@ -18889,6 +18890,35 @@ function setMobileCandleType(type) {
 // Daten-Format-Konverter — Raw-OHLC → Format für aktuellen Series-Typ
 function _formatDataForCandleType(rawData) {
   if (!Array.isArray(rawData) || !rawData.length) return rawData;
+  if (_mobileCandleType === 'vector') {
+    // Volume-basierte Color-Klassifizierung pro Kerze:
+    // hohes Volumen + bullish → leuchtend grün, hohes Volumen + bearish → leuchtend rot
+    // normales Volumen → Standard-Farben, niedriges Volumen → pastell (geringe Conviction)
+    const W = 20;
+    const out = new Array(rawData.length);
+    for (let i = 0; i < rawData.length; i++) {
+      const c = rawData[i];
+      let sum = 0, cnt = 0;
+      const from = Math.max(0, i - W + 1);
+      for (let j = from; j <= i; j++) {
+        if (rawData[j].volume > 0) { sum += rawData[j].volume; cnt++; }
+      }
+      const avgVol = cnt > 0 ? sum / cnt : 0;
+      const vol = c.volume || 0;
+      const ratio = avgVol > 0 ? vol / avgVol : 1;
+      const isBull = c.close >= c.open;
+      let color;
+      if (ratio >= 2.0) color = isBull ? '#00ff88' : '#ff0044';      // Klimax (sehr hohes Vol)
+      else if (ratio >= 1.3) color = isBull ? '#22c55e' : '#ef4444'; // Stark
+      else if (ratio <= 0.5) color = isBull ? '#86efac' : '#fca5a5'; // Schwach (pastell)
+      else color = isBull ? '#16a34a' : '#dc2626';                    // Normal
+      out[i] = {
+        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
+        color: color, borderColor: color, wickColor: color
+      };
+    }
+    return out;
+  }
   if (_mobileCandleType === 'heikinashi') {
     const ha = [];
     let prevOpen = null, prevClose = null;
@@ -18938,6 +18968,29 @@ function _updateMobileSeriesData(rawCandle) {
       const haLow = Math.min(rawCandle.low, haOpen, haClose);
       formatted = { time: rawCandle.time, open: haOpen, high: haHigh, low: haLow, close: haClose };
     }
+  } else if (_mobileCandleType === 'vector') {
+    // Vector: Live-Vol gegen Rolling-Average der letzten 20 Kerzen
+    const W = 20;
+    let sum = 0, cnt = 0;
+    if (_mobileRawData && _mobileRawData.length > 0) {
+      const from = Math.max(0, _mobileRawData.length - W);
+      for (let j = from; j < _mobileRawData.length; j++) {
+        if (_mobileRawData[j].volume > 0) { sum += _mobileRawData[j].volume; cnt++; }
+      }
+    }
+    const avgVol = cnt > 0 ? sum / cnt : 0;
+    const vol = rawCandle.volume || 0;
+    const ratio = avgVol > 0 ? vol / avgVol : 1;
+    const isBull = rawCandle.close >= rawCandle.open;
+    let color;
+    if (ratio >= 2.0) color = isBull ? '#00ff88' : '#ff0044';
+    else if (ratio >= 1.3) color = isBull ? '#22c55e' : '#ef4444';
+    else if (ratio <= 0.5) color = isBull ? '#86efac' : '#fca5a5';
+    else color = isBull ? '#16a34a' : '#dc2626';
+    formatted = {
+      time: rawCandle.time, open: rawCandle.open, high: rawCandle.high, low: rawCandle.low, close: rawCandle.close,
+      color: color, borderColor: color, wickColor: color
+    };
   }
   try { _mobileCandleSeries.update(formatted); } catch(_){}
   // Raw-Cache aktualisieren (für nächste HA-Berechnung)
@@ -19223,7 +19276,7 @@ function renderMobileChart(candles, trades) {
     const c = candles[i];
     const t = Math.floor((c.ts || c.time || 0) / 1000);
     if (!t) continue;
-    data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+    data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0 });
   }
 
   // Signatur berechnen — Length + erste + letzte Candle Time + Close
@@ -40326,7 +40379,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 04:45 UTC';
+const APP_BUILD = '2026-05-17 05:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
