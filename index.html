@@ -21794,9 +21794,14 @@ function redrawMobileOverlay() {
       const fs = d.fontSize || 24;
       const rot = (d.rotation || 0) * Math.PI / 180;
       ctx.save();
+      // WICHTIG: fillStyle + globalAlpha auf voll-deckend zurücksetzen — Color-Emojis werden
+      // sonst mit dem Alpha-Multiplier vom vorigen Draw (z.B. rect mit fillOpacity 0.15) gerendert
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 1;
       ctx.translate(a.x, a.y);
       if (rot) ctx.rotate(rot);
-      ctx.font = fs + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = fs + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(d.text || '😊', 0, 0);
       ctx.restore();
       ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
@@ -40019,7 +40024,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 02:15 UTC';
+const APP_BUILD = '2026-05-17 02:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
