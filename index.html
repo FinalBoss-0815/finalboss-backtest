@@ -18535,14 +18535,12 @@ function renderMobileChart(candles, trades) {
       grid: { vertLines: { color: 'rgba(75,85,99,0.18)' }, horzLines: { color: 'rgba(75,85,99,0.18)' } },
       crosshair: { mode: 1 }, // Normal
       rightPriceScale: { borderColor: '#1f2937', scaleMargins: { top: 0.1, bottom: 0.1 } },
-      // fixLeftEdge: verhindert dass User links der ersten Kerze panen kann
-      // (sonst entsteht "leerer" Raum links beim Wide-Canvas-Init)
+      // Free-Pan in beide Richtungen, KEIN fixLeftEdge (sonst kein History-Scrollen mehr)
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
         borderColor: '#1f2937',
         rightOffset: 5,
-        fixLeftEdge: true,
         lockVisibleTimeRangeOnResize: false
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
@@ -37761,7 +37759,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 15:00 UTC';
+const APP_BUILD = '2026-05-16 15:15 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
