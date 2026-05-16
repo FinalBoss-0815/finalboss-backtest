@@ -20623,8 +20623,16 @@ function setMobileDrawTool(tool, btn) {
     }
   }
   // Overlay-Canvas Touch-Capture an/aus
+  // Cursor-Mode: auto wenn etwas selektiert (für Anker-Drag), sonst none (Chart pannt)
+  // Andere Tools: immer auto (für Drag-Drawing)
   const overlay = document.getElementById('mobileDrawOverlay');
-  if (overlay) overlay.style.pointerEvents = (tool === 'cursor') ? 'none' : 'auto';
+  if (overlay) {
+    if (tool === 'cursor') {
+      overlay.style.pointerEvents = (_mobileSelectedDrawing >= 0) ? 'auto' : 'none';
+    } else {
+      overlay.style.pointerEvents = 'auto';
+    }
+  }
 }
 
 function clearMobileDrawings() {
@@ -20890,33 +20898,25 @@ function redrawMobileOverlay() {
         }
       }
     }
-    // Selection-Highlight: pulsierende Aura
+    // Selection-Anker — draggable Handles als prominente Kreise (TradingView-Style)
     if (isSelected) {
       ctx.setLineDash([]);
-      ctx.strokeStyle = '#fbbf24';
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.6;
-      if (d.type === 'trendline' && d.p2) {
-        const b = tp(d.p2.time, d.p2.price);
-        if (b.x != null && b.y != null) {
-          ctx.beginPath();
-          ctx.arc(a.x, a.y, 10, 0, Math.PI*2); ctx.stroke();
-          ctx.arc(b.x, b.y, 10, 0, Math.PI*2); ctx.stroke();
-        }
-      } else if (d.type === 'rect' && d.p2) {
-        const b = tp(d.p2.time, d.p2.price);
-        if (b.x != null && b.y != null) {
-          const rx = Math.min(a.x, b.x) - 3, ry = Math.min(a.y, b.y) - 3;
-          const rw = Math.abs(b.x - a.x) + 6, rh = Math.abs(b.y - a.y) + 6;
-          ctx.strokeRect(rx, ry, rw, rh);
-        }
-      } else if (d.type === 'vline') {
+      const handles = _getDrawingHandles(d);
+      for (const hd of handles) {
+        // Aussen-Ring (Hit-Area visuell andeuten)
+        ctx.fillStyle = 'rgba(13, 17, 23, 1)';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(a.x - 4, 0); ctx.lineTo(a.x - 4, h);
-        ctx.moveTo(a.x + 4, 0); ctx.lineTo(a.x + 4, h);
+        ctx.arc(hd.x, hd.y, 7, 0, Math.PI*2);
+        ctx.fill();
         ctx.stroke();
+        // Innen-Punkt (klein, voll)
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(hd.x, hd.y, 3, 0, Math.PI*2);
+        ctx.fill();
       }
-      ctx.globalAlpha = 1;
     }
   }
   ctx.setLineDash([]);
@@ -21040,7 +21040,32 @@ function initMobileDrawOverlay() {
 
   // ── DRAG-Tools: Pointer-Events (deckt Mouse + Touch + Pen ab) ──
   overlay.addEventListener('pointerdown', (e) => {
-    if (_mobileDrawTool === 'cursor' || _mobileDrawTool === 'delete') return;
+    // ── CURSOR-Mode: Anker-Drag wenn etwas selektiert ist ──
+    if (_mobileDrawTool === 'cursor') {
+      if (_mobileSelectedDrawing < 0) return;
+      const d = _mobileDrawings[_mobileSelectedDrawing];
+      if (!d) return;
+      const rect = overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const handles = _getDrawingHandles(d);
+      const HIT_R = 22; // Finger-Toleranz
+      let hit = null;
+      for (const h of handles) {
+        const dist = Math.hypot(x - h.x, y - h.y);
+        if (dist < HIT_R && (!hit || dist < hit.dist)) hit = { name: h.name, dist };
+      }
+      if (hit) {
+        _mobileAnchorDrag = { idx: _mobileSelectedDrawing, anchor: hit.name };
+        try { overlay.setPointerCapture(e.pointerId); } catch(err){}
+        e.preventDefault();
+      } else {
+        // Tap auf leere Fläche → Deselect, Overlay wieder transparent
+        mdsDeselect();
+      }
+      return;
+    }
+    if (_mobileDrawTool === 'delete') return;
     if (MDT_DRAG_TOOLS.indexOf(_mobileDrawTool) < 0) return;
     // Channel ist nur drag bei Schritt 1 — Schritt 2 ist Tap
     if (_mobileDrawTool === 'channel' && _mobileChannelStep) return;
@@ -21054,6 +21079,25 @@ function initMobileDrawOverlay() {
   });
 
   overlay.addEventListener('pointermove', (e) => {
+    // ── Anker-Drag aktiv: Anker-Position aktualisieren ──
+    if (_mobileAnchorDrag) {
+      const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
+      if (!tp) return;
+      const d = _mobileDrawings[_mobileAnchorDrag.idx];
+      if (!d) return;
+      if (d.type === 'hline') {
+        d.p1.price = tp.price;
+        if (d._priceLineRef) {
+          try { d._priceLineRef.applyOptions({ price: tp.price, title: tp.price.toFixed(2) }); } catch(err){}
+        }
+      } else if (d.type === 'vline') {
+        d.p1.time = tp.time;
+      } else {
+        d[_mobileAnchorDrag.anchor] = { time: tp.time, price: tp.price };
+      }
+      redrawMobileOverlay();
+      return;
+    }
     if (!_mobileIsDragging) return;
     const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
     if (!tp) return;
@@ -21062,6 +21106,13 @@ function initMobileDrawOverlay() {
   });
 
   const endDrag = (e) => {
+    // ── Anker-Drag beendet → Settings-Panel refresh (R:R kann sich geändert haben) ──
+    if (_mobileAnchorDrag) {
+      _mobileAnchorDrag = null;
+      try { overlay.releasePointerCapture(e.pointerId); } catch(err){}
+      try { showMobileDrawingSettings(); } catch(err){}
+      return;
+    }
     if (!_mobileIsDragging) return;
     _mobileIsDragging = false;
     try { overlay.releasePointerCapture(e.pointerId); } catch(err){}
@@ -21224,6 +21275,9 @@ function _hookMobileChartRedraw() {
     if (hit >= 0) {
       _mobileSelectedDrawing = hit;
       showMobileDrawingSettings();
+      // Overlay-Pointer aktivieren damit Anker-Drag möglich ist
+      const ov = document.getElementById('mobileDrawOverlay');
+      if (ov) ov.style.pointerEvents = 'auto';
     } else {
       mdsDeselect();
     }
@@ -21510,7 +21564,49 @@ function mdsDeselect() {
   _mobileSelectedDrawing = -1;
   const panel = document.getElementById('mobileDrawingSettings');
   if (panel) panel.classList.remove('show');
+  // Overlay-Pointer wieder freigeben damit der Chart pannen kann
+  const ov = document.getElementById('mobileDrawOverlay');
+  if (ov && _mobileDrawTool === 'cursor') ov.style.pointerEvents = 'none';
   redrawMobileOverlay();
+}
+
+// Anker-Drag State + Hilfsfunktion
+let _mobileAnchorDrag = null; // { idx, anchor: 'p1'|'p2'|'p3' }
+
+// Liefert die anklickbaren Anker-Positionen einer Zeichnung als {name, x, y}
+function _getDrawingHandles(d) {
+  if (!_mobileChart || !_mobileCandleSeries || !d) return [];
+  const ts = _mobileChart.timeScale();
+  const out = [];
+  const _x = (t) => ts.timeToCoordinate(t);
+  const _y = (p) => _mobileCandleSeries.priceToCoordinate(p);
+  const container = document.getElementById('mobileChartContainer');
+  const W = container ? container.clientWidth : 0;
+  const H = container ? container.clientHeight : 0;
+  if (d.type === 'hline') {
+    const y = _y(d.p1.price);
+    if (y != null) out.push({ name: 'p1', x: W * 0.5, y });
+    return out;
+  }
+  if (d.type === 'vline') {
+    const x = _x(d.p1.time);
+    if (x != null) out.push({ name: 'p1', x, y: H * 0.5 });
+    return out;
+  }
+  // 1-Punkt Generic (text)
+  if (d.p1) {
+    const x = _x(d.p1.time), y = _y(d.p1.price);
+    if (x != null && y != null) out.push({ name: 'p1', x, y });
+  }
+  if (d.p2) {
+    const x = _x(d.p2.time), y = _y(d.p2.price);
+    if (x != null && y != null) out.push({ name: 'p2', x, y });
+  }
+  if (d.p3) {
+    const x = _x(d.p3.time), y = _y(d.p3.price);
+    if (x != null && y != null) out.push({ name: 'p3', x, y });
+  }
+  return out;
 }
 
 function mdsSetColor(color) {
@@ -38425,7 +38521,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 17:45 UTC';
+const APP_BUILD = '2026-05-16 18:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
