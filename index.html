@@ -18607,9 +18607,14 @@ function renderMobileChart(candles, trades) {
   const sig = data.length + '|' + (firstC ? firstC.time : '') + '|' + (lastC ? (lastC.time + ':' + lastC.close) : '');
 
   if (!_mobileChartInitialized) {
-    // ERSTER Render — Full setData + fitContent
+    // ERSTER Render — Full setData + fitContent (mit autoScale temporär an)
+    try { _mobileChart.priceScale('right').applyOptions({ autoScale: true }); } catch(e){}
     _mobileCandleSeries.setData(data);
     try { _mobileChart.timeScale().fitContent(); } catch(e) {}
+    // Nach Init: autoScale ausschalten damit User vertikal pannen kann
+    setTimeout(() => {
+      try { if (_mobileChart) _mobileChart.priceScale('right').applyOptions({ autoScale: false }); } catch(e){}
+    }, 300);
     _mobileChartInitialized = true;
   } else if (sig !== _mobileLastCandleSig) {
     // Daten haben sich geaendert — pruefe was sich aendert
@@ -18639,9 +18644,13 @@ function renderMobileChart(candles, trades) {
         try { _mobileChart.timeScale().setVisibleRange(savedRange); } catch(e){}
       }
     } else {
-      // Komplett anderer Datensatz (neuer Backtest, neuer Coin) → full setData + fit
+      // Komplett anderer Datensatz (neuer Backtest, neuer Coin) → autoScale an, fit, dann wieder lock
+      try { _mobileChart.priceScale('right').applyOptions({ autoScale: true }); } catch(e){}
       _mobileCandleSeries.setData(data);
       try { _mobileChart.timeScale().fitContent(); } catch(e) {}
+      setTimeout(() => {
+        try { if (_mobileChart) _mobileChart.priceScale('right').applyOptions({ autoScale: false }); } catch(e){}
+      }, 300);
       // Overlays für neuen Zeitraum refreshen (async, nicht blockierend)
       try { if (typeof _refreshMobileOverlays === 'function') setTimeout(_refreshMobileOverlays, 100); } catch(e) {}
     }
@@ -18727,9 +18736,15 @@ function resetMobileChart() {
 }
 
 // Manueller Fit-Content Trigger fuer Toolbar-Button
+// Schaltet autoScale temporär an damit der vertikale Preis-Range neu gefitted wird,
+// danach wieder aus damit User vertikal pannen kann.
 function mobileChartFit() {
   if (!_mobileChart) return;
+  try { _mobileChart.priceScale('right').applyOptions({ autoScale: true }); } catch(e){}
   try { _mobileChart.timeScale().fitContent(); } catch(e){}
+  setTimeout(() => {
+    try { _mobileChart.priceScale('right').applyOptions({ autoScale: false }); } catch(e){}
+  }, 200);
   // Overlay auch neu zeichnen damit Drawings folgen
   try { if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 30); } catch(e){}
 }
@@ -37786,7 +37801,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 15:30 UTC';
+const APP_BUILD = '2026-05-16 15:45 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
