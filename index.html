@@ -19933,6 +19933,57 @@ function _setMobileIndicatorSetting(id, key, value) {
 }
 
 // ═══════════════════════════════════════════════
+// PATTERN-LISTEN (für Per-Pattern-Toggles im Settings-Modal)
+// ═══════════════════════════════════════════════
+const MOBILE_CANDLE_PATTERN_LIST = [
+  { key: 'morning_star',         label: '🌅 Morning Star',          group: 'Reversal Bull' },
+  { key: 'evening_star',         label: '🌇 Evening Star',          group: 'Reversal Bear' },
+  { key: 'three_white_soldiers', label: '⚔ Three White Soldiers',   group: 'Reversal Bull' },
+  { key: 'three_black_crows',    label: '🦅 Three Black Crows',     group: 'Reversal Bear' },
+  { key: 'three_inside_up',      label: '⬆ Three Inside Up',        group: 'Reversal Bull' },
+  { key: 'three_inside_down',    label: '⬇ Three Inside Down',      group: 'Reversal Bear' },
+  { key: 'bullish_engulfing',    label: '🟢 Bullish Engulfing',     group: 'Reversal Bull' },
+  { key: 'bearish_engulfing',    label: '🔴 Bearish Engulfing',     group: 'Reversal Bear' },
+  { key: 'bullish_harami',       label: '↑ Bullish Harami',         group: 'Reversal Bull' },
+  { key: 'bearish_harami',       label: '↓ Bearish Harami',         group: 'Reversal Bear' },
+  { key: 'piercing_line',        label: '⚡ Piercing Line',         group: 'Reversal Bull' },
+  { key: 'dark_cloud_cover',     label: '☁ Dark Cloud Cover',       group: 'Reversal Bear' },
+  { key: 'tweezer_top',          label: '✂ Tweezer Top',            group: 'Reversal Bear' },
+  { key: 'tweezer_bottom',       label: '✂ Tweezer Bottom',         group: 'Reversal Bull' },
+  { key: 'retracing_wicks',      label: '↘ Retracing Wicks',        group: 'Reversal Bear' },
+  { key: 'advancing_wicks',      label: '↗ Advancing Wicks',        group: 'Reversal Bull' },
+  { key: 'dragonfly_doji',       label: '🐉 Dragonfly Doji',        group: 'Single Candle' },
+  { key: 'gravestone_doji',      label: '🪦 Gravestone Doji',       group: 'Single Candle' },
+  { key: 'doji',                 label: '✛ Doji (Standard)',        group: 'Single Candle' },
+  { key: 'marubozu',             label: '█ Marubozu',               group: 'Single Candle' },
+  { key: 'hammer',               label: '🔨 Hammer / Hanging Man',  group: 'Single Candle' },
+  { key: 'shooting_star',        label: '⭐ Shooting Star / Inv. Hammer', group: 'Single Candle' },
+  { key: 'spinning_top',         label: '◯ Spinning Top',           group: 'Single Candle' }
+];
+
+const MOBILE_CHART_PATTERN_LIST = [
+  { key: 'doubleTop',    label: '2T  Double Top',        group: 'Tops & Bottoms' },
+  { key: 'tripleTop',    label: '3T  Triple Top',        group: 'Tops & Bottoms' },
+  { key: 'doubleBot',    label: '2B  Double Bottom',     group: 'Tops & Bottoms' },
+  { key: 'tripleBot',    label: '3B  Triple Bottom',     group: 'Tops & Bottoms' },
+  { key: 'hs',           label: 'H&S  Head & Shoulders', group: 'Reversal' },
+  { key: 'inv_hs',       label: 'IH&S Inverse Head & Shoulders', group: 'Reversal' },
+  { key: 'triangleAsc',  label: '△  Ascending Triangle', group: 'Triangles' },
+  { key: 'triangleDesc', label: '▽  Descending Triangle',group: 'Triangles' },
+  { key: 'triangleSym',  label: '◇  Symmetrical Triangle', group: 'Triangles' },
+  { key: 'wedgeRise',    label: '⬈  Rising Wedge',       group: 'Wedges' },
+  { key: 'wedgeFall',    label: '⬊  Falling Wedge',      group: 'Wedges' },
+  { key: 'flag',         label: '🚩 Flag / Pennant (Bull+Bear)', group: 'Continuation' }
+];
+
+// Prüft ob ein Pattern aktuell aktiv ist. Wenn KEINE enabled-Map existiert → alle an (Default).
+function _isPatternEnabled(indicatorId, patternKey) {
+  const s = _mobileIndicatorSettings[indicatorId];
+  if (!s || !s.enabled) return true;
+  return s.enabled[patternKey] !== false;
+}
+
+// ═══════════════════════════════════════════════
 // CANDLE-PATTERN DETECTION (22 Pattern)
 // ═══════════════════════════════════════════════
 let _mobilePatternsEnabled = false;
@@ -19981,9 +20032,16 @@ function _trendBefore(candles, i, lookback) {
 }
 
 // Haupt-Detection — ein Marker pro Kerze (Priority-System)
+// Jeder Push prüft via _isPatternEnabled('patterns', key) ob das Pattern angezeigt werden soll;
+// Die Priorität (continue) gilt unabhängig vom Display-Toggle damit niedriger priorisierte Patterns
+// nicht plötzlich auftauchen wenn ein höher priorisiertes deaktiviert wird.
 function _detectMobileCandlePatterns(candles) {
   const out = [];
   if (!candles || candles.length < 3) return out;
+
+  const pushIfEnabled = (key, marker) => {
+    if (_isPatternEnabled('patterns', key)) out.push(marker);
+  };
 
   for (let i = 0; i < candles.length; i++) {
     const c    = candles[i];
@@ -20006,41 +20064,41 @@ function _detectMobileCandlePatterns(candles) {
       // Morning Star: bear, doji/small, bull (in downtrend)
       if (trend === 'down' && _cBear(p2) && b1 < b2 * 0.5 && bullish &&
           c.close > _cBodyMid(p2)) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🌅 MS' });
+        pushIfEnabled('morning_star', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🌅 MS' });
         continue;
       }
       // Evening Star: bull, doji/small, bear (in uptrend)
       if (trend === 'up' && _cBull(p2) && b1 < b2 * 0.5 && bearish &&
           c.close < _cBodyMid(p2)) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🌇 ES' });
+        pushIfEnabled('evening_star', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🌇 ES' });
         continue;
       }
       // Three White Soldiers
       if (_cBull(p2) && _cBull(p1) && bullish &&
           c.close > p1.close && p1.close > p2.close &&
           c.open > p1.open && c.open < p1.close) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⚔ 3WS' });
+        pushIfEnabled('three_white_soldiers', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⚔ 3WS' });
         continue;
       }
       // Three Black Crows
       if (_cBear(p2) && _cBear(p1) && bearish &&
           c.close < p1.close && p1.close < p2.close &&
           c.open < p1.open && c.open > p1.close) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🦅 3BC' });
+        pushIfEnabled('three_black_crows', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🦅 3BC' });
         continue;
       }
       // Three Inside Up: bear + harami-bull + bull break
       if (_cBear(p2) && _cBull(p1) &&
           p1.open >= p2.close && p1.close <= p2.open &&
           bullish && c.close > p2.open) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⬆3IU' });
+        pushIfEnabled('three_inside_up', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⬆3IU' });
         continue;
       }
       // Three Inside Down: bull + harami-bear + bear break
       if (_cBull(p2) && _cBear(p1) &&
           p1.open <= p2.close && p1.close >= p2.open &&
           bearish && c.close < p2.open) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '⬇3ID' });
+        pushIfEnabled('three_inside_down', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '⬇3ID' });
         continue;
       }
     }
@@ -20050,43 +20108,76 @@ function _detectMobileCandlePatterns(candles) {
       const pb = _cBody(p1);
       // Bullish Engulfing
       if (_cBear(p1) && bullish && c.open <= p1.close && c.close >= p1.open && body > pb) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🟢 ENG' });
+        pushIfEnabled('bullish_engulfing', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🟢 ENG' });
         continue;
       }
       // Bearish Engulfing
       if (_cBull(p1) && bearish && c.open >= p1.close && c.close <= p1.open && body > pb) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🔴 ENG' });
+        pushIfEnabled('bearish_engulfing', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🔴 ENG' });
         continue;
       }
       // Bullish Harami (Inside Day after bear)
       if (_cBear(p1) && bullish && c.open >= p1.close && c.close <= p1.open && body < pb * 0.6) {
-        out.push({ time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: 'HAR↑' });
+        pushIfEnabled('bullish_harami', { time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: 'HAR↑' });
         continue;
       }
       // Bearish Harami
       if (_cBull(p1) && bearish && c.open <= p1.close && c.close >= p1.open && body < pb * 0.6) {
-        out.push({ time: t, position: 'aboveBar', color: '#fca5a5', shape: 'arrowDown', text: 'HAR↓' });
+        pushIfEnabled('bearish_harami', { time: t, position: 'aboveBar', color: '#fca5a5', shape: 'arrowDown', text: 'HAR↓' });
         continue;
       }
       // Piercing Line: bear + bull opens below prev low, closes > prev midpoint
       if (_cBear(p1) && bullish && c.open < p1.low && c.close > _cBodyMid(p1) && c.close < p1.open) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⚡ PRC' });
+        pushIfEnabled('piercing_line', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⚡ PRC' });
         continue;
       }
       // Dark Cloud Cover: bull + bear opens above prev high, closes < prev midpoint
       if (_cBull(p1) && bearish && c.open > p1.high && c.close < _cBodyMid(p1) && c.close > p1.open) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '☁ DCC' });
+        pushIfEnabled('dark_cloud_cover', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '☁ DCC' });
         continue;
       }
       // Tweezer Top: 2 candles, similar highs, after uptrend, 2nd bear
       if (trend === 'up' && bearish && Math.abs(c.high - p1.high) / range < 0.05 && _cBull(p1)) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '✂ TWT' });
+        pushIfEnabled('tweezer_top', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '✂ TWT' });
         continue;
       }
       // Tweezer Bottom
       if (trend === 'down' && bullish && Math.abs(c.low - p1.low) / range < 0.05 && _cBear(p1)) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '✂ TWB' });
+        pushIfEnabled('tweezer_bottom', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '✂ TWB' });
         continue;
+      }
+      // ── Retracing Wicks (Akademie Top-Setup #1) ──
+      // 2 aufeinanderfolgende Kerzen am Top mit langem oberem Docht (≥30% Body),
+      // Dochte ähnlich aber nicht exakt gleich (5–30% Differenz — sonst wäre es Tweezer Top).
+      // Trend muss up sein (Top-Kontext).
+      {
+        const p1_body = _cBody(p1), p1_uw = _cUW(p1);
+        if (trend === 'up' && body > 0 && p1_body > 0 &&
+            uw >= 0.3 * body && p1_uw >= 0.3 * p1_body &&
+            uw > 0 && p1_uw > 0) {
+          const maxW = Math.max(uw, p1_uw);
+          const diff = Math.abs(uw - p1_uw) / maxW;
+          if (diff > 0.05 && diff < 0.30) {
+            pushIfEnabled('retracing_wicks', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '↘ RW' });
+            continue;
+          }
+        }
+      }
+      // ── Advancing Wicks (Akademie Top-Setup #2) ──
+      // 2 aufeinanderfolgende Kerzen am Bottom mit langem unterem Docht (≥30% Body),
+      // Dochte ähnlich aber nicht exakt gleich. Trend muss down sein (Bottom-Kontext).
+      {
+        const p1_body = _cBody(p1), p1_lw = _cLW(p1);
+        if (trend === 'down' && body > 0 && p1_body > 0 &&
+            lw >= 0.3 * body && p1_lw >= 0.3 * p1_body &&
+            lw > 0 && p1_lw > 0) {
+          const maxW = Math.max(lw, p1_lw);
+          const diff = Math.abs(lw - p1_lw) / maxW;
+          if (diff > 0.05 && diff < 0.30) {
+            pushIfEnabled('advancing_wicks', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '↗ AW' });
+            continue;
+          }
+        }
       }
     }
 
@@ -20095,25 +20186,25 @@ function _detectMobileCandlePatterns(candles) {
     if (body / range < 0.07) {
       // Dragonfly Doji (lange lower wick, kaum upper)
       if (lw > 2 * uw && uw < 0.15 * range) {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🐉 DRG' });
+        pushIfEnabled('dragonfly_doji', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🐉 DRG' });
         continue;
       }
       // Gravestone Doji (lange upper wick, kaum lower)
       if (uw > 2 * lw && lw < 0.15 * range) {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🪦 GRV' });
+        pushIfEnabled('gravestone_doji', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🪦 GRV' });
         continue;
       }
       // Normal Doji
-      out.push({ time: t, position: 'aboveBar', color: '#9ca3af', shape: 'circle', text: '✛' });
+      pushIfEnabled('doji', { time: t, position: 'aboveBar', color: '#9ca3af', shape: 'circle', text: '✛' });
       continue;
     }
 
     // Marubozu: kein/kaum wick, fast nur Body
     if (body / range > 0.92) {
       if (bullish) {
-        out.push({ time: t, position: 'belowBar', color: '#16a34a', shape: 'arrowUp', text: '█ MAR' });
+        pushIfEnabled('marubozu', { time: t, position: 'belowBar', color: '#16a34a', shape: 'arrowUp', text: '█ MAR' });
       } else {
-        out.push({ time: t, position: 'aboveBar', color: '#dc2626', shape: 'arrowDown', text: '█ MAR' });
+        pushIfEnabled('marubozu', { time: t, position: 'aboveBar', color: '#dc2626', shape: 'arrowDown', text: '█ MAR' });
       }
       continue;
     }
@@ -20121,11 +20212,11 @@ function _detectMobileCandlePatterns(candles) {
     // Hammer / Hanging Man (kleiner body oben, lange untere wick)
     if (body / range < 0.35 && lw >= 2 * body && uw < 0.3 * range) {
       if (trend === 'down') {
-        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🔨' });
+        pushIfEnabled('hammer', { time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🔨' });
       } else if (trend === 'up') {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🪢 HM' }); // Hanging Man
+        pushIfEnabled('hammer', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🪢 HM' }); // Hanging Man
       } else {
-        out.push({ time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: '🔨?' });
+        pushIfEnabled('hammer', { time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: '🔨?' });
       }
       continue;
     }
@@ -20133,11 +20224,11 @@ function _detectMobileCandlePatterns(candles) {
     // Shooting Star / Inverted Hammer (kleiner body unten, lange obere wick)
     if (body / range < 0.35 && uw >= 2 * body && lw < 0.3 * range) {
       if (trend === 'up') {
-        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '⭐' });
+        pushIfEnabled('shooting_star', { time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '⭐' });
       } else if (trend === 'down') {
-        out.push({ time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: '⭐ IH' }); // Inverted Hammer
+        pushIfEnabled('shooting_star', { time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: '⭐ IH' }); // Inverted Hammer
       } else {
-        out.push({ time: t, position: 'aboveBar', color: '#fca5a5', shape: 'arrowDown', text: '⭐?' });
+        pushIfEnabled('shooting_star', { time: t, position: 'aboveBar', color: '#fca5a5', shape: 'arrowDown', text: '⭐?' });
       }
       continue;
     }
@@ -20145,7 +20236,7 @@ function _detectMobileCandlePatterns(candles) {
     // Spinning Top: kleiner Body in der Mitte
     if (body / range < 0.3 && uw > body * 0.5 && lw > body * 0.5 &&
         Math.abs(uw - lw) / range < 0.2) {
-      out.push({ time: t, position: 'aboveBar', color: '#9ca3af', shape: 'circle', text: '◯' });
+      pushIfEnabled('spinning_top', { time: t, position: 'aboveBar', color: '#9ca3af', shape: 'circle', text: '◯' });
       continue;
     }
   }
@@ -20535,6 +20626,9 @@ function _updateMobileChartPatterns(candles) {
   const labelMarkers = [];
 
   for (const pat of patterns) {
+    // Per-Pattern-Filter: flag/Bull/Bear → 'flag' Toggle steuert beide
+    const filterKey = (pat.type === 'flagBull' || pat.type === 'flagBear') ? 'flag' : pat.type;
+    if (!_isPatternEnabled('chart_patterns', filterKey)) continue;
     // Strukturlinien zeichnen
     if (pat.type === 'doubleTop' || pat.type === 'doubleBot' || pat.type === 'tripleTop' || pat.type === 'tripleBot') {
       // Punkte mit Linien verbinden (zigzag)
@@ -21082,8 +21176,8 @@ function openMobileIndicators() {
       // Erste Linie aus effektiven Settings für Color-Swatch (zeigt User-Override falls vorhanden)
       const eff = _getMobileIndicatorEffectiveDef(def.id);
       const swatchColor = (eff && eff.lines && eff.lines[0] && eff.lines[0].color) || def.color;
-      // Hat dieser Indikator überhaupt verstellbare Settings? (Patterns nicht)
-      const hasSettings = def.type !== 'patterns' && def.type !== 'chart_patterns';
+      // Alle Indikatoren haben Settings (Patterns haben Per-Pattern-Toggles im Modal)
+      const hasSettings = true;
       html += `
         <div onclick="toggleMobileIndicator('${def.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 10px;margin-bottom:4px;background:${active ? 'rgba(34,197,94,0.08)' : '#161b22'};border:1px solid ${active ? '#22c55e' : '#1f2937'};border-radius:8px;cursor:pointer;transition:all 0.15s">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
@@ -21245,14 +21339,24 @@ function resetMobileIndicatorSettings() {
   const id = _mobileIndicatorSettingsCurrentId;
   if (!id) return;
   _resetMobileIndicatorSettings(id);
-  // Modal neu rendern + Indikator live refreshen
+  // Modal neu rendern
   const def = _getMobileIndicatorEffectiveDef(id);
   const body = document.getElementById('mobileIndicatorSettingsBody');
   if (body) body.innerHTML = _buildMobileIndicatorSettingsForm(def);
-  _refreshMobileIndicator(id);
+  // Live refresh: bei Patterns Detection neu, sonst Indikator-Series neu erzeugen
+  if (def && (def.type === 'patterns' || def.type === 'chart_patterns')) {
+    _refreshMobilePatterns(id);
+  } else {
+    _refreshMobileIndicator(id);
+  }
 }
 
 function _buildMobileIndicatorSettingsForm(def) {
+  // ── SPECIAL: Per-Pattern-Toggles für Candle- und Chart-Patterns ──
+  if (def.type === 'patterns' || def.type === 'chart_patterns') {
+    return _buildMobilePatternSettingsForm(def);
+  }
+
   const schema = MOBILE_INDICATOR_PARAM_SCHEMA[def.type] || [];
   const lines  = def.lines || [];
   let html = '';
@@ -21322,6 +21426,85 @@ function _buildMobileIndicatorSettingsForm(def) {
   }
 
   return html;
+}
+
+// Settings-Form für Candle-Patterns + Chart-Patterns (Per-Pattern-Toggle + Alle-an/Alle-aus)
+function _buildMobilePatternSettingsForm(def) {
+  const isCandle = def.type === 'patterns';
+  const list = isCandle ? MOBILE_CANDLE_PATTERN_LIST : MOBILE_CHART_PATTERN_LIST;
+  const indicatorId = def.id;
+  // Gruppieren
+  const groups = {};
+  for (const p of list) {
+    if (!groups[p.group]) groups[p.group] = [];
+    groups[p.group].push(p);
+  }
+  // Counts
+  const totalCount = list.length;
+  const activeCount = list.filter(p => _isPatternEnabled(indicatorId, p.key)).length;
+  let html = `
+    <div style="font-size:11px;color:#9ca3af;padding:0 0 10px;line-height:1.5">
+      ${activeCount} von ${totalCount} Patterns aktiv. Klick auf den Namen toggelt.
+    </div>
+    <div style="display:flex;gap:8px;padding:0 0 12px">
+      <button onclick="_setAllMobilePatterns('${indicatorId}', true)" style="flex:1;padding:8px;background:#0d1117;border:1px solid #22c55e;color:#22c55e;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">✓ Alle an</button>
+      <button onclick="_setAllMobilePatterns('${indicatorId}', false)" style="flex:1;padding:8px;background:#0d1117;border:1px solid #ef4444;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">✕ Alle aus</button>
+    </div>`;
+
+  for (const g in groups) {
+    html += `<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1.2px;padding:8px 0 4px">${g}</div>`;
+    for (const p of groups[g]) {
+      const active = _isPatternEnabled(indicatorId, p.key);
+      html += `
+        <div onclick="_toggleMobilePattern('${indicatorId}', '${p.key}')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;margin-bottom:4px;background:${active ? 'rgba(34,197,94,0.08)' : '#161b22'};border:1px solid ${active ? '#22c55e' : '#1f2937'};border-radius:8px;cursor:pointer;transition:all 0.15s">
+          <div style="font-size:13px;color:#e6edf3;font-weight:${active ? '600' : '500'};flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.label}</div>
+          <div style="width:32px;height:18px;background:${active ? '#22c55e' : '#374151'};border-radius:9px;position:relative;flex-shrink:0;transition:background 0.15s">
+            <div style="position:absolute;top:2px;left:${active ? '16px' : '2px'};width:14px;height:14px;background:#fff;border-radius:50%;transition:left 0.15s"></div>
+          </div>
+        </div>`;
+    }
+  }
+  return html;
+}
+
+// Toggle eines einzelnen Patterns innerhalb eines Indikators
+function _toggleMobilePattern(indicatorId, patternKey) {
+  if (!_mobileIndicatorSettings[indicatorId]) _mobileIndicatorSettings[indicatorId] = {};
+  if (!_mobileIndicatorSettings[indicatorId].enabled) {
+    // Beim ersten Toggle alle Defaults explizit setzen, damit die Map konsistent ist
+    const list = indicatorId === 'patterns' ? MOBILE_CANDLE_PATTERN_LIST : MOBILE_CHART_PATTERN_LIST;
+    _mobileIndicatorSettings[indicatorId].enabled = {};
+    for (const p of list) _mobileIndicatorSettings[indicatorId].enabled[p.key] = true;
+  }
+  const cur = _mobileIndicatorSettings[indicatorId].enabled[patternKey];
+  _mobileIndicatorSettings[indicatorId].enabled[patternKey] = !cur;
+  _saveMobileIndicatorSettings();
+  // Form neu rendern + Detection neu laufen lassen
+  const body = document.getElementById('mobileIndicatorSettingsBody');
+  if (body) body.innerHTML = _buildMobilePatternSettingsForm(_getMobileIndicatorEffectiveDef(indicatorId));
+  _refreshMobilePatterns(indicatorId);
+}
+
+// Bulk-Set: alle Patterns eines Indikators auf true/false
+function _setAllMobilePatterns(indicatorId, enabled) {
+  if (!_mobileIndicatorSettings[indicatorId]) _mobileIndicatorSettings[indicatorId] = {};
+  const list = indicatorId === 'patterns' ? MOBILE_CANDLE_PATTERN_LIST : MOBILE_CHART_PATTERN_LIST;
+  _mobileIndicatorSettings[indicatorId].enabled = {};
+  for (const p of list) _mobileIndicatorSettings[indicatorId].enabled[p.key] = enabled;
+  _saveMobileIndicatorSettings();
+  const body = document.getElementById('mobileIndicatorSettingsBody');
+  if (body) body.innerHTML = _buildMobilePatternSettingsForm(_getMobileIndicatorEffectiveDef(indicatorId));
+  _refreshMobilePatterns(indicatorId);
+}
+
+// Detection neu auslösen nach Pattern-Filter-Änderung
+function _refreshMobilePatterns(indicatorId) {
+  const candles = (_mobileLastData && _mobileLastData.candles) ? _mobileLastData.candles : (window.currentCandles || []);
+  if (indicatorId === 'patterns') {
+    if (typeof _updateMobilePatterns === 'function') _updateMobilePatterns(candles);
+  } else if (indicatorId === 'chart_patterns') {
+    if (typeof _updateMobileChartPatterns === 'function') _updateMobileChartPatterns(candles);
+  }
 }
 
 // Hilfsfunktion: rgba/hex → #rrggbb für <input type="color">
@@ -21769,6 +21952,31 @@ const MOBILE_OVERLAY_COINS = [
 // State: { 'BTCUSDT': { series, color, label, loading } }
 let _mobileOverlays = {};
 
+// Overlay-Mode: 'shape' = jeder Overlay hat seine eigene Skala, beide Lines füllen die volle Chart-Höhe
+//               'performance' = beide Lines starten beim sichtbaren Anker auf gleicher Höhe, % divergieren
+let _mobileOverlayMode = 'shape';
+try {
+  const saved = localStorage.getItem('fb_mobile_overlay_mode');
+  if (saved === 'shape' || saved === 'performance') _mobileOverlayMode = saved;
+} catch(e) {}
+
+function setMobileOverlayMode(mode) {
+  if (mode !== 'shape' && mode !== 'performance') return;
+  if (mode === _mobileOverlayMode) return;
+  _mobileOverlayMode = mode;
+  try { localStorage.setItem('fb_mobile_overlay_mode', mode); } catch(e){}
+  // Alle aktiven Overlays neu aufbauen mit der neuen Skala
+  const active = Object.keys(_mobileOverlays).filter(s => _mobileOverlays[s] && _mobileOverlays[s].series);
+  for (const sym of active) {
+    const o = _mobileOverlays[sym];
+    try { _mobileChart.removeSeries(o.series); } catch(e){}
+    const newSeries = _createMobileOverlaySeries(o, sym);
+    o.series = newSeries;
+    _applyMobileOverlayData(o, sym);
+  }
+  openMobileOverlay(); // Modal-UI updaten (Buttons re-färben)
+}
+
 function openMobileOverlay() {
   const modal = document.getElementById('mobileOverlayModal');
   const list  = document.getElementById('mobileOverlayList');
@@ -21777,7 +21985,17 @@ function openMobileOverlay() {
   // Aktueller Coin aus Toolbar — den nicht als Overlay anbieten
   const currentSymbol = (document.getElementById('mobileCoinSelect') || {}).value || '';
 
-  let html = '';
+  // Mode-Toggle oben (Form vs. Performance)
+  const isShape = _mobileOverlayMode === 'shape';
+  const modeBtnBase = 'flex:1;padding:9px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s';
+  let html = `
+    <div style="display:flex;gap:6px;padding:0 0 10px;border-bottom:1px solid #1f2937;margin-bottom:8px">
+      <button onclick="setMobileOverlayMode('shape')" title="Eigene Skala pro Overlay — beide Linien nutzen die volle Chart-Höhe, Form/Timing-Vergleich" style="${modeBtnBase};background:${isShape ? '#22c55e' : '#0d1117'};border:1px solid ${isShape ? '#22c55e' : '#374151'};color:${isShape ? '#0d1117' : '#9ca3af'}">📊 Form</button>
+      <button onclick="setMobileOverlayMode('performance')" title="Anker-basiert — beide Linien starten gleich hoch, divergieren nach % Performance" style="${modeBtnBase};background:${!isShape ? '#22c55e' : '#0d1117'};border:1px solid ${!isShape ? '#22c55e' : '#374151'};color:${!isShape ? '#0d1117' : '#9ca3af'}">📈 Performance (%)</button>
+    </div>
+    <div style="font-size:10.5px;color:#6b7280;line-height:1.4;padding:0 0 10px">
+      ${isShape ? 'Form-Modus: Linien werden auto-skaliert auf eigene Skala. Peaks/Lows liegen zeitlich übereinander — du siehst ob Coins synchron laufen.' : 'Performance-Modus: Linien starten am sichtbaren Anker auf gleicher Höhe, divergieren nach relativer Performance.'}
+    </div>`;
   for (const def of MOBILE_OVERLAY_COINS) {
     const isCurrent = def.symbol === currentSymbol;
     const state = _mobileOverlays[def.symbol];
@@ -21817,19 +22035,37 @@ function _mobileTfToInterval(tf) {
 }
 
 async function _mobileFetchOverlayCandles(symbol, interval, startMs, endMs) {
-  // Single API-Call, max 1000 Candles — fuer Overlay reicht das normalerweise
-  // (Bei 1h TF: 1000h = ~41 Tage; bei 1d TF: 1000d = ~2.7 Jahre)
-  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${startMs}&endTime=${endMs}&limit=1000`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error('HTTP ' + resp.status);
-  const data = await resp.json();
+  // Multi-Chunk-Fetch: Binance liefert max 1000 Klines pro Request. Bei langem
+  // Zeitraum (z.B. 1h × 100+ Tage) reicht 1 Request nicht. Wir loopen.
   const out = [];
-  for (const d of data) {
-    const t = Math.floor(d[0] / 1000);
-    if (!t) continue;
-    out.push({ time: t, value: parseFloat(d[4]) });  // d[4] = close
+  let cursor = startMs;
+  let safety = 30;  // max 30 Requests → bis zu 30.000 Candles, mehr als genug
+  while (cursor < endMs && safety-- > 0) {
+    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${cursor}&endTime=${endMs}&limit=1000`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (!data || data.length === 0) break;
+    for (const d of data) {
+      const t = Math.floor(d[0] / 1000);
+      if (!t) continue;
+      out.push({ time: t, value: parseFloat(d[4]) });   // d[4] = close
+    }
+    if (data.length < 1000) break;          // letzter Batch
+    const lastMs = data[data.length - 1][0];
+    if (!lastMs || lastMs <= cursor) break; // Schutz vor Endlos-Schleife
+    cursor = lastMs + 1;                    // nächster Batch startet 1ms nach letztem
   }
-  return out;
+  // Dedupe nach time (falls Overlap zwischen Batches)
+  const seen = new Set();
+  const deduped = [];
+  for (const d of out) {
+    if (seen.has(d.time)) continue;
+    seen.add(d.time);
+    deduped.push(d);
+  }
+  deduped.sort((a, b) => a.time - b.time);
+  return deduped;
 }
 
 async function toggleMobileOverlay(symbol) {
@@ -21869,20 +22105,11 @@ async function toggleMobileOverlay(symbol) {
     const data = await _mobileFetchOverlayCandles(symbol, interval, startMs, endMs + 60000);
     if (data.length === 0) throw new Error('Keine Daten');
 
-    // Series anlegen auf MAIN-Skala (right) — damit Pinch-Zoom mitläuft
-    const series = _mobileChart.addLineSeries({
-      color: def.color,
-      lineWidth: 2,
-      priceScaleId: 'right',
-      lastValueVisible: false,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      title: def.label
-    });
-
-    // Daten erstmal als rawData speichern — dann skaliert in den main range zeichnen
-    _mobileOverlays[symbol] = { series, color: def.color, label: def.label, rawData: data, loading: false };
-    _rescaleMobileOverlay(_mobileOverlays[symbol]);
+    // Overlay-State anlegen, dann Series je nach Mode erzeugen + Daten anwenden
+    const o = { series: null, color: def.color, label: def.label, rawData: data, loading: false };
+    o.series = _createMobileOverlaySeries(o, symbol);
+    _mobileOverlays[symbol] = o;
+    _applyMobileOverlayData(o, symbol);
     _wireOverlayRescaleHooks();
     try { (typeof showToast === 'function') && showToast(def.label + ' Overlay hinzugefügt', 'success'); } catch(e){}
     openMobileOverlay();
@@ -21904,15 +22131,57 @@ function clearAllMobileOverlays() {
   openMobileOverlay();
 }
 
-// Skaliert die rawData eines Overlays auf den sichtbaren Bereich des Hauptcharts
-// So bleiben die Lines im selben Preis-Range wie die Candles — sie bewegen sich
-// proportional mit beim Pinch-Zoom oder Pan.
-function _rescaleMobileOverlay(o) {
+// Erzeugt die richtige Series für den aktuellen Mode
+function _createMobileOverlaySeries(o, symbol) {
+  if (!_mobileChart) return null;
+  if (_mobileOverlayMode === 'shape') {
+    // Eigene Preis-Skala — beide Lines füllen die volle Chart-Höhe unabhängig
+    const psId = 'overlay_' + symbol;
+    const series = _mobileChart.addLineSeries({
+      color: o.color,
+      lineWidth: 2,
+      priceScaleId: psId,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+      title: o.label
+    });
+    // applyOptions NACH Series-Creation (LWC v4 quirk — Skala existiert erst nach attach)
+    try {
+      _mobileChart.priceScale(psId).applyOptions({
+        scaleMargins: { top: 0.05, bottom: 0.05 },
+        visible: false
+      });
+    } catch(e){}
+    return series;
+  }
+  // performance: gemeinsame Skala mit den Candles ('right')
+  return _mobileChart.addLineSeries({
+    color: o.color,
+    lineWidth: 2,
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+    title: o.label
+  });
+}
+
+// Setzt die Daten in die Series — je nach Mode anders skaliert
+function _applyMobileOverlayData(o, symbol) {
   if (!o || !o.series || !o.rawData || !_mobileChart) return;
+
+  // ── SHAPE-MODE: keine Skalierung, Roh-Closes — LWC auto-fittet die eigene Skala ──
+  if (_mobileOverlayMode === 'shape') {
+    try { o.series.setData(o.rawData); } catch(e){}
+    return;
+  }
+
+  // ── PERFORMANCE-MODE: Anker im sichtbaren Bereich, beide starten dort auf gleicher Höhe ──
   const candles = (_mobileLastData && _mobileLastData.candles) || [];
   if (candles.length === 0) return;
 
-  // Sichtbaren Time-Range holen (Sekunden, UTC) — Fallback: alle Daten
+  // Sichtbaren Bereich holen (Sekunden, UTC) — Fallback: alle Daten
   let visFrom = -Infinity, visTo = Infinity;
   try {
     const r = _mobileChart.timeScale().getVisibleRange();
@@ -21921,51 +22190,51 @@ function _rescaleMobileOverlay(o) {
     }
   } catch(e) {}
 
-  // Main-Chart: sichtbare Low/High-Range
-  let mMin = Infinity, mMax = -Infinity;
+  // Anker des Overlays: erster Datenpunkt im sichtbaren Bereich
+  let overlayAnchor = null;
+  for (const d of o.rawData) {
+    if (d.time >= visFrom && d.time <= visTo) { overlayAnchor = d.value; break; }
+  }
+  if (overlayAnchor == null || overlayAnchor === 0) {
+    overlayAnchor = (o.rawData[0] && o.rawData[0].value) || null;
+  }
+
+  // Anker des Hauptcharts: erste Kerze im sichtbaren Bereich
+  let mainAnchor = null;
   for (const c of candles) {
     const t = Math.floor((c.ts || c.time || 0) / 1000);
-    if (t < visFrom || t > visTo) continue;
-    if (c.low  < mMin) mMin = c.low;
-    if (c.high > mMax) mMax = c.high;
+    if (t >= visFrom && t <= visTo) { mainAnchor = c.close; break; }
   }
-  if (mMin === Infinity) {
-    for (const c of candles) {
-      if (c.low  < mMin) mMin = c.low;
-      if (c.high > mMax) mMax = c.high;
-    }
-  }
+  if (mainAnchor == null) mainAnchor = candles[0].close;
 
-  // Overlay: sichtbare Value-Range
-  let oMin = Infinity, oMax = -Infinity;
-  for (const d of o.rawData) {
-    if (d.time < visFrom || d.time > visTo) continue;
-    if (d.value < oMin) oMin = d.value;
-    if (d.value > oMax) oMax = d.value;
-  }
-  if (oMin === Infinity) {
-    for (const d of o.rawData) {
-      if (d.value < oMin) oMin = d.value;
-      if (d.value > oMax) oMax = d.value;
-    }
-  }
+  if (!overlayAnchor || !mainAnchor) return;
 
-  if (mMin === Infinity || oMin === Infinity) return;
-  const oRange = (oMax - oMin) || 1;
-  // mRange darf nicht 0 sein, sonst kollabiert die Linie
-  const mRange = (mMax - mMin) || Math.max(mMin * 0.05, 0.01);
-
-  // Lineare Abbildung [oMin,oMax] → [mMin,mMax]
+  // overlay_t / overlay_anchor × main_anchor  →  beide Linien starten exakt am mainAnchor,
+  // divergieren dann nach echter relativer Performance
   const scaled = o.rawData.map(d => ({
     time: d.time,
-    value: ((d.value - oMin) / oRange) * mRange + mMin
+    value: mainAnchor * (d.value / overlayAnchor)
   }));
   try { o.series.setData(scaled); } catch(e){}
 }
 
+// Legacy-Name behalten — wird von anderen Stellen (Hooks, Live-Update) aufgerufen
+function _rescaleMobileOverlay(o, symbol) {
+  // symbol kann fehlen wenn nur o übergeben wird (Legacy-Call) — dann aus Map suchen
+  if (!symbol && o) {
+    for (const s in _mobileOverlays) {
+      if (_mobileOverlays[s] === o) { symbol = s; break; }
+    }
+  }
+  _applyMobileOverlayData(o, symbol);
+}
+
 function _rescaleAllMobileOverlays() {
+  // Im Shape-Mode ist Re-Apply unnötig (eigene Skala fittet sich selber); im Performance-Mode
+  // muss bei Visible-Range-Änderung neu skaliert werden damit der Anker mitwandert
+  if (_mobileOverlayMode === 'shape') return;
   for (const sym in _mobileOverlays) {
-    _rescaleMobileOverlay(_mobileOverlays[sym]);
+    _applyMobileOverlayData(_mobileOverlays[sym], sym);
   }
 }
 
@@ -41411,7 +41680,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 09:00 UTC';
+const APP_BUILD = '2026-05-17 10:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
