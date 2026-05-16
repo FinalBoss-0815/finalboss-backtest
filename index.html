@@ -18758,6 +18758,7 @@ function updateFavUI() {
 // ═══════════════════════════════════════════════
 let _mobileChart = null;
 let _mobileCandleSeries = null;
+let _mobileVZoom = 1.0;  // Vertikaler Zoom-Faktor für Mausrad-über-Price-Axis (1=normal, <1=zoom-in, >1=zoom-out)
 let _mobileEmaSeries = null;
 let _mobileLastData = null;
 let _mobileChartInitialized = false;
@@ -18905,65 +18906,54 @@ function renderMobileChart(candles, trades) {
     } catch(e){}
 
     // ─── Mausrad über Price-Axis = vertikaler Zoom (TradingView-Style) ───
-    // Reset auf Default scaleMargins (von eventuellem alten Build-Run mit Margin-Tweaking)
-    try { _mobileCandleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } }); } catch(_){}
-    // Wheel → synthetischer Drag auf der Price-Axis. LWC v4 hängt seine Handler an
-    // das Eltern-DIV der Axis-Canvas; nach mousedown hört es zusätzlich window ab.
+    // Approach: autoscaleInfoProvider auf der Candle-Series gibt uns volle Kontrolle
+    // über das Price-Range. Wheel ändert einen Zoom-Faktor — LWC ruft den Provider
+    // bei jedem Render auf und scaliert die Daten entsprechend.
+    // scaleMargins zurücksetzen (falls aus früheren Builds verbogen)
+    try { _mobileCandleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 }, autoScale: true }); } catch(_){}
+
+    _mobileVZoom = (typeof _mobileVZoom === 'number') ? _mobileVZoom : 1.0;
+    try {
+      _mobileCandleSeries.applyOptions({
+        autoscaleInfoProvider: (originalProvider) => {
+          const res = originalProvider();
+          if (!res || !res.priceRange) return res;
+          const min = res.priceRange.minValue;
+          const max = res.priceRange.maxValue;
+          if (!isFinite(min) || !isFinite(max) || max <= min) return res;
+          const center = (min + max) / 2;
+          const halfSpan = (max - min) / 2 * _mobileVZoom;
+          return {
+            priceRange: { minValue: center - halfSpan, maxValue: center + halfSpan },
+            margins: res.margins
+          };
+        }
+      });
+    } catch(_){}
+
+    // Wheel-Handler: CAPTURE-Phase damit LWCs eigener Wheel-Zoom (Time-Axis) das Event NICHT mehr sieht
     try {
       container.addEventListener('wheel', (e) => {
-        if (!_mobileChart) return;
+        if (!_mobileChart || !_mobileCandleSeries) return;
         const rect = container.getBoundingClientRect();
         const axisWidth = (_mobileChart.priceScale('right').width() || 60);
         const xRel = e.clientX - rect.left;
         const overPriceAxis = xRel > (rect.width - axisWidth - 6);
-        if (!overPriceAxis) return;
+        if (!overPriceAxis) return;  // ausserhalb Price-Axis → normales Wheel (Time-Zoom) durchlassen
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
 
-        // Right-most Axis-Canvas suchen
-        const canvases = container.querySelectorAll('canvas');
-        let axisCanvas = null;
-        for (const c of canvases) {
-          const cr = c.getBoundingClientRect();
-          if (cr.right >= rect.right - 4 && cr.width < rect.width * 0.5 && cr.width > 0) {
-            axisCanvas = c; break;
-          }
-        }
-        if (!axisCanvas) axisCanvas = canvases[canvases.length - 1];
-        if (!axisCanvas) return;
-
-        // Eltern-Element ist das Pane-DIV — DA hängt LWC seinen mousedown-Listener dran
-        const pane = axisCanvas.parentElement || axisCanvas;
-
-        // Drag-Distanz proportional zur Wheel-Stärke. wheel up (-) = drag up = zoom in
-        const dragPx = Math.sign(e.deltaY) * 40;
-        const cx = rect.right - axisWidth / 2;
-        const startY = rect.top + rect.height / 2;
-        const endY = startY + dragPx;
-
-        const base = { bubbles: true, cancelable: true, view: window, clientX: cx, screenX: cx, button: 0 };
-
-        // 1) mousedown → das Pane-Element (so trifft LWCs Listener)
+        // Wheel up = zoom in (halfSpan schrumpfen) | wheel down = zoom out
+        const factor = e.deltaY > 0 ? 1.10 : 0.91;  // ~10% pro Tick
+        _mobileVZoom = Math.max(0.05, Math.min(20, _mobileVZoom * factor));
+        // Re-Evaluation triggern — autoScale toggle force-flushed den Provider-Aufruf
         try {
-          pane.dispatchEvent(new MouseEvent('mousedown', { ...base, clientY: startY, screenY: startY, buttons: 1 }));
+          _mobileCandleSeries.priceScale().applyOptions({ autoScale: true });
+          // applyOptions auf der Series re-triggert den Provider
+          _mobileCandleSeries.applyOptions({});
         } catch(_){}
-        // Pointer-Variante parallel (manche LWC-Builds präferieren Pointer auf Hybrid-Geräten)
-        try {
-          pane.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientY: startY, screenY: startY, buttons: 1, pointerType: 'mouse', pointerId: 1, isPrimary: true }));
-        } catch(_){}
-
-        // 2) mousemove + mouseup → window (LWC bindet diese erst nach mousedown an window)
-        try {
-          window.dispatchEvent(new MouseEvent('mousemove', { ...base, clientY: endY, screenY: endY, buttons: 1 }));
-          window.dispatchEvent(new MouseEvent('mouseup',   { ...base, clientY: endY, screenY: endY, buttons: 0 }));
-        } catch(_){}
-        try {
-          window.dispatchEvent(new PointerEvent('pointermove', { ...base, clientY: endY, screenY: endY, buttons: 1, pointerType: 'mouse', pointerId: 1, isPrimary: true }));
-          window.dispatchEvent(new PointerEvent('pointerup',   { ...base, clientY: endY, screenY: endY, buttons: 0, pointerType: 'mouse', pointerId: 1, isPrimary: true }));
-        } catch(_){}
-
-        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 0);
-      }, { passive: false });
+        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 20);
+      }, { passive: false, capture: true });
     } catch(e){}
   }
   // Bei jedem Render: Container-Grösse syncen falls geändert (CSS-Class war später da als Chart-Init)
@@ -40086,7 +40076,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 03:20 UTC';
+const APP_BUILD = '2026-05-17 03:40 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
