@@ -814,8 +814,20 @@ html, body {
 /* Mobile-Spezifika werden via .is-mobile-device Klasse auf <html> kontrolliert
    (statt @media, damit Landscape-Flip auf grossen Handys keinen Wechsel triggert) */
 html:not(.is-mobile-device) .mobile-only-chart-fs-btn,
-html:not(.is-mobile-device) #mobileDesktopHint,
-html:not(.is-mobile-device) .mobile-only-chart { display: none !important; }
+html:not(.is-mobile-device) #mobileDesktopHint { display: none !important; }
+
+/* ── LWC-Chart-Migration: alte Canvas-Toolbar + alten Chart verstecken,
+   LWC-Chart + neuen Toolbar auch auf Desktop zeigen. CSS-basiert für leichten Revert. ── */
+#oldChartToolbar { display: none !important; }
+#chartBtOverlayBar #chartBtClear { /* kompakter Status bleibt sichtbar */ }
+.chart-area #tradeChart,
+.chart-area #tradeChartOverlay { display: none !important; }
+.mobile-only-chart { display: block !important; }
+.mobile-only-chart-toolbar { display: flex !important; }
+.mobile-only-draw-toolbar { display: flex !important; }
+/* Auf Desktop: Drawing-Toolbar etwas breiter und positioniert, da kein Touch-Optimierung nötig */
+html:not(.is-mobile-device) .mobile-only-chart { left: 52px !important; }
+html:not(.is-mobile-device) .mobile-only-chart-overlay { left: 52px !important; }
 
 html.is-mobile-device #tab-chart #tradeChart,
 html.is-mobile-device #tab-chart #tradeChartOverlay,
@@ -2064,7 +2076,7 @@ input[type=number] { -moz-appearance:textfield }
   <!-- Tab: Chart (statisch — alle Kerzen + Trades) -->
   <div class="tab-content" id="tab-chart">
     <div id="chartCard" style="display:flex;flex-direction:column;height:100%;position:relative;overflow:hidden">
-      <div style="display:flex;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px;overflow:hidden">
+      <div id="oldChartToolbar" style="display:flex;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px;overflow:hidden">
         <div style="display:flex;align-items:center;gap:10px;white-space:nowrap">
           <button id="liveChartBtn" onclick="toggleLiveChart()" style="padding:3px 10px;font-size:11px;font-weight:600;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-muted);border-radius:4px;cursor:pointer;transition:all 0.2s" title="Live-Chart mit Echtzeit-Daten">● LIVE</button>
           <button id="liveReplayBtn" onclick="liveReplayEnterPickMode()" style="padding:3px 10px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#fbbf24);border:none;color:#000;border-radius:4px;cursor:pointer;transition:all 0.2s;margin-left:4px" title="Bar Replay: Klick eine Kerze als Start-Punkt — danach läuft die Zeit kerze für kerze ab">🎬 Bar Replay</button>
@@ -2553,6 +2565,8 @@ input[type=number] { -moz-appearance:textfield }
           </select>
           <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
           <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 Overlay</button>
+          <button id="mobileEquityBtn" onclick="toggleMobileEquityOverlay()" aria-label="Equity-Overlay" title="Backtest-Equity-Kurve auf den Kerzen einblenden">💰 Equity</button>
+          <button id="mobileScreenshotBtn" onclick="mobileChartScreenshot()" aria-label="Screenshot speichern" title="Chart als PNG herunterladen">📷</button>
           <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
           <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ Bar Replay</button>
           <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
@@ -16702,8 +16716,8 @@ function tvSelectTool(group, tool) {
   tvGroupActive[group] = tool;
   try { localStorage.setItem('fb_tvGroupActive', JSON.stringify(tvGroupActive)); } catch(e) {}
   setDrawTool(tool);
-  // ─── Mobile-Bridge: Desktop-Tool-Name auf Mobile-Tool-Name mappen + aktivieren ───
-  if (typeof _isMobile === 'function' && _isMobile()) {
+  // ─── LWC-Bridge: Desktop-Tool-Name auf LWC-Tool-Name mappen + aktivieren (immer aktiv nach Migration) ───
+  if (true) {
     const TV_TO_MOBILE = {
       'trendline':'trendline', 'ray':'ray', 'hline':'hline', 'vline':'vline',
       'rect':'rect', 'fib':'fibo', 'channel':'channel', 'text':'text',
@@ -16780,8 +16794,8 @@ function setDrawTool(tool) {
     drawToolState = null;
     closeDrawSettings();
   }
-  // Mobile-Bridge: Cursor (tool=null) auch im Mobile-System aktivieren
-  if (tool === null && typeof _isMobile === 'function' && _isMobile() && typeof setMobileDrawTool === 'function') {
+  // LWC-Bridge: Cursor (tool=null) auch im LWC-System aktivieren (immer aktiv nach Migration)
+  if (tool === null && typeof setMobileDrawTool === 'function') {
     setMobileDrawTool('cursor', null);
   }
   tvUpdateToolbar();
@@ -19507,6 +19521,10 @@ function renderMobileChart(candles, trades) {
   try { if (typeof _scheduleMobileChartPatternUpdate === 'function') _scheduleMobileChartPatternUpdate(candles); } catch(e) {}
   // Overlays re-skalieren falls Main-Range sich geaendert hat
   try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e) {}
+  // Equity-Overlay aktualisieren falls aktiv (z.B. nach neuem Backtest)
+  try { if (typeof _refreshMobileEquityOverlay === 'function') _refreshMobileEquityOverlay(); } catch(e) {}
+  // Equity-Button-State (gelb-aktiv falls localStorage gespeichert)
+  try { if (typeof _refreshMobileEquityBtn === 'function') _refreshMobileEquityBtn(); } catch(e) {}
 }
 
 // Reset Mobile-Chart-State (z.B. bei neuem Coin/TF/Backtest)
@@ -22190,6 +22208,170 @@ function clearAllMobileOverlays() {
   openMobileOverlay();
 }
 
+// ═══════════════════════════════════════════════
+// EQUITY OVERLAY — Backtest-Equity-Kurve auf den Kerzen
+// ═══════════════════════════════════════════════
+// Datenquelle: lastResult.equity = [{ts: ms, value: balance}, ...]
+// Eigene unsichtbare Preis-Skala damit Candles nicht gestaucht werden
+let _mobileEquitySeries = null;
+let _mobileEquityEnabled = false;
+try {
+  _mobileEquityEnabled = localStorage.getItem('fb_mobile_equity_enabled') === '1';
+} catch(e) {}
+
+function _refreshMobileEquityBtn() {
+  const btn = document.getElementById('mobileEquityBtn');
+  if (!btn) return;
+  if (_mobileEquityEnabled) {
+    btn.style.background = '#fbbf24';
+    btn.style.color = '#0a0a0a';
+    btn.style.borderColor = '#f59e0b';
+  } else {
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }
+}
+
+function _hasEquityData() {
+  return (typeof lastResult !== 'undefined' && lastResult && Array.isArray(lastResult.equity) && lastResult.equity.length > 1);
+}
+
+function _buildMobileEquityData() {
+  if (!_hasEquityData()) return [];
+  const eq = lastResult.equity;
+  // Dedupe nach time (Sekunden) — falls mehrere Equity-Punkte auf dieselbe Sekunde fallen
+  const seen = new Set();
+  const out = [];
+  for (const p of eq) {
+    if (!p || !p.ts || !isFinite(p.value)) continue;
+    const t = Math.floor(p.ts / 1000);
+    if (seen.has(t)) {
+      // Letzten Wert mit selber Zeit ersetzen
+      out[out.length - 1] = { time: t, value: p.value };
+      continue;
+    }
+    seen.add(t);
+    out.push({ time: t, value: p.value });
+  }
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+function _mobileEquityShow() {
+  if (!_mobileChart) return;
+  if (!_hasEquityData()) {
+    try { (typeof showToast === 'function') && showToast('Erst einen Backtest laufen lassen', 'info'); } catch(e){}
+    return false;
+  }
+  const data = _buildMobileEquityData();
+  if (data.length < 2) return false;
+
+  // Series anlegen falls noch nicht existiert
+  if (!_mobileEquitySeries) {
+    _mobileEquitySeries = _mobileChart.addLineSeries({
+      color: '#fbbf24',
+      lineWidth: 2,
+      priceScaleId: 'equity',           // eigene Skala damit Kerzen nicht gestaucht werden
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+      title: '💰 Equity'
+    });
+    // Skala-Margins NACH Series-Creation (LWC v4 quirk)
+    try {
+      _mobileChart.priceScale('equity').applyOptions({
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+        visible: false
+      });
+    } catch(e){}
+  }
+  try { _mobileEquitySeries.setData(data); } catch(e){}
+  return true;
+}
+
+function _mobileEquityHide() {
+  if (_mobileEquitySeries && _mobileChart) {
+    try { _mobileChart.removeSeries(_mobileEquitySeries); } catch(e){}
+  }
+  _mobileEquitySeries = null;
+}
+
+function toggleMobileEquityOverlay() {
+  if (_mobileEquityEnabled) {
+    _mobileEquityEnabled = false;
+    _mobileEquityHide();
+  } else {
+    if (!_hasEquityData()) {
+      try { (typeof showToast === 'function') && showToast('Erst einen Backtest laufen lassen — dann kommt die Equity-Kurve', 'info'); } catch(e){}
+      return;
+    }
+    _mobileEquityEnabled = true;
+    _mobileEquityShow();
+  }
+  try { localStorage.setItem('fb_mobile_equity_enabled', _mobileEquityEnabled ? '1' : '0'); } catch(e){}
+  _refreshMobileEquityBtn();
+}
+
+// Wird vom Render-Loop aufgerufen wenn neue Equity-Daten kommen (nach Backtest)
+function _refreshMobileEquityOverlay() {
+  if (!_mobileChart) return;
+  if (!_mobileEquityEnabled) {
+    // Falls Toggle aus, sicherstellen dass keine Serie übrig ist
+    if (_mobileEquitySeries) _mobileEquityHide();
+    return;
+  }
+  if (!_hasEquityData()) {
+    _mobileEquityHide();
+    return;
+  }
+  _mobileEquityShow();
+}
+
+// ═══════════════════════════════════════════════
+// CHART-SCREENSHOT (Chart als PNG herunterladen)
+// ═══════════════════════════════════════════════
+function mobileChartScreenshot() {
+  if (!_mobileChart) {
+    try { (typeof showToast === 'function') && showToast('Chart ist noch nicht bereit', 'info'); } catch(e){}
+    return;
+  }
+  let canvas;
+  try { canvas = _mobileChart.takeScreenshot(); } catch(e) {
+    try { (typeof showToast === 'function') && showToast('Screenshot fehlgeschlagen: ' + e.message, 'error'); } catch(_){}
+    return;
+  }
+  if (!canvas) return;
+  // Dateiname: symbol + TF + Datum
+  const sym = (document.getElementById('mobileCoinSelect') || {}).value || 'chart';
+  const tf  = (document.getElementById('mobileTfSelect') || {}).value || '';
+  const now = new Date();
+  const ymd = now.getFullYear() + '-' +
+              String(now.getMonth() + 1).padStart(2,'0') + '-' +
+              String(now.getDate()).padStart(2,'0') + '_' +
+              String(now.getHours()).padStart(2,'0') +
+              String(now.getMinutes()).padStart(2,'0');
+  const filename = `finalboss_${sym}_${tf}_${ymd}.png`;
+  try {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+      try { (typeof showToast === 'function') && showToast('Screenshot gespeichert: ' + filename, 'success'); } catch(e){}
+    }, 'image/png');
+  } catch(e) {
+    try { (typeof showToast === 'function') && showToast('Download fehlgeschlagen: ' + e.message, 'error'); } catch(_){}
+  }
+}
+
 // Erzeugt die Series — beide Modi nutzen die gemeinsame 'right'-Skala mit den Candles.
 // So folgt die Overlay-Linie automatisch bei jedem Pan/Zoom (horizontal UND vertikal).
 function _createMobileOverlaySeries(o, symbol) {
@@ -22383,7 +22565,8 @@ async function _refreshMobileOverlays() {
 
 // ── Mobile Chart-Toolbar Setup (Coin + TF + Live) ──
 function initMobileChartToolbar() {
-  if (!_isMobile()) return;
+  // LWC-Chart-Migration: Toolbar wird jetzt überall initialisiert (vorher mobile-only)
+  // if (!_isMobile()) return;
   const coinSel = document.getElementById('mobileCoinSelect');
   const tfSel = document.getElementById('mobileTfSelect');
   const srcCoin = document.getElementById('liveSymbol');
@@ -24979,16 +25162,16 @@ window.addEventListener('resize', () => {
 });
 
 function drawTradeChart(candles, trades) {
-  // Mobile-Branch: TradingView Lightweight Chart statt unserer Canvas-Engine
-  if (_isMobile()) {
-    // In live mode: live candles
-    if (liveChartActive && liveChartCandles) {
-      candles = liveChartCandles;
-      trades = backtestOverlayTrades || [];
-    }
-    renderMobileChart(candles, trades);
-    return;
+  // LWC-Chart-Migration: immer Lightweight Chart benutzen (vorher mobile-only)
+  // In live mode: live candles
+  if (liveChartActive && liveChartCandles) {
+    candles = liveChartCandles;
+    trades = backtestOverlayTrades || [];
   }
+  renderMobileChart(candles, trades);
+  return;
+  // Alter Desktop-Pfad bleibt als Dead-Code (für leichten Revert über CSS+JS-Flip)
+  // eslint-disable-next-line no-unreachable
   // Desktop: bestehende Logik (unverändert)
   // In live mode: always use live candles + overlay trades instead of backtest data
   if (liveChartActive && liveChartCandles) {
@@ -25492,9 +25675,9 @@ function updateLiveOHLC() {
 }
 
 function drawCandleChart(canvasId, candles, trades, viewStart, viewEnd, isReplay, yShift) {
-  // Mobile: für den Haupt-Chart die Lightweight-Charts-Engine nutzen statt unserer Canvas
-  // (Replay-Chart und andere Canvases bleiben unberührt — die werden eh selten auf Mobile genutzt)
-  if (canvasId === 'tradeChart' && typeof _isMobile === 'function' && _isMobile()) {
+  // LWC-Chart-Migration: für den Haupt-Chart IMMER Lightweight Charts (vorher mobile-only)
+  // (Replay-Chart und andere Canvases bleiben unberührt — die nutzen weiter die Canvas-Engine)
+  if (canvasId === 'tradeChart') {
     if (typeof renderMobileChart === 'function') {
       try { renderMobileChart(candles, trades); } catch(e) {}
     }
@@ -27570,7 +27753,8 @@ document.addEventListener('click', (e) => {
     if (e.target.closest && e.target.closest('.info-icon')) return;
     openTab(tabBtn.dataset.tab);
     // Mobile + Chart-Tab: Toolbar init + Lightweight Chart resizen + Live-Chart starten
-    if (tabBtn.dataset.tab === 'chart' && _isMobile()) {
+    if (tabBtn.dataset.tab === 'chart') {
+      // LWC-Chart-Migration: Init läuft jetzt auf allen Geräten (vorher mobile-only)
       setTimeout(() => {
         try {
           // Toolbar initialisieren falls nicht passiert
@@ -41784,7 +41968,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 12:15 UTC';
+const APP_BUILD = '2026-05-17 13:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
