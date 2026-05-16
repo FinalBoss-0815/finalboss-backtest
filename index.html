@@ -842,6 +842,17 @@ html.is-mobile-device .mobile-only-chart { display: block !important; left: 52px
 html.is-mobile-device .mobile-only-chart-overlay { left: 52px !important; }
 /* Wichtig: Placement-Cursor muss dasselbe Koordinatensystem wie Chart haben (52px Toolbar-Offset) */
 html.is-mobile-device .mobile-place-cursor { left: 52px !important; }
+/* Während Placement-Mode: Body-Scroll komplett sperren damit Finger-Drag nicht die Seite hochwischt */
+body.fb-placement-active {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100%;
+  touch-action: none;
+}
+html.fb-placement-active {
+  overflow: hidden !important;
+  touch-action: none;
+}
 html.is-mobile-device .tab-content#tab-chart .chart-area { min-height: 60vh; }
 
 /* Mobile Chart Toolbar (Coin + TF + Live) */
@@ -975,16 +986,8 @@ html.is-mobile-device .mobile-place-cursor.active { display: block; }
   box-shadow: 0 0 0 2px rgba(0,0,0,0.85), 0 0 0 3px rgba(255,255,255,0.4);
   pointer-events: none;
 }
-/* Info-Badge mit Preis + Zeit */
-.mobile-place-cursor .mpc-info {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(10px, -22px);
-  background: rgba(13,17,23,0.88); border: 1px solid rgba(255,255,255,0.4);
-  border-radius: 3px; padding: 2px 6px;
-  font-size: 10px; font-weight: 600; color: #fff;
-  font-family: monospace; white-space: nowrap;
-  pointer-events: none;
-}
+/* Info-Badge ausgeblendet — Preis/Zeit liest man unten und rechts am Chart */
+.mobile-place-cursor .mpc-info { display: none; }
 /* Hint-Badge unten */
 .mobile-place-cursor .mpc-hint {
   position: absolute; bottom: 12px; left: 50%;
@@ -20690,6 +20693,10 @@ function _setCursorPos(x, y) {
   if (center) { center.style.top = y + 'px'; center.style.left = x + 'px'; }
   if (info) { info.style.top = y + 'px'; info.style.left = x + 'px'; }
   _updateMobilePlacementInfo();
+  // Live-Preview: wenn schon mind. 1 Punkt gesetzt ist, zeichne die Zeichnung-in-Erstellung mit
+  if (_mobilePlacement && _mobilePlacement.pointsCollected && _mobilePlacement.pointsCollected.length >= 1) {
+    try { redrawMobileOverlay(); } catch(e){}
+  }
 }
 
 function _getCursorTP() {
@@ -20798,6 +20805,27 @@ function _updateMobilePlacementInfo() {
   info.textContent = tp.price.toFixed(2) + ' · ' + timeStr;
 }
 
+// Body-Scroll-Sperre damit Finger-Drag nicht die Seite verschiebt
+function _lockBodyScroll() {
+  // Aktuelle Scroll-Position merken damit wir sie restoren können
+  _placementSavedScrollY = window.scrollY || window.pageYOffset || 0;
+  document.documentElement.classList.add('fb-placement-active');
+  document.body.classList.add('fb-placement-active');
+  // top:-Y damit der Body an Ort bleibt wenn er position:fixed bekommt
+  document.body.style.top = (-_placementSavedScrollY) + 'px';
+}
+function _unlockBodyScroll() {
+  document.documentElement.classList.remove('fb-placement-active');
+  document.body.classList.remove('fb-placement-active');
+  document.body.style.top = '';
+  // Scroll-Position wiederherstellen
+  if (_placementSavedScrollY != null) {
+    window.scrollTo(0, _placementSavedScrollY);
+    _placementSavedScrollY = null;
+  }
+}
+let _placementSavedScrollY = null;
+
 function startMobilePlacement(tool) {
   _mobilePlacement = { tool, pointsCollected: [] };
   const pc = document.getElementById('mobilePlaceCursor');
@@ -20812,6 +20840,8 @@ function startMobilePlacement(tool) {
   const hint = document.getElementById('mpcHint');
   if (hint) hint.textContent = 'Bewege Cursor + tippe zum Setzen';
   _wireMobilePlacementEvents();
+  // Page-Scroll sperren damit Touch-Drag nicht die Seite verschiebt
+  _lockBodyScroll();
 }
 
 // Pointer-Events — Maus folgt absolut (Hover), Touch verschiebt relativ (Cursor wandert per Delta)
@@ -20884,6 +20914,7 @@ function cancelMobilePlacement() {
   _mobilePlacement = null;
   const pc = document.getElementById('mobilePlaceCursor');
   if (pc) pc.classList.remove('active');
+  _unlockBodyScroll();
   // Tool zurück auf Cursor
   try { setMobileDrawTool('cursor', null); } catch(e){}
 }
@@ -20902,6 +20933,7 @@ function confirmMobilePlacement() {
     _mobilePlacement = null;
     const pc = document.getElementById('mobilePlaceCursor');
     if (pc) pc.classList.remove('active');
+    _unlockBodyScroll();
     setMobileDrawTool('cursor', null);
   } else {
     // Weiter sammeln — Hint updaten
@@ -21984,6 +22016,179 @@ function redrawMobileOverlay() {
     }
     ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; ctx.globalAlpha = 1;
   }
+
+  // ── PLACEMENT-Preview: zeige die Zeichnung live während User Cursor bewegt ──
+  if (_mobilePlacement && _mobilePlacement.pointsCollected && _mobilePlacement.pointsCollected.length >= 1 && _mobileCursorX != null) {
+    const tool = _mobilePlacement.tool;
+    const points = _mobilePlacement.pointsCollected;
+    const cursorTP = _getCursorTP();
+    if (cursorTP) {
+      const p1obj = points[0];
+      const p2obj = points[1] || cursorTP;
+      const p3obj = points[2] || cursorTP;
+      const a = tp(p1obj.time, p1obj.price);
+      const b = tp(p2obj.time, p2obj.price);
+      if (a.x != null && a.y != null && b.x != null && b.y != null) {
+        const previewColor = MDT_COLORS[tool] || '#06b6d4';
+        ctx.globalAlpha = 0.7;
+        ctx.setLineDash([5, 3]);
+        ctx.strokeStyle = previewColor;
+        ctx.lineWidth = 1.5;
+
+        // 1-2 Punkt-Tools — Linie/Form von p1 zu cursor
+        if (tool === 'trendline' || tool === 'infoline' || tool === 'highlighter') {
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+        else if (tool === 'arrow') {
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          const ang = Math.atan2(b.y - a.y, b.x - a.x);
+          const hl = 10;
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - hl * Math.cos(ang - Math.PI/6), b.y - hl * Math.sin(ang - Math.PI/6));
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - hl * Math.cos(ang + Math.PI/6), b.y - hl * Math.sin(ang + Math.PI/6));
+          ctx.stroke();
+        }
+        else if (tool === 'ray') {
+          const dx = b.x - a.x, dy = b.y - a.y;
+          let endX = w + 100, endY = a.y;
+          if (Math.abs(dx) > 0.001) {
+            const t2 = (w + 50 - a.x) / dx;
+            endX = a.x + dx * t2;
+            endY = a.y + dy * t2;
+          }
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(endX, endY); ctx.stroke();
+        }
+        else if (tool === 'infline') {
+          const dx = b.x - a.x, dy = b.y - a.y;
+          if (Math.abs(dx) > 0.001) {
+            const tL = (0 - a.x) / dx;
+            const tR = (w - a.x) / dx;
+            ctx.beginPath();
+            ctx.moveTo(a.x + dx*tL, a.y + dy*tL);
+            ctx.lineTo(a.x + dx*tR, a.y + dy*tR);
+            ctx.stroke();
+          }
+        }
+        else if (tool === 'rect' || tool === 'flattop' || tool === 'gannbox') {
+          ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+        }
+        else if (tool === 'ellipse') {
+          const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+          const rx = Math.abs(b.x - a.x) / 2, ry = Math.abs(b.y - a.y) / 2;
+          if (rx > 0 && ry > 0) {
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2);
+            ctx.stroke();
+          }
+        }
+        else if (tool === 'fibo' || tool === 'fibext') {
+          // Diagonale + 7 horizontale Levels
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
+          const levels = (tool === 'fibext') ? [1.0, 1.272, 1.618, 2.0, 2.618] : MDS_FIB_DEFAULT_LEVELS;
+          const minP = Math.min(p1obj.price, p2obj.price);
+          const maxP = Math.max(p1obj.price, p2obj.price);
+          ctx.globalAlpha = 0.4;
+          for (const lv of levels) {
+            const p = (tool === 'fibext') ?
+              ((p1obj.price < p2obj.price) ? p2obj.price + (p2obj.price - p1obj.price) * (lv - 1) : p2obj.price - (p1obj.price - p2obj.price) * (lv - 1)) :
+              maxP - (maxP - minP) * lv;
+            const c = _mobileCandleSeries.priceToCoordinate(p);
+            if (c != null) { ctx.beginPath(); ctx.moveTo(xL, c); ctx.lineTo(xR, c); ctx.stroke(); }
+          }
+          ctx.globalAlpha = 0.7;
+        }
+        else if (tool === 'fibfan') {
+          const fanLevels = [0.236, 0.382, 0.5, 0.618, 0.786];
+          for (const lv of fanLevels) {
+            const yEnd = a.y + (b.y - a.y) * lv;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, yEnd); ctx.stroke();
+          }
+        }
+        else if (tool === 'fibtime') {
+          const dx = b.x - a.x;
+          if (Math.abs(dx) > 0.001) {
+            const levels = [1,2,3,5,8,13,21];
+            for (const lv of levels) {
+              const x = a.x + dx * lv;
+              ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+          }
+        }
+        else if (tool === 'srline') {
+          const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
+          ctx.beginPath(); ctx.moveTo(xL, a.y); ctx.lineTo(xR, a.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(xL, b.y); ctx.lineTo(xR, b.y); ctx.stroke();
+        }
+        else if (tool === 'trendangle') {
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, a.y); ctx.stroke();
+        }
+        else if (tool === 'measure' || tool === 'daterange') {
+          // einfaches Rechteck als preview
+          ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+        }
+        // 3-Punkt-Tools — Verhalten nach Anzahl committed Points
+        else if (tool === 'channel' || tool === 'longPos' || tool === 'shortPos' || tool === 'pitchfork' || tool === 'triangle') {
+          if (points.length === 1) {
+            // Punkt 1 gesetzt, Cursor zeigt 2. Punkt → erste Linie preview
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          } else if (points.length === 2) {
+            // 2 Punkte gesetzt, Cursor zeigt 3. Punkt → finale Form preview
+            const c3 = tp(p3obj.time, p3obj.price);
+            if (c3.x != null && c3.y != null) {
+              if (tool === 'channel') {
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+                const dx = b.x - a.x, dy = b.y - a.y;
+                let offsetY = 0;
+                if (Math.abs(dx) > 0.001) offsetY = c3.y - (a.y + dy * (c3.x - a.x) / dx);
+                ctx.beginPath(); ctx.moveTo(a.x, a.y + offsetY); ctx.lineTo(b.x, b.y + offsetY); ctx.stroke();
+              } else if (tool === 'longPos' || tool === 'shortPos') {
+                // Entry-Linie (gelb) + 2 Boxen
+                const x1 = Math.min(a.x, c3.x), x2 = Math.max(a.x, c3.x, b.x);
+                ctx.strokeStyle = '#26a69a';
+                ctx.strokeRect(x1, Math.min(a.y, c3.y), x2 - x1, Math.abs(c3.y - a.y));
+                ctx.strokeStyle = '#ef5350';
+                ctx.strokeRect(x1, Math.min(a.y, b.y), x2 - x1, Math.abs(b.y - a.y));
+                ctx.strokeStyle = '#fbbf24';
+                ctx.beginPath(); ctx.moveTo(x1, a.y); ctx.lineTo(x2, a.y); ctx.stroke();
+              } else if (tool === 'triangle') {
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c3.x, c3.y);
+                ctx.closePath(); ctx.stroke();
+              } else if (tool === 'pitchfork') {
+                const mx = (b.x + c3.x) / 2, my = (b.y + c3.y) / 2;
+                const mdx = mx - a.x, mdy = my - a.y;
+                const mLen = Math.sqrt(mdx * mdx + mdy * mdy) || 1;
+                const mSc = Math.max(w, h) * 2 / mLen;
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + mdx * mSc, a.y + mdy * mSc); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + mdx * mSc, b.y + mdy * mSc); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(c3.x, c3.y); ctx.lineTo(c3.x + mdx * mSc, c3.y + mdy * mSc); ctx.stroke();
+              }
+            }
+          }
+        }
+
+        // Anker-Markierungen für bereits gesetzte Punkte
+        ctx.setLineDash([]);
+        ctx.fillStyle = previewColor;
+        for (const pt of points) {
+          const ap = tp(pt.time, pt.price);
+          if (ap.x != null && ap.y != null) {
+            ctx.beginPath();
+            ctx.arc(ap.x, ap.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+      }
+    }
+  }
+
   // ── DRAG-Preview (während User zieht): leichte gestrichelte Linie der pending Zeichnung ──
   if (_mobileIsDragging && _mobileDragStart && _mobileDragCurrent) {
     const tool = _mobileDrawTool;
@@ -39795,7 +40000,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 00:10 UTC';
+const APP_BUILD = '2026-05-17 00:55 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
