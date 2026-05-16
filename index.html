@@ -2552,7 +2552,7 @@ input[type=number] { -moz-appearance:textfield }
             <option value="Australia/Sydney">Sydney</option>
           </select>
           <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
-          <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 VS</button>
+          <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 Overlay</button>
           <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
           <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ REPLAY</button>
           <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
@@ -22131,31 +22131,10 @@ function clearAllMobileOverlays() {
   openMobileOverlay();
 }
 
-// Erzeugt die richtige Series für den aktuellen Mode
+// Erzeugt die Series — beide Modi nutzen die gemeinsame 'right'-Skala mit den Candles.
+// So folgt die Overlay-Linie automatisch bei jedem Pan/Zoom (horizontal UND vertikal).
 function _createMobileOverlaySeries(o, symbol) {
   if (!_mobileChart) return null;
-  if (_mobileOverlayMode === 'shape') {
-    // Eigene Preis-Skala — beide Lines füllen die volle Chart-Höhe unabhängig
-    const psId = 'overlay_' + symbol;
-    const series = _mobileChart.addLineSeries({
-      color: o.color,
-      lineWidth: 2,
-      priceScaleId: psId,
-      lastValueVisible: false,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      title: o.label
-    });
-    // applyOptions NACH Series-Creation (LWC v4 quirk — Skala existiert erst nach attach)
-    try {
-      _mobileChart.priceScale(psId).applyOptions({
-        scaleMargins: { top: 0.05, bottom: 0.05 },
-        visible: false
-      });
-    } catch(e){}
-    return series;
-  }
-  // performance: gemeinsame Skala mit den Candles ('right')
   return _mobileChart.addLineSeries({
     color: o.color,
     lineWidth: 2,
@@ -22163,7 +22142,20 @@ function _createMobileOverlaySeries(o, symbol) {
     lastValueVisible: false,
     priceLineVisible: false,
     crosshairMarkerVisible: false,
-    title: o.label
+    title: o.label,
+    // Folgt dem Y-Lock der Hauptkerzen — sonst würde die Overlay-Linie der Default
+    // Auto-Fit-Range der Series nehmen und beim Y-Pan/Zoom "stehen bleiben".
+    autoscaleInfoProvider: () => {
+      if (_mobileVZoomCenter != null && _mobileVZoomHalfSpan != null && _mobileVZoomHalfSpan > 0) {
+        return {
+          priceRange: {
+            minValue: _mobileVZoomCenter - _mobileVZoomHalfSpan,
+            maxValue: _mobileVZoomCenter + _mobileVZoomHalfSpan
+          }
+        };
+      }
+      return null; // Kein Lock → LWC default auto-fit (Union mit Candles)
+    }
   });
 }
 
@@ -22171,17 +22163,12 @@ function _createMobileOverlaySeries(o, symbol) {
 function _applyMobileOverlayData(o, symbol) {
   if (!o || !o.series || !o.rawData || !_mobileChart) return;
 
-  // ── SHAPE-MODE: keine Skalierung, Roh-Closes — LWC auto-fittet die eigene Skala ──
-  if (_mobileOverlayMode === 'shape') {
-    try { o.series.setData(o.rawData); } catch(e){}
-    return;
-  }
-
-  // ── PERFORMANCE-MODE: Anker im sichtbaren Bereich, beide starten dort auf gleicher Höhe ──
   const candles = (_mobileLastData && _mobileLastData.candles) || [];
   if (candles.length === 0) return;
 
-  // Sichtbaren Bereich holen (Sekunden, UTC) — Fallback: alle Daten
+  // Sichtbaren Bereich holen (Sekunden, UTC). Fallback: alle Daten — dann
+  // skaliert die Linie auf den GESAMTEN Datensatz, was nach erster Pan/Zoom-Aktion
+  // korrigiert wird (Hook auf VisibleRangeChange).
   let visFrom = -Infinity, visTo = Infinity;
   try {
     const r = _mobileChart.timeScale().getVisibleRange();
@@ -22190,27 +22177,60 @@ function _applyMobileOverlayData(o, symbol) {
     }
   } catch(e) {}
 
-  // Anker des Overlays: erster Datenpunkt im sichtbaren Bereich
-  let overlayAnchor = null;
-  for (const d of o.rawData) {
-    if (d.time >= visFrom && d.time <= visTo) { overlayAnchor = d.value; break; }
-  }
-  if (overlayAnchor == null || overlayAnchor === 0) {
-    overlayAnchor = (o.rawData[0] && o.rawData[0].value) || null;
-  }
-
-  // Anker des Hauptcharts: erste Kerze im sichtbaren Bereich
+  // Main-Chart: low/high im sichtbaren Bereich
+  let mMin = Infinity, mMax = -Infinity;
   let mainAnchor = null;
   for (const c of candles) {
     const t = Math.floor((c.ts || c.time || 0) / 1000);
-    if (t >= visFrom && t <= visTo) { mainAnchor = c.close; break; }
+    if (t < visFrom || t > visTo) continue;
+    if (c.low  < mMin) mMin = c.low;
+    if (c.high > mMax) mMax = c.high;
+    if (mainAnchor == null) mainAnchor = c.close;
   }
-  if (mainAnchor == null) mainAnchor = candles[0].close;
+  if (mMin === Infinity) {
+    for (const c of candles) {
+      if (c.low  < mMin) mMin = c.low;
+      if (c.high > mMax) mMax = c.high;
+      if (mainAnchor == null) mainAnchor = c.close;
+    }
+  }
 
-  if (!overlayAnchor || !mainAnchor) return;
+  // Overlay: min/max im sichtbaren Bereich + Anker
+  let oMin = Infinity, oMax = -Infinity;
+  let overlayAnchor = null;
+  for (const d of o.rawData) {
+    if (d.time < visFrom || d.time > visTo) continue;
+    if (d.value < oMin) oMin = d.value;
+    if (d.value > oMax) oMax = d.value;
+    if (overlayAnchor == null) overlayAnchor = d.value;
+  }
+  if (oMin === Infinity) {
+    for (const d of o.rawData) {
+      if (d.value < oMin) oMin = d.value;
+      if (d.value > oMax) oMax = d.value;
+      if (overlayAnchor == null) overlayAnchor = d.value;
+    }
+  }
 
-  // overlay_t / overlay_anchor × main_anchor  →  beide Linien starten exakt am mainAnchor,
-  // divergieren dann nach echter relativer Performance
+  if (mMin === Infinity || oMin === Infinity) return;
+
+  // ── SHAPE-MODE: lineare Abbildung [overlayMin, overlayMax] → [mainMin, mainMax]
+  //    der jeweils SICHTBAREN Daten. So füllen beide Linien dieselbe vertikale Range,
+  //    Peaks/Lows liegen optisch übereinander. Bei Pan/Zoom wird neu gemappt.
+  if (_mobileOverlayMode === 'shape') {
+    const oRange = (oMax - oMin) || 1;
+    const mRange = (mMax - mMin) || Math.max(mMin * 0.05, 0.01);
+    const scaled = o.rawData.map(d => ({
+      time: d.time,
+      value: ((d.value - oMin) / oRange) * mRange + mMin
+    }));
+    try { o.series.setData(scaled); } catch(e){}
+    return;
+  }
+
+  // ── PERFORMANCE-MODE: Anker-Mapping — beide starten am ersten sichtbaren Wert
+  //    auf gleicher Höhe (mainAnchor), divergieren dann nach echter relativer Performance.
+  if (!overlayAnchor || !mainAnchor || overlayAnchor === 0) return;
   const scaled = o.rawData.map(d => ({
     time: d.time,
     value: mainAnchor * (d.value / overlayAnchor)
@@ -22230,9 +22250,8 @@ function _rescaleMobileOverlay(o, symbol) {
 }
 
 function _rescaleAllMobileOverlays() {
-  // Im Shape-Mode ist Re-Apply unnötig (eigene Skala fittet sich selber); im Performance-Mode
-  // muss bei Visible-Range-Änderung neu skaliert werden damit der Anker mitwandert
-  if (_mobileOverlayMode === 'shape') return;
+  // Beide Modi müssen bei Visible-Range-Änderung neu mappen damit die Linie korrekt
+  // im sichtbaren Bereich der Hauptchart-Skala sitzt
   for (const sym in _mobileOverlays) {
     _applyMobileOverlayData(_mobileOverlays[sym], sym);
   }
@@ -41680,7 +41699,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 10:30 UTC';
+const APP_BUILD = '2026-05-17 11:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
