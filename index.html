@@ -2595,6 +2595,23 @@ input[type=number] { -moz-appearance:textfield }
             <div id="mobileIndicatorsList" style="flex:1;overflow-y:auto;padding:10px"></div>
           </div>
         </div>
+        <!-- Mobile Indicator Settings Modal (TradingView-style per-Indicator config) -->
+        <div id="mobileIndicatorSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100001;align-items:flex-start;justify-content:center;padding-top:6vh">
+          <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;width:92%;max-width:420px;max-height:88vh;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #1f2937">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+                <div style="font-size:16px">⚙</div>
+                <div id="mobileIndicatorSettingsTitle" style="font-size:14px;font-weight:700;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Einstellungen</div>
+              </div>
+              <button onclick="closeMobileIndicatorSettings()" style="background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0">✕</button>
+            </div>
+            <div id="mobileIndicatorSettingsBody" style="flex:1;overflow-y:auto;padding:12px 14px"></div>
+            <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid #1f2937">
+              <button onclick="resetMobileIndicatorSettings()" style="flex:1;padding:10px;background:#0d1117;border:1px solid #374151;color:#e0af68;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">↺ Zurücksetzen</button>
+              <button onclick="closeMobileIndicatorSettings()" style="flex:2;padding:10px;background:#22c55e;border:none;color:#0d1117;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Fertig</button>
+            </div>
+          </div>
+        </div>
         <!-- Mobile Coin Picker Modal (mit Suche, alle 190 Coins) -->
         <div id="mobileCoinPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:flex-start;justify-content:center;padding-top:10vh">
           <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;width:90%;max-width:380px;max-height:75vh;display:flex;flex-direction:column">
@@ -19606,6 +19623,313 @@ const MOBILE_INDICATORS_DEFS = [
 ];
 
 // ═══════════════════════════════════════════════
+//  PER-INDIKATOR-SETTINGS (TradingView-Style)
+// ═══════════════════════════════════════════════
+// Welche Parameter pro Type editierbar sind (Numeric-Inputs im Settings-Modal)
+const MOBILE_INDICATOR_PARAM_SCHEMA = {
+  // Single-Period MAs
+  ema: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  sma: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  dema: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  tema: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  hma: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  wma: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  zlema: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  smma: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  vwma: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  kama: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  mcginley: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  linreg: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  // Bands & Channels
+  bb: [
+    { key:'period', label:'Periode', min:1, max:500, step:1 },
+    { key:'mult', label:'StdDev-Multiplikator', min:0.1, max:10, step:0.1 }
+  ],
+  keltner: [
+    { key:'emaPeriod', label:'EMA-Periode', min:1, max:500, step:1 },
+    { key:'atrPeriod', label:'ATR-Periode', min:1, max:500, step:1 },
+    { key:'mult', label:'ATR-Multiplikator', min:0.1, max:10, step:0.1 }
+  ],
+  donchian: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  envelope: [
+    { key:'period', label:'Periode', min:1, max:500, step:1 },
+    { key:'pct', label:'Prozent (%)', min:0.1, max:50, step:0.1 }
+  ],
+  priceChannel: [{ key:'period', label:'Periode', min:1, max:500, step:1 }],
+  // Trend
+  supertrend: [
+    { key:'period', label:'ATR-Periode', min:1, max:500, step:1 },
+    { key:'mult', label:'Multiplikator', min:0.1, max:20, step:0.1 }
+  ],
+  parabolicSar: [
+    { key:'afStart', label:'AF Start', min:0.001, max:1, step:0.001 },
+    { key:'afStep', label:'AF Step', min:0.001, max:1, step:0.001 },
+    { key:'afMax', label:'AF Max', min:0.01, max:1, step:0.01 }
+  ],
+  ichimoku: [
+    { key:'tenkan', label:'Tenkan-Periode', min:1, max:200, step:1 },
+    { key:'kijun', label:'Kijun-Periode', min:1, max:200, step:1 },
+    { key:'senkouB', label:'Senkou B-Periode', min:1, max:500, step:1 }
+  ],
+  chandelier: [
+    { key:'period', label:'Periode', min:1, max:500, step:1 },
+    { key:'mult', label:'ATR-Multiplikator', min:0.1, max:10, step:0.1 }
+  ],
+  pivotPoints: [],
+  fractals: [{ key:'n', label:'Lookback (n)', min:1, max:10, step:1 }],
+  // Oscillators
+  rsi: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  macd: [
+    { key:'fast', label:'Fast EMA', min:1, max:200, step:1 },
+    { key:'slow', label:'Slow EMA', min:1, max:200, step:1 },
+    { key:'signal', label:'Signal-Periode', min:1, max:200, step:1 }
+  ],
+  stoch: [
+    { key:'kPeriod', label:'%K-Periode', min:1, max:200, step:1 },
+    { key:'dPeriod', label:'%D-Periode', min:1, max:50, step:1 }
+  ],
+  adx: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  cci: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  williamsR: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  mfi: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  roc: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  momentum: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  trix: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  stochRsi: [
+    { key:'rsiPeriod', label:'RSI-Periode', min:1, max:200, step:1 },
+    { key:'stochPeriod', label:'Stoch-Periode', min:1, max:200, step:1 },
+    { key:'kSmooth', label:'%K-Smoothing', min:1, max:50, step:1 },
+    { key:'dSmooth', label:'%D-Smoothing', min:1, max:50, step:1 }
+  ],
+  ao: [],
+  choppiness: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  dpo: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  ultimateOsc: [
+    { key:'p1', label:'Periode 1', min:1, max:100, step:1 },
+    { key:'p2', label:'Periode 2', min:1, max:100, step:1 },
+    { key:'p3', label:'Periode 3', min:1, max:200, step:1 }
+  ],
+  aroon: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  ppo: [
+    { key:'fast', label:'Fast EMA', min:1, max:200, step:1 },
+    { key:'slow', label:'Slow EMA', min:1, max:200, step:1 },
+    { key:'signal', label:'Signal-Periode', min:1, max:200, step:1 }
+  ],
+  kst: [],
+  coppock: [],
+  fisher: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  rvi: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  connorsRsi: [
+    { key:'rsiP', label:'RSI-Periode', min:1, max:50, step:1 },
+    { key:'streakP', label:'Streak-Periode', min:1, max:50, step:1 }
+  ],
+  squeezeMom: [
+    { key:'bbPeriod', label:'BB-Periode', min:1, max:200, step:1 },
+    { key:'kcPeriod', label:'KC-Periode', min:1, max:200, step:1 }
+  ],
+  vortex: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  stc: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  // Volume Panels
+  obv: [],
+  cmf: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  atr: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  forceIndex: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  accDist: [],
+  bop: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  massIndex: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  vroc: [{ key:'period', label:'Periode', min:1, max:200, step:1 }],
+  klinger: [],
+  vwap: [],
+  volume: []
+};
+
+// Linien pro Indikator-Type: { name, defaultColor, defaultWidth, defaultStyle }
+// style: 0=solid 1=dotted 2=dashed
+// Wenn ein Type hier NICHT gelistet ist → 1 Linie, Default-Color aus def.color
+const MOBILE_INDICATOR_LINE_SCHEMA = {
+  bb: [
+    { name:'Upper', defaultColor:'#22d3ee', defaultWidth:1, defaultStyle:2 },
+    { name:'Mittellinie', defaultColor:'#22d3ee', defaultWidth:1, defaultStyle:0 },
+    { name:'Lower', defaultColor:'#22d3ee', defaultWidth:1, defaultStyle:2 }
+  ],
+  keltner: [
+    { name:'Upper', defaultColor:'#f0883e', defaultWidth:1, defaultStyle:2 },
+    { name:'Mittellinie', defaultColor:'#f0883e', defaultWidth:1, defaultStyle:0 },
+    { name:'Lower', defaultColor:'#f0883e', defaultWidth:1, defaultStyle:2 }
+  ],
+  donchian: [
+    { name:'Upper', defaultColor:'#2ac3de', defaultWidth:1, defaultStyle:2 },
+    { name:'Mittellinie', defaultColor:'#2ac3de', defaultWidth:1, defaultStyle:0 },
+    { name:'Lower', defaultColor:'#2ac3de', defaultWidth:1, defaultStyle:2 }
+  ],
+  envelope: [
+    { name:'Upper', defaultColor:'#9ece6a', defaultWidth:1, defaultStyle:2 },
+    { name:'Mittellinie', defaultColor:'#9ece6a', defaultWidth:1, defaultStyle:0 },
+    { name:'Lower', defaultColor:'#9ece6a', defaultWidth:1, defaultStyle:2 }
+  ],
+  priceChannel: [
+    { name:'Upper', defaultColor:'#e0af68', defaultWidth:1, defaultStyle:2 },
+    { name:'Mittellinie', defaultColor:'#e0af68', defaultWidth:1, defaultStyle:0 },
+    { name:'Lower', defaultColor:'#e0af68', defaultWidth:1, defaultStyle:2 }
+  ],
+  ichimoku: [
+    { name:'Tenkan', defaultColor:'#22c55e', defaultWidth:1, defaultStyle:0 },
+    { name:'Kijun', defaultColor:'#ef4444', defaultWidth:1, defaultStyle:0 },
+    { name:'Senkou A', defaultColor:'#06b6d4', defaultWidth:1, defaultStyle:2 },
+    { name:'Senkou B', defaultColor:'#ec4899', defaultWidth:1, defaultStyle:2 },
+    { name:'Chikou', defaultColor:'#a78bfa', defaultWidth:1, defaultStyle:2 }
+  ],
+  chandelier: [
+    { name:'Long Exit', defaultColor:'#22c55e', defaultWidth:1, defaultStyle:2 },
+    { name:'Short Exit', defaultColor:'#ef4444', defaultWidth:1, defaultStyle:2 }
+  ],
+  pivotPoints: [
+    { name:'PP', defaultColor:'#9ca3af', defaultWidth:1, defaultStyle:1 },
+    { name:'R1', defaultColor:'#ef4444', defaultWidth:1, defaultStyle:1 },
+    { name:'S1', defaultColor:'#22c55e', defaultWidth:1, defaultStyle:1 },
+    { name:'R2', defaultColor:'#f97316', defaultWidth:1, defaultStyle:1 },
+    { name:'S2', defaultColor:'#06b6d4', defaultWidth:1, defaultStyle:1 }
+  ],
+  fractals: [
+    { name:'Up', defaultColor:'#22c55e', defaultWidth:0, defaultStyle:0 },
+    { name:'Down', defaultColor:'#ef4444', defaultWidth:0, defaultStyle:0 }
+  ],
+  supertrend: [
+    { name:'Trend Up', defaultColor:'#22c55e', defaultWidth:2, defaultStyle:0 },
+    { name:'Trend Down', defaultColor:'#ef4444', defaultWidth:2, defaultStyle:0 }
+  ],
+  parabolicSar: [
+    { name:'Punkte', defaultColor:'#ff9e64', defaultWidth:0, defaultStyle:0 }
+  ],
+  // Panels — Multi-Line
+  macd: [
+    { name:'MACD', defaultColor:'#58a6ff', defaultWidth:2, defaultStyle:0 },
+    { name:'Signal', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 },
+    { name:'Histogram', defaultColor:'#22c55e', defaultWidth:1, defaultStyle:0 }
+  ],
+  stoch: [
+    { name:'%K', defaultColor:'#06b6d4', defaultWidth:2, defaultStyle:0 },
+    { name:'%D', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 }
+  ],
+  adx: [
+    { name:'ADX', defaultColor:'#fbbf24', defaultWidth:2, defaultStyle:0 },
+    { name:'+DI', defaultColor:'#22c55e', defaultWidth:1, defaultStyle:0 },
+    { name:'-DI', defaultColor:'#ef4444', defaultWidth:1, defaultStyle:0 }
+  ],
+  stochRsi: [
+    { name:'%K', defaultColor:'#06b6d4', defaultWidth:2, defaultStyle:0 },
+    { name:'%D', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 }
+  ],
+  aroon: [
+    { name:'Up', defaultColor:'#22c55e', defaultWidth:2, defaultStyle:0 },
+    { name:'Down', defaultColor:'#ef4444', defaultWidth:2, defaultStyle:0 }
+  ],
+  ppo: [
+    { name:'PPO', defaultColor:'#58a6ff', defaultWidth:2, defaultStyle:0 },
+    { name:'Signal', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 },
+    { name:'Histogram', defaultColor:'#22c55e', defaultWidth:1, defaultStyle:0 }
+  ],
+  kst: [
+    { name:'KST', defaultColor:'#06b6d4', defaultWidth:2, defaultStyle:0 },
+    { name:'Signal', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 }
+  ],
+  fisher: [
+    { name:'Fisher', defaultColor:'#06b6d4', defaultWidth:2, defaultStyle:0 },
+    { name:'Trigger', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 }
+  ],
+  rvi: [
+    { name:'RVI', defaultColor:'#06b6d4', defaultWidth:2, defaultStyle:0 },
+    { name:'Signal', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 }
+  ],
+  vortex: [
+    { name:'VI+', defaultColor:'#22c55e', defaultWidth:2, defaultStyle:0 },
+    { name:'VI-', defaultColor:'#ef4444', defaultWidth:2, defaultStyle:0 }
+  ],
+  klinger: [
+    { name:'Klinger', defaultColor:'#06b6d4', defaultWidth:2, defaultStyle:0 },
+    { name:'Signal', defaultColor:'#f97316', defaultWidth:1, defaultStyle:0 }
+  ],
+  volume: [
+    { name:'Volume', defaultColor:'#22c55e', defaultWidth:0, defaultStyle:0 }
+  ],
+  ao: [
+    { name:'Histogram', defaultColor:'#22c55e', defaultWidth:0, defaultStyle:0 }
+  ],
+  squeezeMom: [
+    { name:'Histogram', defaultColor:'#22c55e', defaultWidth:0, defaultStyle:0 }
+  ]
+};
+
+// User-Settings pro Indikator (überschreiben Defaults)
+// Form: { id: { period:14, mult:2, lines:[{color,width,style,visible}, ...] } }
+let _mobileIndicatorSettings = {};
+const _MOBILE_INDICATOR_SETTINGS_KEY = 'fb_mobile_indicator_settings_v1';
+
+function _loadMobileIndicatorSettings() {
+  try {
+    const raw = localStorage.getItem(_MOBILE_INDICATOR_SETTINGS_KEY);
+    if (raw) _mobileIndicatorSettings = JSON.parse(raw) || {};
+  } catch(e) { _mobileIndicatorSettings = {}; }
+}
+function _saveMobileIndicatorSettings() {
+  try { localStorage.setItem(_MOBILE_INDICATOR_SETTINGS_KEY, JSON.stringify(_mobileIndicatorSettings)); } catch(e) {}
+}
+// Sofort beim Script-Parse laden — Settings müssen verfügbar sein bevor irgendein Indikator aktiviert wird
+_loadMobileIndicatorSettings();
+
+// Liefert die "effektive" Def: Base aus MOBILE_INDICATORS_DEFS + User-Overrides aus Settings
+function _getMobileIndicatorEffectiveDef(id) {
+  const base = MOBILE_INDICATORS_DEFS.find(d => d.id === id);
+  if (!base) return null;
+  const overrides = _mobileIndicatorSettings[id] || {};
+  // Numeric params merge
+  const merged = Object.assign({}, base);
+  const schema = MOBILE_INDICATOR_PARAM_SCHEMA[base.type] || [];
+  for (const p of schema) {
+    if (overrides[p.key] != null) merged[p.key] = overrides[p.key];
+  }
+  // Line-Settings als ARRAY of {color, width, style, visible}
+  const lineSchema = MOBILE_INDICATOR_LINE_SCHEMA[base.type] || [
+    { name:'Line', defaultColor: base.color, defaultWidth: 2, defaultStyle: 0 }
+  ];
+  const overrideLines = Array.isArray(overrides.lines) ? overrides.lines : [];
+  merged.lines = lineSchema.map((ls, i) => {
+    const ov = overrideLines[i] || {};
+    return {
+      name:    ls.name,
+      color:   ov.color   != null ? ov.color   : ls.defaultColor,
+      width:   ov.width   != null ? ov.width   : ls.defaultWidth,
+      style:   ov.style   != null ? ov.style   : ls.defaultStyle,
+      visible: ov.visible != null ? ov.visible : true
+    };
+  });
+  return merged;
+}
+
+// Reset eines Indikators auf Defaults (löscht User-Overrides)
+function _resetMobileIndicatorSettings(id) {
+  delete _mobileIndicatorSettings[id];
+  _saveMobileIndicatorSettings();
+}
+
+// User-Setting aktualisieren (key=Param-Name oder 'lines.<idx>.<feld>')
+function _setMobileIndicatorSetting(id, key, value) {
+  if (!_mobileIndicatorSettings[id]) _mobileIndicatorSettings[id] = {};
+  const s = _mobileIndicatorSettings[id];
+  if (key.startsWith('lines.')) {
+    const parts = key.split('.');
+    const idx = parseInt(parts[1], 10);
+    const field = parts[2];
+    if (!Array.isArray(s.lines)) s.lines = [];
+    while (s.lines.length <= idx) s.lines.push({});
+    s.lines[idx][field] = value;
+  } else {
+    s[key] = value;
+  }
+  _saveMobileIndicatorSettings();
+}
+
+// ═══════════════════════════════════════════════
 // CANDLE-PATTERN DETECTION (22 Pattern)
 // ═══════════════════════════════════════════════
 let _mobilePatternsEnabled = false;
@@ -20362,7 +20686,8 @@ function _computeMobileIndicator(def, candles) {
   if (def.type === 'mcginley') return _toTimedSeries(candles, I.mcginley(closes, def.period));
   if (def.type === 'linreg') {
     const r = I.linearRegression(closes, def.period);
-    return _toTimedSeries(candles, r.line || r);
+    const arr = (r && (r.value || r.line)) || (Array.isArray(r) ? r : []);
+    return _toTimedSeries(candles, arr);
   }
 
   // Bands / Channels (multi-line)
@@ -20390,16 +20715,21 @@ function _computeMobileIndicator(def, candles) {
   // Special overlays
   if (def.type === 'supertrend') {
     const st = I.supertrend(highs, lows, closes, def.period, def.mult);
+    const trendArr = st.supertrend || st.trend || [];
+    const dirArr = st.direction || [];
+    const upColor   = (def.lines && def.lines[0] && def.lines[0].color)   || '#22c55e';
+    const downColor = (def.lines && def.lines[1] && def.lines[1].color)   || '#ef4444';
     const out = [];
     for (let i = 0; i < candles.length; i++) {
-      const t = T(i); if (!t || !isFinite(st.trend[i])) continue;
-      out.push({ time: t, value: st.trend[i], color: st.direction[i] > 0 ? '#22c55e' : '#ef4444' });
+      const t = T(i); if (!t || !isFinite(trendArr[i])) continue;
+      out.push({ time: t, value: trendArr[i], color: (dirArr[i] || 0) > 0 ? upColor : downColor });
     }
     return out;
   }
   if (def.type === 'parabolicSar') {
     const sar = I.parabolicSar(highs, lows, closes, def.afStart, def.afStep, def.afMax);
-    return _toTimedSeries(candles, sar);
+    const arr = (sar && (sar.sar || sar)) || [];
+    return _toTimedSeries(candles, arr);
   }
   if (def.type === 'ichimoku') {
     const ich = I.ichimoku(highs, lows, closes, def.tenkan, def.kijun, def.senkouB);
@@ -20478,10 +20808,11 @@ function _computeMobileIndicator(def, candles) {
   // Panel: Multi-line oscillators
   if (def.type === 'macd') {
     const m = I.macd(closes, def.fast, def.slow, def.signal);
+    const histArr = m.histogram || m.hist || [];
     const histData = [];
     for (let i = 0; i < candles.length; i++) {
-      const t = T(i); if (!t || !isFinite(m.hist[i])) continue;
-      histData.push({ time: t, value: m.hist[i], color: m.hist[i] >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)' });
+      const t = T(i); if (!t || !isFinite(histArr[i])) continue;
+      histData.push({ time: t, value: histArr[i], color: histArr[i] >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)' });
     }
     return [_toTimedSeries(candles, m.macd), _toTimedSeries(candles, m.signal), histData];
   }
@@ -20514,10 +20845,11 @@ function _computeMobileIndicator(def, candles) {
   }
   if (def.type === 'ppo') {
     const p = I.ppo(closes, def.fast, def.slow, def.signal);
+    const histArr = p.histogram || p.hist || [];
     const histData = [];
     for (let i = 0; i < candles.length; i++) {
-      const t = T(i); if (!t || !isFinite(p.hist[i])) continue;
-      histData.push({ time: t, value: p.hist[i], color: p.hist[i] >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)' });
+      const t = T(i); if (!t || !isFinite(histArr[i])) continue;
+      histData.push({ time: t, value: histArr[i], color: histArr[i] >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)' });
     }
     return [_toTimedSeries(candles, p.ppo), _toTimedSeries(candles, p.signal), histData];
   }
@@ -20535,7 +20867,7 @@ function _computeMobileIndicator(def, candles) {
   }
   if (def.type === 'vortex') {
     const v = I.vortex(highs, lows, closes, def.period);
-    return [_toTimedSeries(candles, v.plus || v.viPlus), _toTimedSeries(candles, v.minus || v.viMinus)];
+    return [_toTimedSeries(candles, v.vip || v.plus || v.viPlus || []), _toTimedSeries(candles, v.vim || v.minus || v.viMinus || [])];
   }
   if (def.type === 'klinger') {
     const k = I.klinger(highs, lows, closes, vols);
@@ -20543,15 +20875,16 @@ function _computeMobileIndicator(def, candles) {
   }
   if (def.type === 'squeezeMom') {
     const sq = I.squeezeMomentum(highs, lows, closes, def.bbPeriod, undefined, def.kcPeriod);
+    const momArr = sq.momentum || sq.value || [];
     const out = [];
     for (let i = 0; i < candles.length; i++) {
-      const t = T(i); if (!t || !isFinite(sq.value[i])) continue;
-      const prev = i > 0 ? sq.value[i - 1] : sq.value[i];
-      const up = sq.value[i] >= prev;
-      const color = sq.value[i] >= 0
+      const t = T(i); if (!t || !isFinite(momArr[i])) continue;
+      const prev = i > 0 ? momArr[i - 1] : momArr[i];
+      const up = momArr[i] >= prev;
+      const color = momArr[i] >= 0
         ? (up ? 'rgba(34,197,94,0.9)' : 'rgba(34,197,94,0.5)')
         : (up ? 'rgba(239,68,68,0.5)' : 'rgba(239,68,68,0.9)');
-      out.push({ time: t, value: sq.value[i], color });
+      out.push({ time: t, value: momArr[i], color });
     }
     return out;
   }
@@ -20573,48 +20906,56 @@ function _ensureMobilePanelScale(id) {
 
 function _createMobileIndicatorSeries(def) {
   if (!_mobileChart) return null;
-  const C = def.color;
+  const lines = def.lines || [{ color: def.color, width: 2, style: 0, visible: true }];
+
+  // Common base opts factory aus Line-Settings
+  const baseLineOpts = (l, extra) => ({
+    color: l.color,
+    lineWidth: Math.max(0, l.width),
+    lineStyle: l.style || 0,
+    visible: l.visible !== false,
+    priceLineVisible: false,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+    ...(extra || {})
+  });
 
   // Multi-Line BB-Family overlays (Bollinger/Keltner/Donchian/Envelope/PriceChannel)
   if (def.type === 'bb' || def.type === 'keltner' || def.type === 'donchian' || def.type === 'envelope' || def.type === 'priceChannel') {
-    const opts = { color: C, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-    const upper = _mobileChart.addLineSeries({ ...opts, lineStyle: 2 });
-    const mid   = _mobileChart.addLineSeries({ ...opts, lineStyle: 0 });
-    const lower = _mobileChart.addLineSeries({ ...opts, lineStyle: 2 });
-    return [upper, mid, lower];
+    return lines.map(l => _mobileChart.addLineSeries(baseLineOpts(l)));
   }
   // Ichimoku — 5 Linien
   if (def.type === 'ichimoku') {
-    const mk = (c, w, s) => _mobileChart.addLineSeries({ color: c, lineWidth: w, lineStyle: s || 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    return [mk('#22c55e',1), mk('#ef4444',1), mk('#06b6d4',1,2), mk('#ec4899',1,2), mk('#a78bfa',1,2)];
+    return lines.map(l => _mobileChart.addLineSeries(baseLineOpts(l)));
   }
   // Chandelier — 2 Linien
   if (def.type === 'chandelier') {
-    const mk = (c) => _mobileChart.addLineSeries({ color: c, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    return [mk('#22c55e'), mk('#ef4444')];
+    return lines.map(l => _mobileChart.addLineSeries(baseLineOpts(l)));
   }
-  // Pivot Points — bis zu 5 Linien (PP, R1, S1, R2, S2)
+  // Pivot Points — bis zu 5 Linien
   if (def.type === 'pivotPoints') {
-    const palette = ['#9ca3af','#ef4444','#22c55e','#f97316','#06b6d4'];
-    return palette.map(c => _mobileChart.addLineSeries({ color: c, lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }));
+    return lines.map(l => _mobileChart.addLineSeries(baseLineOpts(l)));
   }
-  // Fractals — 2 Linien (oberer/unterer Marker als Dot-Line)
+  // Fractals — 2 Punkt-Serien
   if (def.type === 'fractals') {
-    const mk = (c) => _mobileChart.addLineSeries({ color: c, lineWidth: 0, pointMarkersVisible: true, pointMarkersRadius: 3, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    return [mk('#22c55e'), mk('#ef4444')];
+    return lines.map(l => _mobileChart.addLineSeries(baseLineOpts(l, { lineWidth: 0, pointMarkersVisible: true, pointMarkersRadius: 3 })));
   }
   // Parabolic SAR — Punkte
   if (def.type === 'parabolicSar') {
-    return _mobileChart.addLineSeries({ color: C, lineWidth: 0, pointMarkersVisible: true, pointMarkersRadius: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const l = lines[0];
+    return _mobileChart.addLineSeries(baseLineOpts(l, { lineWidth: 0, pointMarkersVisible: true, pointMarkersRadius: 2 }));
   }
-  // Supertrend — colored Line per Punkt
+  // Supertrend — eine Linie, Farbe pro Punkt aus Daten (Up/Down) — die zwei Line-Defs steuern die Up/Down-Farben
   if (def.type === 'supertrend') {
-    return _mobileChart.addLineSeries({ color: C, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const l = lines[0]; // fallback color/width/style; Punktfarben kommen aus _computeMobileIndicator
+    return _mobileChart.addLineSeries(baseLineOpts(l));
   }
   // Volume Histogram (Bottom)
   if (def.type === 'volume') {
+    const l = lines[0];
     const hs = _mobileChart.addHistogramSeries({
-      color: C, priceFormat: { type: 'volume' }, priceScaleId: 'mobile_volume',
+      color: l.color, priceFormat: { type: 'volume' }, priceScaleId: 'mobile_volume',
+      visible: l.visible !== false,
       lastValueVisible: false, priceLineVisible: false
     });
     try { _mobileChart.priceScale('mobile_volume').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 }, visible: false }); } catch(e){}
@@ -20625,42 +20966,55 @@ function _createMobileIndicatorSeries(def) {
   if (def.panel) {
     const psId = _mobilePanelScaleId(def.id);
     _ensureMobilePanelScale(def.id);
-    const lineOpts = { priceScaleId: psId, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-    const histOpts = { priceScaleId: psId, lastValueVisible: false, priceLineVisible: false };
+    const lineOpts = (l) => ({
+      priceScaleId: psId,
+      color: l.color,
+      lineWidth: Math.max(1, l.width || 1),
+      lineStyle: l.style || 0,
+      visible: l.visible !== false,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false
+    });
+    const histOpts = (l) => ({
+      priceScaleId: psId,
+      color: l.color,
+      visible: l.visible !== false,
+      lastValueVisible: false, priceLineVisible: false
+    });
 
-    // Multi-line panels
+    // Multi-line: MACD/PPO = 2 Linien + Histogram
     if (def.type === 'macd' || def.type === 'ppo') {
-      const macd = _mobileChart.addLineSeries({ ...lineOpts, color: '#58a6ff', lineWidth: 1.5 });
-      const sig  = _mobileChart.addLineSeries({ ...lineOpts, color: '#f97316', lineWidth: 1 });
-      const hist = _mobileChart.addHistogramSeries({ ...histOpts, color: 'rgba(34,197,94,0.6)' });
-      return [macd, sig, hist];
+      const a = _mobileChart.addLineSeries(lineOpts(lines[0]));
+      const b = _mobileChart.addLineSeries(lineOpts(lines[1]));
+      const h = _mobileChart.addHistogramSeries(histOpts(lines[2]));
+      return [a, b, h];
     }
-    if (def.type === 'stoch' || def.type === 'stochRsi' || def.type === 'kst' || def.type === 'fisher' || def.type === 'rvi' || def.type === 'klinger') {
-      const a = _mobileChart.addLineSeries({ ...lineOpts, color: '#06b6d4', lineWidth: 1.5 });
-      const b = _mobileChart.addLineSeries({ ...lineOpts, color: '#f97316', lineWidth: 1 });
-      return [a, b];
+    // 2-Linien-Panels
+    if (def.type === 'stoch' || def.type === 'stochRsi' || def.type === 'kst' || def.type === 'fisher' || def.type === 'rvi' || def.type === 'klinger' || def.type === 'aroon' || def.type === 'vortex') {
+      return [_mobileChart.addLineSeries(lineOpts(lines[0])), _mobileChart.addLineSeries(lineOpts(lines[1]))];
     }
+    // 3-Linien-Panel: ADX
     if (def.type === 'adx') {
-      const adx = _mobileChart.addLineSeries({ ...lineOpts, color: '#fbbf24', lineWidth: 1.5 });
-      const di  = _mobileChart.addLineSeries({ ...lineOpts, color: '#22c55e', lineWidth: 1 });
-      const ndi = _mobileChart.addLineSeries({ ...lineOpts, color: '#ef4444', lineWidth: 1 });
-      return [adx, di, ndi];
+      return [
+        _mobileChart.addLineSeries(lineOpts(lines[0])),
+        _mobileChart.addLineSeries(lineOpts(lines[1])),
+        _mobileChart.addLineSeries(lineOpts(lines[2]))
+      ];
     }
-    if (def.type === 'aroon' || def.type === 'vortex') {
-      const a = _mobileChart.addLineSeries({ ...lineOpts, color: '#22c55e', lineWidth: 1.5 });
-      const b = _mobileChart.addLineSeries({ ...lineOpts, color: '#ef4444', lineWidth: 1.5 });
-      return [a, b];
-    }
+    // Histogram-Panels (Bar-Farben werden in compute dynamisch gesetzt, nur Default-Farbe hier)
     if (def.type === 'ao' || def.type === 'squeezeMom') {
-      return _mobileChart.addHistogramSeries({ ...histOpts });
+      return _mobileChart.addHistogramSeries(histOpts(lines[0]));
     }
     // Single-line panel
-    return _mobileChart.addLineSeries({ ...lineOpts, color: C, lineWidth: 1.5 });
+    return _mobileChart.addLineSeries(lineOpts(lines[0]));
   }
 
   // Standard: Eine Linie auf Hauptskala
+  const l = lines[0];
   return _mobileChart.addLineSeries({
-    color: C, lineWidth: 2,
+    color: l.color,
+    lineWidth: Math.max(1, l.width || 2),
+    lineStyle: l.style || 0,
+    visible: l.visible !== false,
     priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
     title: def.label.split(' ')[0] + (def.period ? ' ' + def.period : '')
   });
@@ -20680,16 +21034,17 @@ function _setIndicatorData(def, series, data) {
 
 function _updateMobileIndicators(candles) {
   if (!_mobileChart || !candles || candles.length === 0) return;
-  for (const def of MOBILE_INDICATORS_DEFS) {
-    if (!_mobileIndicators[def.id]) continue;
-    if (def.type === 'patterns') continue; // candle-patterns laufen über _updateMobilePatterns
-    if (def.type === 'chart_patterns') continue; // chart-patterns laufen über _updateMobileChartPatterns
-    let series = _mobileIndicatorSeries[def.id];
+  for (const baseDef of MOBILE_INDICATORS_DEFS) {
+    if (!_mobileIndicators[baseDef.id]) continue;
+    if (baseDef.type === 'patterns') continue; // candle-patterns laufen über _updateMobilePatterns
+    if (baseDef.type === 'chart_patterns') continue; // chart-patterns laufen über _updateMobileChartPatterns
+    const def = _getMobileIndicatorEffectiveDef(baseDef.id);
+    let series = _mobileIndicatorSeries[baseDef.id];
     // Lazy-Recreation falls Series fehlt (z.B. nach Coin-Wechsel)
     if (!series || series === '__patterns__' || series === '__chart_patterns__') {
       series = _createMobileIndicatorSeries(def);
       if (!series) continue;
-      _mobileIndicatorSeries[def.id] = series;
+      _mobileIndicatorSeries[baseDef.id] = series;
     }
     const data = _computeMobileIndicator(def, candles);
     _setIndicatorData(def, series, data);
@@ -20713,14 +21068,22 @@ function openMobileIndicators() {
     html += `<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1.2px;padding:8px 6px 4px">${cat}</div>`;
     for (const def of cats[cat]) {
       const active = !!_mobileIndicators[def.id];
+      // Erste Linie aus effektiven Settings für Color-Swatch (zeigt User-Override falls vorhanden)
+      const eff = _getMobileIndicatorEffectiveDef(def.id);
+      const swatchColor = (eff && eff.lines && eff.lines[0] && eff.lines[0].color) || def.color;
+      // Hat dieser Indikator überhaupt verstellbare Settings? (Patterns nicht)
+      const hasSettings = def.type !== 'patterns' && def.type !== 'chart_patterns';
       html += `
         <div onclick="toggleMobileIndicator('${def.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 10px;margin-bottom:4px;background:${active ? 'rgba(34,197,94,0.08)' : '#161b22'};border:1px solid ${active ? '#22c55e' : '#1f2937'};border-radius:8px;cursor:pointer;transition:all 0.15s">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:14px;height:3px;background:${def.color};border-radius:2px"></div>
-            <div style="font-size:13px;color:#e6edf3;font-weight:${active ? '700' : '500'}">${def.label}</div>
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+            <div style="width:14px;height:3px;background:${swatchColor};border-radius:2px;flex-shrink:0"></div>
+            <div style="font-size:13px;color:#e6edf3;font-weight:${active ? '700' : '500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${def.label}</div>
           </div>
-          <div style="width:36px;height:20px;background:${active ? '#22c55e' : '#374151'};border-radius:10px;position:relative;transition:background 0.15s">
-            <div style="position:absolute;top:2px;left:${active ? '18px' : '2px'};width:16px;height:16px;background:#fff;border-radius:50%;transition:left 0.15s"></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            ${hasSettings ? `<div onclick="event.stopPropagation();openMobileIndicatorSettings('${def.id}')" title="Einstellungen" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#0d1117;border:1px solid #374151;border-radius:6px;font-size:14px;color:#9ca3af;transition:all 0.15s" onmouseover="this.style.background='#1f2937';this.style.color='#e6edf3'" onmouseout="this.style.background='#0d1117';this.style.color='#9ca3af'">⚙</div>` : ''}
+            <div style="width:36px;height:20px;background:${active ? '#22c55e' : '#374151'};border-radius:10px;position:relative;transition:background 0.15s">
+              <div style="position:absolute;top:2px;left:${active ? '18px' : '2px'};width:16px;height:16px;background:#fff;border-radius:50%;transition:left 0.15s"></div>
+            </div>
           </div>
         </div>`;
     }
@@ -20793,9 +21156,10 @@ function toggleMobileIndicator(id) {
       try { _mobileChart.priceScale('right').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } }); } catch(e){}
     }
   } else {
-    // Aktivieren: Series erzeugen + Daten setzen
+    // Aktivieren: Series erzeugen + Daten setzen (mit effektiver Def!)
     if (!_mobileChart) return;
-    const series = _createMobileIndicatorSeries(def);
+    const effDef = _getMobileIndicatorEffectiveDef(id);
+    const series = _createMobileIndicatorSeries(effDef);
     if (!series) return;
     _mobileIndicatorSeries[id] = series;
     _mobileIndicators[id] = true;
@@ -20805,8 +21169,8 @@ function toggleMobileIndicator(id) {
     }
     // Aktuelle Candles holen
     const candles = (_mobileLastData && _mobileLastData.candles) ? _mobileLastData.candles : (window.currentCandles || []);
-    const data = _computeMobileIndicator(def, candles);
-    _setIndicatorData(def, series, data);
+    const data = _computeMobileIndicator(effDef, candles);
+    _setIndicatorData(effDef, series, data);
   }
 
   // Modal neu rendern (Toggle-Zustand)
@@ -20828,8 +21192,185 @@ function clearAllMobileIndicators() {
     if (modal) {
       modal.addEventListener('click', (e) => { if (e.target === modal) closeMobileIndicators(); });
     }
+    const settingsModal = document.getElementById('mobileIndicatorSettingsModal');
+    if (settingsModal) {
+      settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeMobileIndicatorSettings(); });
+    }
   });
 })();
+
+// ═══════════════════════════════════════════════
+// MOBILE INDICATOR SETTINGS MODAL (per-Indikator Konfiguration)
+// ═══════════════════════════════════════════════
+let _mobileIndicatorSettingsCurrentId = null;
+
+function openMobileIndicatorSettings(id) {
+  const def = _getMobileIndicatorEffectiveDef(id);
+  if (!def) return;
+  _mobileIndicatorSettingsCurrentId = id;
+  const modal = document.getElementById('mobileIndicatorSettingsModal');
+  const title = document.getElementById('mobileIndicatorSettingsTitle');
+  const body  = document.getElementById('mobileIndicatorSettingsBody');
+  if (!modal || !title || !body) return;
+  title.textContent = '⚙ ' + def.label;
+  body.innerHTML = _buildMobileIndicatorSettingsForm(def);
+  modal.style.display = 'flex';
+}
+
+function closeMobileIndicatorSettings() {
+  const modal = document.getElementById('mobileIndicatorSettingsModal');
+  if (modal) modal.style.display = 'none';
+  _mobileIndicatorSettingsCurrentId = null;
+  // Indikator-Liste neu rendern damit der Swatch die neue Farbe zeigt
+  const listModal = document.getElementById('mobileIndicatorsModal');
+  if (listModal && listModal.style.display !== 'none') openMobileIndicators();
+}
+
+function resetMobileIndicatorSettings() {
+  const id = _mobileIndicatorSettingsCurrentId;
+  if (!id) return;
+  _resetMobileIndicatorSettings(id);
+  // Modal neu rendern + Indikator live refreshen
+  const def = _getMobileIndicatorEffectiveDef(id);
+  const body = document.getElementById('mobileIndicatorSettingsBody');
+  if (body) body.innerHTML = _buildMobileIndicatorSettingsForm(def);
+  _refreshMobileIndicator(id);
+}
+
+function _buildMobileIndicatorSettingsForm(def) {
+  const schema = MOBILE_INDICATOR_PARAM_SCHEMA[def.type] || [];
+  const lines  = def.lines || [];
+  let html = '';
+
+  // ── Parameter-Block ──
+  if (schema.length > 0) {
+    html += `<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1.2px;padding:0 0 8px">Parameter</div>`;
+    for (const p of schema) {
+      const val = def[p.key];
+      html += `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px">
+          <label style="font-size:13px;color:#e6edf3;flex:1">${p.label}</label>
+          <input type="number" min="${p.min}" max="${p.max}" step="${p.step}" value="${val}"
+            onchange="_onMobileIndicatorParamChange('${p.key}', this.value, ${p.step < 1 ? 'true' : 'false'})"
+            style="width:90px;padding:6px 8px;background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;font-size:13px;text-align:right;outline:none;-webkit-appearance:none">
+        </div>`;
+    }
+  }
+
+  // ── Linien-Block ──
+  if (lines.length > 0) {
+    html += `<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1.2px;padding:${schema.length ? '14px' : '0'} 0 8px">Linien & Stil</div>`;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      html += `
+        <div style="background:#161b22;border:1px solid #1f2937;border-radius:8px;padding:10px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:14px;height:3px;background:${l.color};border-radius:2px"></div>
+              <div style="font-size:13px;font-weight:600;color:#e6edf3">${l.name}</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" ${l.visible !== false ? 'checked' : ''}
+                onchange="_onMobileIndicatorLineChange(${i}, 'visible', this.checked)"
+                style="cursor:pointer;width:14px;height:14px;accent-color:#22c55e">
+              <span style="font-size:11px;color:#9ca3af">sichtbar</span>
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center">
+            <span style="font-size:11px;color:#9ca3af">Farbe</span>
+            <input type="color" value="${_toHexColor(l.color)}"
+              oninput="_onMobileIndicatorLineChange(${i}, 'color', this.value)"
+              style="width:100%;height:28px;background:none;border:1px solid #374151;border-radius:4px;cursor:pointer;padding:0">
+            <select onchange="_onMobileIndicatorLineChange(${i}, 'style', parseInt(this.value,10))"
+              style="padding:4px 6px;background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:4px;font-size:12px;outline:none">
+              <option value="0" ${l.style === 0 ? 'selected' : ''}>━━━ Solid</option>
+              <option value="2" ${l.style === 2 ? 'selected' : ''}>┄┄┄ Gestrichelt</option>
+              <option value="1" ${l.style === 1 ? 'selected' : ''}>┈┈┈ Gepunktet</option>
+              <option value="3" ${l.style === 3 ? 'selected' : ''}>━ ━ Lang-gestrichelt</option>
+            </select>
+            <select onchange="_onMobileIndicatorLineChange(${i}, 'width', parseFloat(this.value))"
+              style="padding:4px 6px;background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:4px;font-size:12px;outline:none">
+              <option value="0" ${l.width === 0 ? 'selected' : ''}>0</option>
+              <option value="1" ${l.width === 1 ? 'selected' : ''}>1</option>
+              <option value="1.5" ${l.width === 1.5 ? 'selected' : ''}>1.5</option>
+              <option value="2" ${l.width === 2 ? 'selected' : ''}>2</option>
+              <option value="3" ${l.width === 3 ? 'selected' : ''}>3</option>
+              <option value="4" ${l.width === 4 ? 'selected' : ''}>4</option>
+            </select>
+          </div>
+        </div>`;
+    }
+  }
+
+  if (schema.length === 0 && lines.length === 0) {
+    html += `<div style="padding:20px;text-align:center;color:#6b7280;font-size:13px">Dieser Indikator hat keine verstellbaren Optionen.</div>`;
+  }
+
+  return html;
+}
+
+// Hilfsfunktion: rgba/hex → #rrggbb für <input type="color">
+function _toHexColor(c) {
+  if (!c) return '#888888';
+  c = String(c).trim();
+  if (c.startsWith('#')) {
+    if (c.length === 7) return c;
+    if (c.length === 4) return '#' + c[1]+c[1] + c[2]+c[2] + c[3]+c[3];
+  }
+  const m = c.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (m) {
+    const toHex = (n) => Math.max(0, Math.min(255, parseInt(n,10))).toString(16).padStart(2,'0');
+    return '#' + toHex(m[1]) + toHex(m[2]) + toHex(m[3]);
+  }
+  return '#888888';
+}
+
+function _onMobileIndicatorParamChange(key, rawVal, isFloat) {
+  const id = _mobileIndicatorSettingsCurrentId;
+  if (!id) return;
+  const val = isFloat ? parseFloat(rawVal) : parseInt(rawVal, 10);
+  if (!isFinite(val)) return;
+  _setMobileIndicatorSetting(id, key, val);
+  _refreshMobileIndicator(id);
+}
+
+function _onMobileIndicatorLineChange(lineIdx, field, value) {
+  const id = _mobileIndicatorSettingsCurrentId;
+  if (!id) return;
+  _setMobileIndicatorSetting(id, 'lines.' + lineIdx + '.' + field, value);
+  // Bei Farbänderung das kleine Swatch im Modal mit-updaten
+  if (field === 'color') {
+    const body = document.getElementById('mobileIndicatorSettingsBody');
+    if (body) {
+      const def = _getMobileIndicatorEffectiveDef(id);
+      body.innerHTML = _buildMobileIndicatorSettingsForm(def);
+    }
+  }
+  _refreshMobileIndicator(id);
+}
+
+// Live-Refresh eines einzelnen aktiven Indikators (entfernt + erzeugt + füllt Series neu)
+function _refreshMobileIndicator(id) {
+  if (!_mobileChart) return;
+  if (!_mobileIndicators[id]) return; // Nicht aktiv → nichts zu tun (Settings werden trotzdem gespeichert)
+  // Bestehende Series entfernen
+  const oldSeries = _mobileIndicatorSeries[id];
+  if (oldSeries && oldSeries !== '__patterns__' && oldSeries !== '__chart_patterns__') {
+    if (Array.isArray(oldSeries)) {
+      for (const s of oldSeries) { try { _mobileChart.removeSeries(s); } catch(e){} }
+    } else {
+      try { _mobileChart.removeSeries(oldSeries); } catch(e){}
+    }
+  }
+  // Neu mit aktuellen effektiven Settings
+  const effDef = _getMobileIndicatorEffectiveDef(id);
+  const newSeries = _createMobileIndicatorSeries(effDef);
+  if (!newSeries) return;
+  _mobileIndicatorSeries[id] = newSeries;
+  const candles = (_mobileLastData && _mobileLastData.candles) ? _mobileLastData.candles : (window.currentCandles || []);
+  const data = _computeMobileIndicator(effDef, candles);
+  _setIndicatorData(effDef, newSeries, data);
+}
 
 // ═══════════════════════════════════════════════
 // MOBILE BAR REPLAY
@@ -40810,7 +41351,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 06:30 UTC';
+const APP_BUILD = '2026-05-17 08:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
