@@ -18612,18 +18612,31 @@ function renderMobileChart(candles, trades) {
     try { _mobileChart.timeScale().fitContent(); } catch(e) {}
     _mobileChartInitialized = true;
   } else if (sig !== _mobileLastCandleSig) {
-    // Daten haben sich geaendert — pruefe ob nur die letzte Kerze
-    const oldLen = (_mobileLastCandleSig.split('|')[0] | 0);
+    // Daten haben sich geaendert — pruefe was sich aendert
+    const parts = _mobileLastCandleSig.split('|');
+    const oldLen = (parts[0] | 0);
+    const oldFirstTime = parts[1] | 0;
+    const oldLastTimeClose = parts[2] || '';
+    const newLastTimeClose = lastC ? (lastC.time + ':' + lastC.close) : '';
     if (data.length === oldLen && lastC) {
       // Nur Live-Update der letzten Kerze → incremental, KEIN Zoom-Reset
       try { _mobileCandleSeries.update(lastC); } catch(e) {
-        // Fallback bei Fehler
         _mobileCandleSeries.setData(data);
       }
     } else if (data.length === oldLen + 1 && lastC) {
       // Eine neue Kerze dazu (WebSocket close) → incremental
       try { _mobileCandleSeries.update(lastC); } catch(e) {
         _mobileCandleSeries.setData(data);
+      }
+    } else if (data.length > oldLen && firstC && firstC.time < oldFirstTime &&
+               newLastTimeClose === oldLastTimeClose) {
+      // Aeltere Kerzen wurden vorne angehaengt (History-Load)
+      // → setData aber VIEW BEHALTEN damit der User nicht weggeworfen wird
+      let savedRange = null;
+      try { savedRange = _mobileChart.timeScale().getVisibleRange(); } catch(e){}
+      _mobileCandleSeries.setData(data);
+      if (savedRange) {
+        try { _mobileChart.timeScale().setVisibleRange(savedRange); } catch(e){}
       }
     } else {
       // Komplett anderer Datensatz (neuer Backtest, neuer Coin) → full setData + fit
@@ -20730,6 +20743,20 @@ function _hookMobileChartRedraw() {
   _mobileChart.timeScale().subscribeVisibleTimeRangeChange(() => {
     redrawMobileOverlay();
   });
+  // Logical-Range-Hook für History-Load: wenn User links der ersten Kerze pant → mehr History laden
+  try {
+    _mobileChart.timeScale().subscribeVisibleLogicalRangeChange((logicalRange) => {
+      if (!logicalRange) return;
+      // logicalRange.from negativ heisst: User hat über den linken Rand der Daten hinaus gescrollt
+      // Threshold: 10 Indices bevor Rand → preload statt warten
+      if (logicalRange.from < 10 &&
+          typeof liveChartActive !== 'undefined' && liveChartActive &&
+          typeof liveLoadMoreHistory === 'function' &&
+          !_liveLoadingMore) {
+        liveLoadMoreHistory();
+      }
+    });
+  } catch(e){}
   // Click-Handler für Selection (nur im Cursor-Mode)
   _mobileChart.subscribeClick((param) => {
     // ── Bar Replay: User wählt Start-Kerze ──
@@ -37759,7 +37786,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 15:15 UTC';
+const APP_BUILD = '2026-05-16 15:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
