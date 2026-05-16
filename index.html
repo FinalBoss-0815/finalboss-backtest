@@ -18936,24 +18936,49 @@ function renderMobileChart(candles, trades) {
       container.addEventListener('wheel', (e) => {
         if (!_mobileChart || !_mobileCandleSeries) return;
         const rect = container.getBoundingClientRect();
-        const axisWidth = (_mobileChart.priceScale('right').width() || 60);
+        // Axis-Breite robust ermitteln — die API gibt manchmal 0 oder absurde Werte zurück
+        let axisWidth = 70;
+        try {
+          const aw = _mobileChart.priceScale('right').width();
+          if (typeof aw === 'number' && aw >= 20 && aw <= 150) axisWidth = aw;
+        } catch(_){}
         const xRel = e.clientX - rect.left;
-        const overPriceAxis = xRel > (rect.width - axisWidth - 6);
-        if (!overPriceAxis) return;  // ausserhalb Price-Axis → normales Wheel (Time-Zoom) durchlassen
+        // Strenge Boundary: nur die rechtesten axisWidth Pixel zählen als "über Price-Axis"
+        const axisLeft = rect.width - axisWidth;
+        const overPriceAxis = xRel >= axisLeft && xRel <= rect.width;
+        if (!overPriceAxis) return;  // ausserhalb → normales Wheel (Time-Zoom) durchlassen
         e.preventDefault();
         e.stopImmediatePropagation();
 
         // Wheel up = zoom in (halfSpan schrumpfen) | wheel down = zoom out
         const factor = e.deltaY > 0 ? 1.10 : 0.91;  // ~10% pro Tick
         _mobileVZoom = Math.max(0.05, Math.min(20, _mobileVZoom * factor));
-        // Re-Evaluation triggern — autoScale toggle force-flushed den Provider-Aufruf
         try {
           _mobileCandleSeries.priceScale().applyOptions({ autoScale: true });
-          // applyOptions auf der Series re-triggert den Provider
           _mobileCandleSeries.applyOptions({});
         } catch(_){}
         if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 20);
       }, { passive: false, capture: true });
+
+      // Doppelklick auf Price-Axis = Reset auf 1.0 (Auto-Fit)
+      container.addEventListener('dblclick', (e) => {
+        if (!_mobileChart || !_mobileCandleSeries) return;
+        const rect = container.getBoundingClientRect();
+        let axisWidth = 70;
+        try {
+          const aw = _mobileChart.priceScale('right').width();
+          if (typeof aw === 'number' && aw >= 20 && aw <= 150) axisWidth = aw;
+        } catch(_){}
+        const xRel = e.clientX - rect.left;
+        if (xRel < rect.width - axisWidth) return;
+        e.preventDefault();
+        _mobileVZoom = 1.0;
+        try {
+          _mobileCandleSeries.priceScale().applyOptions({ autoScale: true });
+          _mobileCandleSeries.applyOptions({});
+        } catch(_){}
+        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 20);
+      });
     } catch(e){}
   }
   // Bei jedem Render: Container-Grösse syncen falls geändert (CSS-Class war später da als Chart-Init)
@@ -40076,7 +40101,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 03:40 UTC';
+const APP_BUILD = '2026-05-17 03:55 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
