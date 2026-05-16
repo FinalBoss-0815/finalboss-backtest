@@ -936,7 +936,7 @@ html.is-mobile-device .mobile-only-draw-toolbar { display: flex; }
   display: none;
   touch-action: none;  /* Drag-Drawing: kein Pan/Scroll bei Touch-Gesten */
 }
-/* Zentrierter Placement-Cursor — TradingView-Style präzise Positionierung */
+/* Zentrierter Placement-Cursor — fein, präzise, Tap-to-Commit */
 .mobile-place-cursor {
   position: absolute;
   inset: 0;
@@ -949,46 +949,45 @@ html.is-mobile-device .mobile-place-cursor.active { display: block; }
 .mobile-place-cursor .mpc-vline {
   position: absolute;
   background: #fbbf24;
-  opacity: 0.85;
+  opacity: 0.7;
 }
 .mobile-place-cursor .mpc-hline { left: 0; right: 0; height: 1px; top: 50%; }
 .mobile-place-cursor .mpc-vline { top: 0; bottom: 0; width: 1px; left: 50%; }
+/* Mini-Dot in der Mitte — präzise Positionsmarkierung */
 .mobile-place-cursor .mpc-center {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  width: 22px; height: 22px;
-  border: 2px solid #fbbf24; border-radius: 50%;
-  background: rgba(13,17,23,0.7);
-  box-shadow: 0 0 0 2px rgba(251,191,36,0.25);
+  width: 5px; height: 5px;
+  background: #fbbf24;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(13,17,23,0.9);
 }
-.mobile-place-cursor .mpc-center::after {
-  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  width: 4px; height: 4px; background: #fbbf24; border-radius: 50%;
-}
+/* Info-Badge mit Preis + Zeit — etwas vom Mittelpunkt entfernt */
 .mobile-place-cursor .mpc-info {
   position: absolute; top: 50%; left: 50%;
-  transform: translate(20px, -30px);
-  background: rgba(13,17,23,0.92); border: 1px solid #fbbf24;
-  border-radius: 4px; padding: 4px 8px;
-  font-size: 11px; font-weight: 700; color: #fbbf24;
+  transform: translate(12px, -22px);
+  background: rgba(13,17,23,0.92); border: 1px solid rgba(251,191,36,0.7);
+  border-radius: 3px; padding: 2px 6px;
+  font-size: 10px; font-weight: 600; color: #fbbf24;
   font-family: monospace; white-space: nowrap;
 }
-.mobile-place-cursor .mpc-confirm {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, 30px);
-  pointer-events: auto;
-  background: #22c55e; border: 1px solid #16a34a; color: #0a0a0a;
-  font-weight: 700; font-size: 13px;
-  padding: 8px 16px; border-radius: 6px; cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+/* Hint-Badge unten — "Tippe um zu setzen (Punkt X/Y)" */
+.mobile-place-cursor .mpc-hint {
+  position: absolute; bottom: 12px; left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: rgba(13,17,23,0.92); border: 1px solid rgba(251,191,36,0.5);
+  border-radius: 4px; padding: 5px 10px;
+  font-size: 11px; color: #fbbf24; font-weight: 600;
+  white-space: nowrap;
 }
-.mobile-place-cursor .mpc-confirm:hover { background: #16a34a; }
+/* Cancel-Button oben rechts — kleines X für Notausgang */
 .mobile-place-cursor .mpc-cancel {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, 72px);
+  position: absolute; top: 8px; right: 8px;
   pointer-events: auto;
   background: rgba(127,29,29,0.85); border: 1px solid #b91c1c; color: #fff;
   font-size: 11px; font-weight: 600;
-  padding: 5px 12px; border-radius: 5px; cursor: pointer;
+  width: 24px; height: 24px; border-radius: 50%;
+  cursor: pointer; line-height: 1;
 }
 html.is-mobile-device .mobile-only-chart-overlay { display: block; }
 .mobile-only-draw-hint {
@@ -2624,14 +2623,14 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <!-- Overlay Canvas für Free-Form Zeichnungen (Trendlinien, Rechtecke, Fibo) -->
         <canvas id="mobileDrawOverlay" class="mobile-only-chart-overlay"></canvas>
-        <!-- Placement-Cursor (mittiger Crosshair für präzise Position) -->
+        <!-- Placement-Cursor (feiner Crosshair, präzise Mitte, Tap-to-Commit) -->
         <div id="mobilePlaceCursor" class="mobile-place-cursor">
           <div class="mpc-hline"></div>
           <div class="mpc-vline"></div>
           <div class="mpc-center"></div>
           <div class="mpc-info" id="mpcInfo">—</div>
-          <button class="mpc-confirm" onclick="confirmMobilePlacement()">✓ Setzen</button>
-          <button class="mpc-cancel" onclick="cancelMobilePlacement()">Abbrechen</button>
+          <div class="mpc-hint" id="mpcHint">Tippe Chart um Punkt zu setzen</div>
+          <button class="mpc-cancel" onclick="cancelMobilePlacement()" title="Abbrechen">✕</button>
         </div>
         <!-- Emoji-Picker Modal -->
         <div id="mobileEmojiPicker" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:flex-start;justify-content:center;padding-top:8vh">
@@ -20795,9 +20794,9 @@ function confirmMobilePlacement() {
     setMobileDrawTool('cursor', null);
   } else {
     // Weiter sammeln — Hint updaten
-    const info = document.getElementById('mpcInfo');
-    if (info) info.textContent += '  (Punkt ' + (points.length) + '/' + need + ' gesetzt)';
-    try { if (typeof showToast === 'function') showToast('Punkt ' + points.length + ' von ' + need + ' gesetzt', 'success'); } catch(e){}
+    const hint = document.getElementById('mpcHint');
+    if (hint) hint.textContent = 'Punkt ' + points.length + '/' + need + ' gesetzt — tippe für nächsten';
+    _updateMobilePlacementInfo();
   }
 }
 
@@ -22305,6 +22304,11 @@ function _hookMobileChartRedraw() {
   } catch(e){}
   // Click-Handler für Selection (nur im Cursor-Mode)
   _mobileChart.subscribeClick((param) => {
+    // ── PLACEMENT-MODE: Tap auf Chart → Punkt setzen ──
+    if (typeof _mobilePlacement !== 'undefined' && _mobilePlacement) {
+      if (typeof confirmMobilePlacement === 'function') confirmMobilePlacement();
+      return;
+    }
     // ── Bar Replay: User wählt Start-Kerze ──
     if (typeof _mobileReplay !== 'undefined' && _mobileReplay.active && _mobileReplay.waitingForSelection) {
       if (!param.time) return;
@@ -39680,7 +39684,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 22:30 UTC';
+const APP_BUILD = '2026-05-16 23:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
@@ -52340,7 +52344,10 @@ async function tiktokRevealPlay(record) {
 // ════════════════════════════════════════════════════════
 
 const ANALYTICS_SESSION_KEY = 'fb_analytics_session_id';
-const ANALYTICS_HEARTBEAT_MS = 30 * 1000;  // alle 30sec heartbeat
+// Heartbeat alle 5min (statt 30sek) — schonender für Cloudflare KV Free-Tier (1000 Writes/Tag)
+const ANALYTICS_HEARTBEAT_MS = 5 * 60 * 1000;
+// Admin-Display refresh alle 2min (statt 30sek) — Stats müssen nicht in Echtzeit sein
+const ANALYTICS_ADMIN_REFRESH_MS = 2 * 60 * 1000;
 let _analyticsTimer = null;
 let _analyticsAdminTimer = null;
 
@@ -52402,11 +52409,11 @@ function analyticsStart() {
     }
   }, ANALYTICS_HEARTBEAT_MS);
 
-  // Admin-Display-Refresh alle 30s
+  // Admin-Display-Refresh alle 2min (eigene Konstante, schont KV-Reads auch)
   if (isAdmin) {
     analyticsRefreshDisplay();
     if (_analyticsAdminTimer) clearInterval(_analyticsAdminTimer);
-    _analyticsAdminTimer = setInterval(analyticsRefreshDisplay, ANALYTICS_HEARTBEAT_MS);
+    _analyticsAdminTimer = setInterval(analyticsRefreshDisplay, ANALYTICS_ADMIN_REFRESH_MS);
   }
 }
 
