@@ -823,7 +823,8 @@ html.is-mobile-device #tab-chart #tradeChart,
 html.is-mobile-device #tab-chart #tradeChartOverlay,
 html.is-mobile-device #tab-chart #drawSettingsPanel,
 html.is-mobile-device #tab-chart #drawEditBar { display: none !important; }
-html.is-mobile-device .mobile-only-chart { display: block !important; }
+html.is-mobile-device .mobile-only-chart { display: block !important; left: 54px !important; }
+html.is-mobile-device .mobile-only-chart-overlay { left: 54px !important; }
 html.is-mobile-device .tab-content#tab-chart .chart-area { min-height: 60vh; }
 
 /* Mobile Chart Toolbar (Coin + TF + Live) */
@@ -867,7 +868,7 @@ html.is-mobile-device .mobile-only-chart-toolbar { display: flex; }
 .mobile-only-draw-toolbar {
   display: none;
   position: absolute;
-  right: 6px;
+  left: 6px;     /* war right — jetzt linke Seite (wie TradingView) */
   top: 60px;
   z-index: 95;
   flex-direction: column;
@@ -18627,9 +18628,9 @@ function renderMobileChart(candles, trades) {
         }
       }
       markers.sort((a, b) => a.time - b.time);
-      _mobileCandleSeries.setMarkers(markers);
+      _mobileCachedTradeMarkers = markers;
     } else {
-      _mobileCandleSeries.setMarkers([]);
+      _mobileCachedTradeMarkers = [];
     }
     _mobileLastMarkerSig = tradesSig;
   }
@@ -18638,6 +18639,10 @@ function renderMobileChart(candles, trades) {
 
   // Indikatoren aktualisieren (falls welche aktiv sind)
   try { if (typeof _updateMobileIndicators === 'function') _updateMobileIndicators(candles); } catch(e) {}
+  // Candle-Patterns
+  try { if (typeof _updateMobilePatterns === 'function') _updateMobilePatterns(candles); else _applyMobileMarkers(); } catch(e) {}
+  // Chart-Patterns (throttled — Detection ist teuer, nicht bei jedem Live-Tick)
+  try { if (typeof _scheduleMobileChartPatternUpdate === 'function') _scheduleMobileChartPatternUpdate(candles); } catch(e) {}
   // Overlays re-skalieren falls Main-Range sich geaendert hat
   try { if (typeof _scheduleOverlayRescale === 'function') _scheduleOverlayRescale(); } catch(e) {}
 }
@@ -18647,11 +18652,12 @@ function resetMobileChart() {
   _mobileChartInitialized = false;
   _mobileLastCandleSig = '';
   _mobileLastMarkerSig = '';
-  // Indikator-Series aufraeumen
+  // Indikator-Series aufraeumen (Sentinels überspringen — keine echte Series)
   try {
     if (_mobileIndicatorSeries && _mobileChart) {
       for (const k in _mobileIndicatorSeries) {
         const arr = _mobileIndicatorSeries[k];
+        if (arr === '__patterns__' || arr === '__chart_patterns__') continue;
         if (Array.isArray(arr)) {
           for (const s of arr) { try { _mobileChart.removeSeries(s); } catch(e){} }
         } else {
@@ -18659,8 +18665,18 @@ function resetMobileChart() {
         }
       }
     }
+    // Indikator-Series leeren, aber Pattern-Sentinels beibehalten falls aktiv
+    const patternsActive = _mobileIndicatorSeries['patterns'] === '__patterns__';
+    const chartPatternsActive = _mobileIndicatorSeries['chart_patterns'] === '__chart_patterns__';
     _mobileIndicatorSeries = {};
+    if (patternsActive) _mobileIndicatorSeries['patterns'] = '__patterns__';
+    if (chartPatternsActive) _mobileIndicatorSeries['chart_patterns'] = '__chart_patterns__';
   } catch(e) {}
+  // Chart-Pattern Strukturlinien explizit entfernen (sind eigene Series, nicht in _mobileIndicatorSeries)
+  try { if (typeof _clearMobileChartPatternSeries === 'function') _clearMobileChartPatternSeries(); } catch(e) {}
+  // Pattern-Marker-Cache leeren — werden nach reload neu berechnet
+  _mobileCachedPatternMarkers = [];
+  _mobileCachedChartPatternMarkers = [];
 }
 
 // ═══════════════════════════════════════════════
@@ -18671,6 +18687,8 @@ let _mobileIndicatorSeries = {};   // { id: LineSeries | [LineSeries] }
 
 // Definitionen: id, label, kategorie, farben, compute(candles) → {time, value}[] oder [arr1, arr2, arr3]
 const MOBILE_INDICATORS_DEFS = [
+  { id: 'volume', label: 'Volume Bars (grün/rot)',  cat: 'Volume', color: '#22c55e', type: 'volume' },
+  { id: 'vwap',   label: 'VWAP (Session)',          cat: 'Volume', color: '#ec4899', type: 'vwap' },
   { id: 'ema20',  label: 'EMA 20',  cat: 'Moving Averages', color: '#fbbf24', period: 20,  type: 'ema' },
   { id: 'ema50',  label: 'EMA 50',  cat: 'Moving Averages', color: '#f97316', period: 50,  type: 'ema' },
   { id: 'ema200', label: 'EMA 200', cat: 'Moving Averages', color: '#ef4444', period: 200, type: 'ema' },
@@ -18678,8 +18696,682 @@ const MOBILE_INDICATORS_DEFS = [
   { id: 'sma50',  label: 'SMA 50',  cat: 'Moving Averages', color: '#3b82f6', period: 50,  type: 'sma' },
   { id: 'sma200', label: 'SMA 200', cat: 'Moving Averages', color: '#a78bfa', period: 200, type: 'sma' },
   { id: 'bb',     label: 'Bollinger Bands (20, 2)', cat: 'Bands', color: '#22d3ee', period: 20, mult: 2, type: 'bb' },
-  { id: 'vwap',   label: 'VWAP (Session)',          cat: 'Volume', color: '#ec4899', type: 'vwap' }
+  { id: 'patterns', label: 'Candle-Patterns (22)',  cat: 'Patterns', color: '#fbbf24', type: 'patterns' },
+  { id: 'chart_patterns', label: 'Chart-Patterns (12)', cat: 'Patterns', color: '#06b6d4', type: 'chart_patterns' }
 ];
+
+// ═══════════════════════════════════════════════
+// CANDLE-PATTERN DETECTION (22 Pattern)
+// ═══════════════════════════════════════════════
+let _mobilePatternsEnabled = false;
+let _mobileCachedTradeMarkers = [];
+let _mobileCachedPatternMarkers = [];
+
+// Combined Marker-Apply: trade + candle-pattern + chart-pattern markers in EINEM setMarkers-Call
+function _applyMobileMarkers() {
+  if (!_mobileCandleSeries) return;
+  const all = (_mobileCachedTradeMarkers || [])
+    .concat(_mobileCachedPatternMarkers || [])
+    .concat(typeof _mobileCachedChartPatternMarkers !== 'undefined' ? _mobileCachedChartPatternMarkers : []);
+  all.sort((a, b) => a.time - b.time);
+  try { _mobileCandleSeries.setMarkers(all); } catch(e){}
+}
+
+function _updateMobilePatterns(candles) {
+  if (!_mobilePatternsEnabled || !candles || candles.length < 3) {
+    _mobileCachedPatternMarkers = [];
+  } else {
+    _mobileCachedPatternMarkers = _detectMobileCandlePatterns(candles);
+  }
+  _applyMobileMarkers();
+}
+
+// Hilfs-Getter
+function _cTime(c) { return Math.floor((c.ts || c.time || 0) / 1000); }
+function _cBody(c) { return Math.abs(c.close - c.open); }
+function _cRange(c) { return c.high - c.low; }
+function _cUW(c)   { return c.high - Math.max(c.open, c.close); }
+function _cLW(c)   { return Math.min(c.open, c.close) - c.low; }
+function _cBull(c) { return c.close > c.open; }
+function _cBear(c) { return c.close < c.open; }
+function _cBodyMid(c) { return (c.open + c.close) / 2; }
+
+// Trend-Helfer: Up/Down basierend auf letzten 5 Kerzen vor Index i
+function _trendBefore(candles, i, lookback) {
+  lookback = lookback || 5;
+  if (i < lookback) return 'flat';
+  const start = candles[i - lookback].close;
+  const end = candles[i - 1].close;
+  const pct = (end - start) / start;
+  if (pct > 0.005) return 'up';
+  if (pct < -0.005) return 'down';
+  return 'flat';
+}
+
+// Haupt-Detection — ein Marker pro Kerze (Priority-System)
+function _detectMobileCandlePatterns(candles) {
+  const out = [];
+  if (!candles || candles.length < 3) return out;
+
+  for (let i = 0; i < candles.length; i++) {
+    const c    = candles[i];
+    const p1   = i >= 1 ? candles[i-1] : null;
+    const p2   = i >= 2 ? candles[i-2] : null;
+    const t    = _cTime(c);
+    if (!t) continue;
+    const body  = _cBody(c);
+    const range = _cRange(c);
+    if (range <= 0) continue;
+    const uw   = _cUW(c);
+    const lw   = _cLW(c);
+    const bullish = _cBull(c);
+    const bearish = _cBear(c);
+    const trend = _trendBefore(candles, i, 5);
+
+    // ═══ 3-Candle-Patterns zuerst (höhere Priorität) ═══
+    if (p2 && p1) {
+      const b1 = _cBody(p1), b2 = _cBody(p2);
+      // Morning Star: bear, doji/small, bull (in downtrend)
+      if (trend === 'down' && _cBear(p2) && b1 < b2 * 0.5 && bullish &&
+          c.close > _cBodyMid(p2)) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🌅 MS' });
+        continue;
+      }
+      // Evening Star: bull, doji/small, bear (in uptrend)
+      if (trend === 'up' && _cBull(p2) && b1 < b2 * 0.5 && bearish &&
+          c.close < _cBodyMid(p2)) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🌇 ES' });
+        continue;
+      }
+      // Three White Soldiers
+      if (_cBull(p2) && _cBull(p1) && bullish &&
+          c.close > p1.close && p1.close > p2.close &&
+          c.open > p1.open && c.open < p1.close) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⚔ 3WS' });
+        continue;
+      }
+      // Three Black Crows
+      if (_cBear(p2) && _cBear(p1) && bearish &&
+          c.close < p1.close && p1.close < p2.close &&
+          c.open < p1.open && c.open > p1.close) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🦅 3BC' });
+        continue;
+      }
+      // Three Inside Up: bear + harami-bull + bull break
+      if (_cBear(p2) && _cBull(p1) &&
+          p1.open >= p2.close && p1.close <= p2.open &&
+          bullish && c.close > p2.open) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⬆3IU' });
+        continue;
+      }
+      // Three Inside Down: bull + harami-bear + bear break
+      if (_cBull(p2) && _cBear(p1) &&
+          p1.open <= p2.close && p1.close >= p2.open &&
+          bearish && c.close < p2.open) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '⬇3ID' });
+        continue;
+      }
+    }
+
+    // ═══ 2-Candle-Patterns ═══
+    if (p1) {
+      const pb = _cBody(p1);
+      // Bullish Engulfing
+      if (_cBear(p1) && bullish && c.open <= p1.close && c.close >= p1.open && body > pb) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🟢 ENG' });
+        continue;
+      }
+      // Bearish Engulfing
+      if (_cBull(p1) && bearish && c.open >= p1.close && c.close <= p1.open && body > pb) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🔴 ENG' });
+        continue;
+      }
+      // Bullish Harami (Inside Day after bear)
+      if (_cBear(p1) && bullish && c.open >= p1.close && c.close <= p1.open && body < pb * 0.6) {
+        out.push({ time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: 'HAR↑' });
+        continue;
+      }
+      // Bearish Harami
+      if (_cBull(p1) && bearish && c.open <= p1.close && c.close >= p1.open && body < pb * 0.6) {
+        out.push({ time: t, position: 'aboveBar', color: '#fca5a5', shape: 'arrowDown', text: 'HAR↓' });
+        continue;
+      }
+      // Piercing Line: bear + bull opens below prev low, closes > prev midpoint
+      if (_cBear(p1) && bullish && c.open < p1.low && c.close > _cBodyMid(p1) && c.close < p1.open) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '⚡ PRC' });
+        continue;
+      }
+      // Dark Cloud Cover: bull + bear opens above prev high, closes < prev midpoint
+      if (_cBull(p1) && bearish && c.open > p1.high && c.close < _cBodyMid(p1) && c.close > p1.open) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '☁ DCC' });
+        continue;
+      }
+      // Tweezer Top: 2 candles, similar highs, after uptrend, 2nd bear
+      if (trend === 'up' && bearish && Math.abs(c.high - p1.high) / range < 0.05 && _cBull(p1)) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '✂ TWT' });
+        continue;
+      }
+      // Tweezer Bottom
+      if (trend === 'down' && bullish && Math.abs(c.low - p1.low) / range < 0.05 && _cBear(p1)) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '✂ TWB' });
+        continue;
+      }
+    }
+
+    // ═══ 1-Candle-Patterns (niedrigste Priorität) ═══
+    // Doji-Familie (Body < 7% of range)
+    if (body / range < 0.07) {
+      // Dragonfly Doji (lange lower wick, kaum upper)
+      if (lw > 2 * uw && uw < 0.15 * range) {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🐉 DRG' });
+        continue;
+      }
+      // Gravestone Doji (lange upper wick, kaum lower)
+      if (uw > 2 * lw && lw < 0.15 * range) {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🪦 GRV' });
+        continue;
+      }
+      // Normal Doji
+      out.push({ time: t, position: 'aboveBar', color: '#9ca3af', shape: 'circle', text: '✛' });
+      continue;
+    }
+
+    // Marubozu: kein/kaum wick, fast nur Body
+    if (body / range > 0.92) {
+      if (bullish) {
+        out.push({ time: t, position: 'belowBar', color: '#16a34a', shape: 'arrowUp', text: '█ MAR' });
+      } else {
+        out.push({ time: t, position: 'aboveBar', color: '#dc2626', shape: 'arrowDown', text: '█ MAR' });
+      }
+      continue;
+    }
+
+    // Hammer / Hanging Man (kleiner body oben, lange untere wick)
+    if (body / range < 0.35 && lw >= 2 * body && uw < 0.3 * range) {
+      if (trend === 'down') {
+        out.push({ time: t, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '🔨' });
+      } else if (trend === 'up') {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '🪢 HM' }); // Hanging Man
+      } else {
+        out.push({ time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: '🔨?' });
+      }
+      continue;
+    }
+
+    // Shooting Star / Inverted Hammer (kleiner body unten, lange obere wick)
+    if (body / range < 0.35 && uw >= 2 * body && lw < 0.3 * range) {
+      if (trend === 'up') {
+        out.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: '⭐' });
+      } else if (trend === 'down') {
+        out.push({ time: t, position: 'belowBar', color: '#86efac', shape: 'arrowUp', text: '⭐ IH' }); // Inverted Hammer
+      } else {
+        out.push({ time: t, position: 'aboveBar', color: '#fca5a5', shape: 'arrowDown', text: '⭐?' });
+      }
+      continue;
+    }
+
+    // Spinning Top: kleiner Body in der Mitte
+    if (body / range < 0.3 && uw > body * 0.5 && lw > body * 0.5 &&
+        Math.abs(uw - lw) / range < 0.2) {
+      out.push({ time: t, position: 'aboveBar', color: '#9ca3af', shape: 'circle', text: '◯' });
+      continue;
+    }
+  }
+
+  return out;
+}
+
+// ═══════════════════════════════════════════════
+// CHART-PATTERN DETECTION (H&S, Triangle, Flag etc.)
+// ═══════════════════════════════════════════════
+let _mobileChartPatternsEnabled = false;
+let _mobileChartPatternSeries = [];   // Array von LineSeries refs für Pattern-Strukturen
+
+// Pivot-Detection: liefert Liste von Swing-Highs/Lows
+// Ein Pivot-High bei Index i ist eine Kerze deren high == max der ±lookback Range
+function _detectPivots(candles, lookback) {
+  lookback = lookback || 5;
+  const pivots = [];
+  for (let i = lookback; i < candles.length - lookback; i++) {
+    const c = candles[i];
+    let isHigh = true, isLow = true;
+    for (let j = i - lookback; j <= i + lookback; j++) {
+      if (j === i) continue;
+      if (candles[j].high >= c.high) isHigh = false;
+      if (candles[j].low  <= c.low)  isLow  = false;
+      if (!isHigh && !isLow) break;
+    }
+    if (isHigh) pivots.push({ idx: i, time: _cTime(c), price: c.high, type: 'H' });
+    if (isLow)  pivots.push({ idx: i, time: _cTime(c), price: c.low,  type: 'L' });
+  }
+  return pivots;
+}
+
+// Linearer Regressions-Slope für Pivot-Sequenz
+function _slopePivots(pts) {
+  if (pts.length < 2) return 0;
+  const n = pts.length;
+  let sx=0, sy=0, sxy=0, sxx=0;
+  for (let i = 0; i < n; i++) {
+    sx += pts[i].idx; sy += pts[i].price;
+    sxy += pts[i].idx * pts[i].price;
+    sxx += pts[i].idx * pts[i].idx;
+  }
+  const d = n * sxx - sx * sx;
+  if (d === 0) return 0;
+  return (n * sxy - sx * sy) / d;
+}
+
+// Y-Wert einer Geraden bei x-Index (Pivot-basiert)
+function _lineY(p1, p2, x) {
+  if (p1.idx === p2.idx) return p1.price;
+  const m = (p2.price - p1.price) / (p2.idx - p1.idx);
+  return p1.price + m * (x - p1.idx);
+}
+
+// Toleranz für "ähnliche Preise" (in % des aktuellen Preises)
+function _priceTol(refPrice, pctTol) {
+  return Math.abs(refPrice) * (pctTol || 0.02);
+}
+
+// ── HAUPT-DETECTION: scannt Pivots, findet alle 12 Pattern-Typen ──
+function _detectMobileChartPatterns(candles) {
+  const patterns = [];
+  if (!candles || candles.length < 30) return patterns;
+
+  // Adaptiver Lookback basierend auf Chart-Länge
+  const lookback = candles.length > 500 ? 8 : (candles.length > 200 ? 6 : 4);
+  const pivots = _detectPivots(candles, lookback);
+  if (pivots.length < 4) return patterns;
+
+  // Highs und Lows getrennt
+  const highs = pivots.filter(p => p.type === 'H');
+  const lows  = pivots.filter(p => p.type === 'L');
+
+  // ─── DOUBLE TOP / TRIPLE TOP ───
+  for (let i = 0; i < highs.length - 1; i++) {
+    const h1 = highs[i];
+    for (let j = i + 1; j < highs.length; j++) {
+      const h2 = highs[j];
+      if (h2.idx - h1.idx < 10 || h2.idx - h1.idx > 200) continue;
+      const tol = _priceTol(h1.price, 0.015);
+      if (Math.abs(h2.price - h1.price) > tol) continue;
+      // Tiefe Pullback dazwischen finden
+      let lowBetween = null;
+      for (const l of lows) {
+        if (l.idx > h1.idx && l.idx < h2.idx) {
+          if (!lowBetween || l.price < lowBetween.price) lowBetween = l;
+        }
+      }
+      if (!lowBetween) continue;
+      if (h1.price - lowBetween.price < (h1.price * 0.02)) continue; // genug Tiefe
+      // Triple Top?
+      let h3 = null;
+      for (let k = j + 1; k < highs.length; k++) {
+        const cand = highs[k];
+        if (cand.idx - h2.idx > 200) break;
+        if (Math.abs(cand.price - h1.price) <= tol) { h3 = cand; break; }
+      }
+      if (h3) {
+        patterns.push({
+          type: 'tripleTop', label: '3T',
+          color: '#ef4444',
+          points: [
+            { time: h1.time, price: h1.price },
+            { time: lowBetween.time, price: lowBetween.price },
+            { time: h2.time, price: h2.price },
+            { time: h3.time, price: h3.price }
+          ],
+          neckline: { from: lowBetween.time, to: h3.time, price: lowBetween.price }
+        });
+      } else {
+        patterns.push({
+          type: 'doubleTop', label: '2T',
+          color: '#ef4444',
+          points: [
+            { time: h1.time, price: h1.price },
+            { time: lowBetween.time, price: lowBetween.price },
+            { time: h2.time, price: h2.price }
+          ],
+          neckline: { from: lowBetween.time, to: h2.time, price: lowBetween.price }
+        });
+      }
+      break; // nur ein Match pro h1
+    }
+  }
+
+  // ─── DOUBLE BOTTOM / TRIPLE BOTTOM ───
+  for (let i = 0; i < lows.length - 1; i++) {
+    const l1 = lows[i];
+    for (let j = i + 1; j < lows.length; j++) {
+      const l2 = lows[j];
+      if (l2.idx - l1.idx < 10 || l2.idx - l1.idx > 200) continue;
+      const tol = _priceTol(l1.price, 0.015);
+      if (Math.abs(l2.price - l1.price) > tol) continue;
+      let highBetween = null;
+      for (const h of highs) {
+        if (h.idx > l1.idx && h.idx < l2.idx) {
+          if (!highBetween || h.price > highBetween.price) highBetween = h;
+        }
+      }
+      if (!highBetween) continue;
+      if (highBetween.price - l1.price < (l1.price * 0.02)) continue;
+      let l3 = null;
+      for (let k = j + 1; k < lows.length; k++) {
+        const cand = lows[k];
+        if (cand.idx - l2.idx > 200) break;
+        if (Math.abs(cand.price - l1.price) <= tol) { l3 = cand; break; }
+      }
+      if (l3) {
+        patterns.push({
+          type: 'tripleBot', label: '3B',
+          color: '#22c55e',
+          points: [
+            { time: l1.time, price: l1.price },
+            { time: highBetween.time, price: highBetween.price },
+            { time: l2.time, price: l2.price },
+            { time: l3.time, price: l3.price }
+          ],
+          neckline: { from: highBetween.time, to: l3.time, price: highBetween.price }
+        });
+      } else {
+        patterns.push({
+          type: 'doubleBot', label: '2B',
+          color: '#22c55e',
+          points: [
+            { time: l1.time, price: l1.price },
+            { time: highBetween.time, price: highBetween.price },
+            { time: l2.time, price: l2.price }
+          ],
+          neckline: { from: highBetween.time, to: l2.time, price: highBetween.price }
+        });
+      }
+      break;
+    }
+  }
+
+  // ─── HEAD & SHOULDERS (3 Highs: L-H-L, mit "Shoulders" ~gleich) ───
+  for (let i = 0; i < highs.length - 2; i++) {
+    const lS = highs[i], head = highs[i+1], rS = highs[i+2];
+    if (head.idx - lS.idx > 100 || rS.idx - head.idx > 100) continue;
+    if (head.price <= lS.price || head.price <= rS.price) continue;
+    const shoulderTol = _priceTol(lS.price, 0.04);
+    if (Math.abs(rS.price - lS.price) > shoulderTol) continue;
+    if (head.price - Math.max(lS.price, rS.price) < (head.price * 0.015)) continue;
+    // Neckline: Lows zwischen den Schultern
+    let lowL = null, lowR = null;
+    for (const l of lows) {
+      if (l.idx > lS.idx && l.idx < head.idx && (!lowL || l.price < lowL.price)) lowL = l;
+      if (l.idx > head.idx && l.idx < rS.idx && (!lowR || l.price < lowR.price)) lowR = l;
+    }
+    if (!lowL || !lowR) continue;
+    patterns.push({
+      type: 'hs', label: 'H&S',
+      color: '#ef4444',
+      points: [
+        { time: lS.time, price: lS.price },
+        { time: lowL.time, price: lowL.price },
+        { time: head.time, price: head.price },
+        { time: lowR.time, price: lowR.price },
+        { time: rS.time, price: rS.price }
+      ],
+      neckline: { from: lowL.time, to: rS.time, p1: lowL.price, p2: lowR.price }
+    });
+  }
+
+  // ─── INVERSE HEAD & SHOULDERS (3 Lows: H-L-H, Shoulders ~gleich) ───
+  for (let i = 0; i < lows.length - 2; i++) {
+    const lS = lows[i], head = lows[i+1], rS = lows[i+2];
+    if (head.idx - lS.idx > 100 || rS.idx - head.idx > 100) continue;
+    if (head.price >= lS.price || head.price >= rS.price) continue;
+    const shoulderTol = _priceTol(lS.price, 0.04);
+    if (Math.abs(rS.price - lS.price) > shoulderTol) continue;
+    if (Math.min(lS.price, rS.price) - head.price < (head.price * 0.015)) continue;
+    let highL = null, highR = null;
+    for (const h of highs) {
+      if (h.idx > lS.idx && h.idx < head.idx && (!highL || h.price > highL.price)) highL = h;
+      if (h.idx > head.idx && h.idx < rS.idx && (!highR || h.price > highR.price)) highR = h;
+    }
+    if (!highL || !highR) continue;
+    patterns.push({
+      type: 'inv_hs', label: 'IH&S',
+      color: '#22c55e',
+      points: [
+        { time: lS.time, price: lS.price },
+        { time: highL.time, price: highL.price },
+        { time: head.time, price: head.price },
+        { time: highR.time, price: highR.price },
+        { time: rS.time, price: rS.price }
+      ],
+      neckline: { from: highL.time, to: rS.time, p1: highL.price, p2: highR.price }
+    });
+  }
+
+  // ─── TRIANGLE (Ascending / Descending / Symmetrical) ───
+  // Mindestens 3 Highs UND 3 Lows in einem Fenster, beide Trendlines konvergieren
+  for (let endIdx = 60; endIdx < pivots.length; endIdx++) {
+    const startIdx = Math.max(0, endIdx - 30);
+    const winHighs = highs.filter(p => p.idx >= candles.length * (startIdx/pivots.length) && p.idx <= candles.length * (endIdx/pivots.length));
+    const winLows  = lows.filter(p => p.idx >= candles.length * (startIdx/pivots.length) && p.idx <= candles.length * (endIdx/pivots.length));
+    if (winHighs.length < 3 || winLows.length < 3) continue;
+
+    const slopeH = _slopePivots(winHighs);
+    const slopeL = _slopePivots(winLows);
+
+    const firstH = winHighs[0], lastH = winHighs[winHighs.length-1];
+    const firstL = winLows[0],  lastL = winLows[winLows.length-1];
+    const avgPrice = (firstH.price + firstL.price) / 2;
+    const flatTol = avgPrice * 0.001; // Steigung ≈ 0 wenn |slope| < flatTol pro Kerze
+
+    // Ascending Triangle: highs flach, lows steigend
+    if (Math.abs(slopeH) < flatTol && slopeL > flatTol) {
+      patterns.push({
+        type: 'triangleAsc', label: '△A',
+        color: '#22c55e',
+        upper: { from: firstH.time, to: lastH.time, p1: firstH.price, p2: lastH.price },
+        lower: { from: firstL.time, to: lastL.time, p1: firstL.price, p2: lastL.price }
+      });
+      endIdx += 20; continue;
+    }
+    // Descending Triangle: highs fallend, lows flach
+    if (slopeH < -flatTol && Math.abs(slopeL) < flatTol) {
+      patterns.push({
+        type: 'triangleDesc', label: '▽D',
+        color: '#ef4444',
+        upper: { from: firstH.time, to: lastH.time, p1: firstH.price, p2: lastH.price },
+        lower: { from: firstL.time, to: lastL.time, p1: firstL.price, p2: lastL.price }
+      });
+      endIdx += 20; continue;
+    }
+    // Symmetrical: highs fallend, lows steigend (Konvergenz)
+    if (slopeH < -flatTol && slopeL > flatTol) {
+      patterns.push({
+        type: 'triangleSym', label: '◇S',
+        color: '#fbbf24',
+        upper: { from: firstH.time, to: lastH.time, p1: firstH.price, p2: lastH.price },
+        lower: { from: firstL.time, to: lastL.time, p1: firstL.price, p2: lastL.price }
+      });
+      endIdx += 20; continue;
+    }
+    // Rising Wedge (beide steigend, lower steiler → bearish)
+    if (slopeH > flatTol && slopeL > flatTol && slopeL > slopeH * 1.3) {
+      patterns.push({
+        type: 'wedgeRise', label: '⬈W',
+        color: '#ef4444',
+        upper: { from: firstH.time, to: lastH.time, p1: firstH.price, p2: lastH.price },
+        lower: { from: firstL.time, to: lastL.time, p1: firstL.price, p2: lastL.price }
+      });
+      endIdx += 20; continue;
+    }
+    // Falling Wedge (beide fallend, upper steiler nach unten → bullish)
+    if (slopeH < -flatTol && slopeL < -flatTol && slopeH < slopeL * 1.3) {
+      patterns.push({
+        type: 'wedgeFall', label: '⬊W',
+        color: '#22c55e',
+        upper: { from: firstH.time, to: lastH.time, p1: firstH.price, p2: lastH.price },
+        lower: { from: firstL.time, to: lastL.time, p1: firstL.price, p2: lastL.price }
+      });
+      endIdx += 20; continue;
+    }
+  }
+
+  // ─── FLAG / PENNANT (kurze Konsolidierung nach starkem Move) ───
+  // Suche: starker Impuls (5-15 candles, >5% move), dann Konsolidierung (5-20 candles, kleine Range)
+  for (let i = 30; i < candles.length - 5; i++) {
+    // Impuls-Check: Move letzte 5-15 Kerzen
+    const impulseLen = 10;
+    if (i < impulseLen) continue;
+    const startPrice = candles[i - impulseLen].close;
+    const endPrice = candles[i].close;
+    const movePct = (endPrice - startPrice) / startPrice;
+    if (Math.abs(movePct) < 0.05) continue;
+
+    // Konsolidierungs-Check: nächste 5-15 candles in engem Range
+    const consolLen = 10;
+    if (i + consolLen >= candles.length) continue;
+    let cMin = Infinity, cMax = -Infinity;
+    for (let j = i; j <= i + consolLen; j++) {
+      if (candles[j].high > cMax) cMax = candles[j].high;
+      if (candles[j].low  < cMin) cMin = candles[j].low;
+    }
+    const consolRange = (cMax - cMin) / endPrice;
+    if (consolRange > 0.04) continue;  // zu breit für Flag
+    if (consolRange < 0.005) continue; // zu eng
+
+    // Bull-Flag: Impuls war up, Konsolidierung ist drift down
+    const isBull = movePct > 0;
+    patterns.push({
+      type: isBull ? 'flagBull' : 'flagBear',
+      label: isBull ? '🚩↑' : '🚩↓',
+      color: isBull ? '#22c55e' : '#ef4444',
+      upper: { from: _cTime(candles[i]), to: _cTime(candles[i + consolLen]), p1: cMax, p2: cMax },
+      lower: { from: _cTime(candles[i]), to: _cTime(candles[i + consolLen]), p1: cMin, p2: cMin }
+    });
+    i += consolLen + 5;  // skip ahead
+  }
+
+  // Duplikate filtern: gleicher Typ + Overlap im Zeitfenster
+  const filtered = [];
+  for (const p of patterns) {
+    const ref = p.points ? p.points[0].time : (p.upper ? p.upper.from : p.neckline.from);
+    let dup = false;
+    for (const f of filtered) {
+      const refF = f.points ? f.points[0].time : (f.upper ? f.upper.from : f.neckline.from);
+      if (f.type === p.type && Math.abs(ref - refF) < 86400) { dup = true; break; }
+    }
+    if (!dup) filtered.push(p);
+  }
+
+  return filtered;
+}
+
+function _clearMobileChartPatternSeries() {
+  if (!_mobileChart) return;
+  for (const s of _mobileChartPatternSeries) {
+    try { _mobileChart.removeSeries(s); } catch(e){}
+  }
+  _mobileChartPatternSeries = [];
+}
+
+// Eine Linie zwischen 2 Punkten als LineSeries
+function _addPatternLine(p1Time, p2Time, p1Price, p2Price, color, dashed) {
+  if (!_mobileChart) return null;
+  const s = _mobileChart.addLineSeries({
+    color: color,
+    lineWidth: 2,
+    lineStyle: dashed ? 2 : 0,
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false
+  });
+  try {
+    s.setData([
+      { time: p1Time, value: p1Price },
+      { time: p2Time, value: p2Price }
+    ]);
+  } catch(e){}
+  _mobileChartPatternSeries.push(s);
+  return s;
+}
+
+function _updateMobileChartPatterns(candles) {
+  _clearMobileChartPatternSeries();
+  if (!_mobileChartPatternsEnabled || !candles || candles.length < 30 || !_mobileChart) return;
+
+  const patterns = _detectMobileChartPatterns(candles);
+  const labelMarkers = [];
+
+  for (const pat of patterns) {
+    // Strukturlinien zeichnen
+    if (pat.type === 'doubleTop' || pat.type === 'doubleBot' || pat.type === 'tripleTop' || pat.type === 'tripleBot') {
+      // Punkte mit Linien verbinden (zigzag)
+      for (let i = 0; i < pat.points.length - 1; i++) {
+        _addPatternLine(pat.points[i].time, pat.points[i+1].time, pat.points[i].price, pat.points[i+1].price, pat.color, false);
+      }
+      // Neckline
+      _addPatternLine(pat.neckline.from, pat.neckline.to, pat.neckline.price, pat.neckline.price, pat.color, true);
+      // Label-Marker am ersten Top/Bot
+      labelMarkers.push({
+        time: pat.points[pat.points.length - 1].time,
+        position: pat.type.includes('Top') ? 'aboveBar' : 'belowBar',
+        color: pat.color, shape: pat.color === '#22c55e' ? 'arrowUp' : 'arrowDown',
+        text: pat.label
+      });
+    } else if (pat.type === 'hs' || pat.type === 'inv_hs') {
+      // Schultern + Kopf verbinden (zigzag durch alle 5 Punkte)
+      for (let i = 0; i < pat.points.length - 1; i++) {
+        _addPatternLine(pat.points[i].time, pat.points[i+1].time, pat.points[i].price, pat.points[i+1].price, pat.color, false);
+      }
+      // Neckline (zwischen den beiden Lows bzw. Highs)
+      _addPatternLine(pat.neckline.from, pat.neckline.to, pat.neckline.p1, pat.neckline.p2, pat.color, true);
+      // Label am Head
+      labelMarkers.push({
+        time: pat.points[2].time,
+        position: pat.type === 'hs' ? 'aboveBar' : 'belowBar',
+        color: pat.color, shape: pat.type === 'hs' ? 'arrowDown' : 'arrowUp',
+        text: pat.label
+      });
+    } else if (pat.type.startsWith('triangle') || pat.type.startsWith('wedge') || pat.type.startsWith('flag')) {
+      _addPatternLine(pat.upper.from, pat.upper.to, pat.upper.p1, pat.upper.p2, pat.color, false);
+      _addPatternLine(pat.lower.from, pat.lower.to, pat.lower.p1, pat.lower.p2, pat.color, false);
+      // Label
+      labelMarkers.push({
+        time: pat.upper.to,
+        position: pat.color === '#22c55e' ? 'belowBar' : 'aboveBar',
+        color: pat.color, shape: pat.color === '#22c55e' ? 'arrowUp' : 'arrowDown',
+        text: pat.label
+      });
+    }
+  }
+
+  // Pattern-Labels als Marker hinzufügen (separat von Candle-Pattern Marker)
+  _mobileCachedChartPatternMarkers = labelMarkers;
+  _applyMobileMarkers();
+}
+
+let _mobileCachedChartPatternMarkers = [];
+
+// Throttled Update: maximal alle 3 Sekunden neu rechnen (Detection ist teuer)
+let _chartPatternUpdateTimer = null;
+let _chartPatternLastUpdate = 0;
+function _scheduleMobileChartPatternUpdate(candles) {
+  if (!_mobileChartPatternsEnabled) return;
+  const now = Date.now();
+  if (now - _chartPatternLastUpdate > 3000) {
+    // Genug Zeit vergangen → sofort rechnen
+    _chartPatternLastUpdate = now;
+    _updateMobileChartPatterns(candles);
+  } else if (!_chartPatternUpdateTimer) {
+    // Verzögern auf nächsten 3s-Slot
+    _chartPatternUpdateTimer = setTimeout(() => {
+      _chartPatternUpdateTimer = null;
+      _chartPatternLastUpdate = Date.now();
+      const c = (_mobileLastData && _mobileLastData.candles) || candles;
+      _updateMobileChartPatterns(c);
+    }, 3000 - (now - _chartPatternLastUpdate));
+  }
+}
 
 function _candlesToCloseArr(candles) {
   const closes = new Array(candles.length);
@@ -18742,6 +19434,25 @@ function _computeMobileIndicator(def, candles) {
     return _computeVWAP(candles);
   }
 
+  if (def.type === 'volume') {
+    // Histogram-Daten: time, value, color (grün/rot je Candle-Direction)
+    const out = [];
+    for (let i = 0; i < candles.length; i++) {
+      const c = candles[i];
+      const t = _candlesToTime(c);
+      if (!t) continue;
+      const vol = c.volume || c.vol || c.v || 0;
+      if (!isFinite(vol) || vol <= 0) continue;
+      const bullish = c.close >= c.open;
+      out.push({
+        time: t,
+        value: vol,
+        color: bullish ? 'rgba(34, 197, 94, 0.55)' : 'rgba(239, 68, 68, 0.55)'
+      });
+    }
+    return out;
+  }
+
   return null;
 }
 
@@ -18753,6 +19464,24 @@ function _createMobileIndicatorSeries(def) {
     const mid   = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     const lower = _mobileChart.addLineSeries({ color: def.color, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     return [upper, mid, lower];
+  }
+  if (def.type === 'volume') {
+    // Histogram am unteren Chart-Rand mit eigener Skala
+    const hs = _mobileChart.addHistogramSeries({
+      color: def.color,
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'mobile_volume',
+      lastValueVisible: false,
+      priceLineVisible: false
+    });
+    // Skala konfigurieren: unten ~20% des Charts, unsichtbar
+    try {
+      _mobileChart.priceScale('mobile_volume').applyOptions({
+        scaleMargins: { top: 0.78, bottom: 0 },
+        visible: false
+      });
+    } catch(e){}
+    return hs;
   }
   // Standard: Eine Linie
   return _mobileChart.addLineSeries({
@@ -18782,9 +19511,11 @@ function _updateMobileIndicators(candles) {
   if (!_mobileChart || !candles || candles.length === 0) return;
   for (const def of MOBILE_INDICATORS_DEFS) {
     if (!_mobileIndicators[def.id]) continue;
+    if (def.type === 'patterns') continue; // candle-patterns laufen über _updateMobilePatterns
+    if (def.type === 'chart_patterns') continue; // chart-patterns laufen über _updateMobileChartPatterns
     let series = _mobileIndicatorSeries[def.id];
     // Lazy-Recreation falls Series fehlt (z.B. nach Coin-Wechsel)
-    if (!series) {
+    if (!series || series === '__patterns__' || series === '__chart_patterns__') {
       series = _createMobileIndicatorSeries(def);
       if (!series) continue;
       _mobileIndicatorSeries[def.id] = series;
@@ -18843,6 +19574,37 @@ function toggleMobileIndicator(id) {
   if (!def) return;
   const wasActive = !!_mobileIndicators[id];
 
+  // ── SPECIAL: Patterns toggle (kein Series, nur Detection-Flag) ──
+  if (def.type === 'patterns') {
+    _mobilePatternsEnabled = !wasActive;
+    if (_mobilePatternsEnabled) {
+      _mobileIndicators[id] = true;
+      _mobileIndicatorSeries[id] = '__patterns__';   // Sentinel damit Lazy-Recreation den nicht anfasst
+    } else {
+      delete _mobileIndicators[id];
+      delete _mobileIndicatorSeries[id];
+    }
+    const candles = (_mobileLastData && _mobileLastData.candles) || [];
+    _updateMobilePatterns(candles);
+    openMobileIndicators();
+    return;
+  }
+  // ── SPECIAL: Chart-Patterns toggle ──
+  if (def.type === 'chart_patterns') {
+    _mobileChartPatternsEnabled = !wasActive;
+    if (_mobileChartPatternsEnabled) {
+      _mobileIndicators[id] = true;
+      _mobileIndicatorSeries[id] = '__chart_patterns__';
+    } else {
+      delete _mobileIndicators[id];
+      delete _mobileIndicatorSeries[id];
+    }
+    const candles = (_mobileLastData && _mobileLastData.candles) || [];
+    _updateMobileChartPatterns(candles);
+    openMobileIndicators();
+    return;
+  }
+
   if (wasActive) {
     // Deaktivieren: Series entfernen
     const series = _mobileIndicatorSeries[id];
@@ -18855,6 +19617,10 @@ function toggleMobileIndicator(id) {
     }
     delete _mobileIndicatorSeries[id];
     delete _mobileIndicators[id];
+    // Beim Deaktivieren von Volume: Main-Scale zurück auf Default
+    if (def.type === 'volume') {
+      try { _mobileChart.priceScale('right').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } }); } catch(e){}
+    }
   } else {
     // Aktivieren: Series erzeugen + Daten setzen
     if (!_mobileChart) return;
@@ -18862,6 +19628,10 @@ function toggleMobileIndicator(id) {
     if (!series) return;
     _mobileIndicatorSeries[id] = series;
     _mobileIndicators[id] = true;
+    // Bei Volume: Main-Scale verkleinern damit Candles oben und Volume unten Platz hat
+    if (def.type === 'volume') {
+      try { _mobileChart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.28 } }); } catch(e){}
+    }
     // Aktuelle Candles holen
     const candles = (_mobileLastData && _mobileLastData.candles) ? _mobileLastData.candles : (window.currentCandles || []);
     const data = _computeMobileIndicator(def, candles);
@@ -19059,7 +19829,7 @@ function mobileReplayStep(dir) {
   // Wenn am Spielen → erst pausieren
   if (_mobileReplay.playing) mobileReplayToggle();
   _mobileReplay.index = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, _mobileReplay.index + dir));
-  _mobileReplayDraw();
+  _mobileReplayDraw(true);   // ← preserve view: User-Pan/Zoom bleibt erhalten
   _mobileReplayUpdateUI();
 }
 
@@ -19067,7 +19837,7 @@ function mobileReplaySeek(val) {
   if (!_mobileReplay.active || _mobileReplay.waitingForSelection) return;
   if (_mobileReplay.playing) mobileReplayToggle();
   _mobileReplay.index = Math.max(MOBILE_REPLAY_MIN_INDEX, Math.min(_mobileReplay.max, parseInt(val) | 0));
-  _mobileReplayDraw();
+  _mobileReplayDraw(false);  // ← Slider-Seek: View re-zentriert auf neuen Punkt
   _mobileReplayUpdateUI();
 }
 
@@ -19096,7 +19866,9 @@ function mobileReplaySpeedChange() {
 }
 
 // Full re-render: alle sichtbaren Kerzen via setData
-function _mobileReplayDraw() {
+// preserveView=true → Pan/Zoom-Position des Users bleibt erhalten
+// preserveView=false → Lightweight Charts setzt die View automatisch
+function _mobileReplayDraw(preserveView) {
   if (!_mobileCandleSeries || !_mobileReplay.savedCandles) return;
   const sliced = _mobileReplay.savedCandles.slice(0, _mobileReplay.index);
   if (sliced.length < 2) return;
@@ -19107,7 +19879,16 @@ function _mobileReplayDraw() {
     if (!t) continue;
     data.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
   }
+  // View merken bevor wir setData aufrufen (setData kann View resetten)
+  let savedRange = null;
+  if (preserveView && _mobileChart) {
+    try { savedRange = _mobileChart.timeScale().getVisibleRange(); } catch(e){}
+  }
   try { _mobileCandleSeries.setData(data); } catch(e){}
+  // View wiederherstellen
+  if (preserveView && savedRange && _mobileChart) {
+    try { _mobileChart.timeScale().setVisibleRange(savedRange); } catch(e){}
+  }
 
   // Trade-Marker fuer sichtbare Trades
   _mobileReplayUpdateMarkers(sliced);
@@ -36936,7 +37717,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 01:15 UTC';
+const APP_BUILD = '2026-05-16 14:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
