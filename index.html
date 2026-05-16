@@ -2608,6 +2608,37 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <!-- Mobile-only Chart-Container (TradingView Lightweight Charts) -->
         <div id="mobileChartContainer" class="mobile-only-chart" style="position:absolute;inset:0;background:#0d1117"></div>
+        <!-- Vektor-Candle-Legende — nur sichtbar wenn vector-style aktiv -->
+        <div id="mobileVectorLegend" style="display:none;position:absolute;top:48px;left:60px;z-index:96;background:rgba(13,17,23,0.92);border:1px solid #1f2937;border-radius:8px;font-size:11px;color:#e6edf3;box-shadow:0 2px 8px rgba(0,0,0,0.4);user-select:none;max-width:240px">
+          <div id="mobileVectorLegendHeader" onclick="toggleMobileVectorLegend()" style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;font-weight:600">
+            <span style="font-size:13px">📊</span>
+            <span>Vektor-Legende</span>
+            <span id="mobileVectorLegendArrow" style="margin-left:auto;font-size:10px;color:#9ca3af">▾</span>
+          </div>
+          <div id="mobileVectorLegendBody" style="display:none;padding:6px 10px 10px;border-top:1px solid #1f2937;font-size:10.5px;line-height:1.5">
+            <div style="color:#9ca3af;margin-bottom:6px;font-size:9.5px">Volumen vs. 20er-Schnitt</div>
+            <div style="display:grid;grid-template-columns:auto auto 1fr;gap:5px 8px;align-items:center">
+              <span style="width:14px;height:14px;background:#fbbf24;border-radius:2px"></span>
+              <span style="width:14px;height:14px;background:#a855f7;border-radius:2px"></span>
+              <span><b>Klimax</b> ≥2.0× — Institutionell</span>
+
+              <span style="width:14px;height:14px;background:#22c55e;border-radius:2px"></span>
+              <span style="width:14px;height:14px;background:#ef4444;border-radius:2px"></span>
+              <span><b>Stark</b> ≥1.3× — Erhöht</span>
+
+              <span style="width:14px;height:14px;background:#06b6d4;border-radius:2px"></span>
+              <span style="width:14px;height:14px;background:#f97316;border-radius:2px"></span>
+              <span><b>Normal</b> 0.7–1.3×</span>
+
+              <span style="width:14px;height:14px;background:#64748b;border-radius:2px"></span>
+              <span style="width:14px;height:14px;background:#9ca3af;border-radius:2px"></span>
+              <span><b>Schwach</b> ≤0.7× — Wenig Conviction</span>
+            </div>
+            <div style="color:#9ca3af;margin-top:8px;font-size:9.5px;line-height:1.4">
+              Linke Spalte = Bullish (Close ≥ Open) · Rechte Spalte = Bearish
+            </div>
+          </div>
+        </div>
         <!-- Mobile Drawing Tools — vertikaler Strip links (TradingView-Style) -->
         <div id="mobileDrawToolbar" class="mobile-only-draw-toolbar">
           <button class="mdt-btn active" onclick="setMobileDrawTool('cursor', this)" title="Cursor / Pan" aria-label="Cursor">
@@ -18838,12 +18869,30 @@ function _createMobileMainSeries(type) {
   return _mobileChart.addCandlestickSeries({});
 }
 
+// Vektor-Legende Toggle
+function toggleMobileVectorLegend() {
+  const body = document.getElementById('mobileVectorLegendBody');
+  const arr = document.getElementById('mobileVectorLegendArrow');
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (arr) arr.textContent = isOpen ? '▾' : '▴';
+}
+
+// Vektor-Legende Sichtbarkeit steuern (nur bei vector-Type sichtbar)
+function _updateMobileVectorLegendVisibility() {
+  const el = document.getElementById('mobileVectorLegend');
+  if (!el) return;
+  el.style.display = (_mobileCandleType === 'vector') ? 'block' : 'none';
+}
+
 // Type-Wechsel — alte Series entfernen, neue erstellen, Daten neu einspielen
 function setMobileCandleType(type) {
   if (!_mobileChart) return;
   if (_mobileCandleType === type) return;
   _mobileCandleType = type;
   try { localStorage.setItem('fb_mobileCandleType', type); } catch(e){}
+  _updateMobileVectorLegendVisibility();
 
   // Alte Series + ihre PriceLines entfernen
   if (_mobileCandleSeries) {
@@ -18891,9 +18940,11 @@ function setMobileCandleType(type) {
 function _formatDataForCandleType(rawData) {
   if (!Array.isArray(rawData) || !rawData.length) return rawData;
   if (_mobileCandleType === 'vector') {
-    // Volume-basierte Color-Klassifizierung pro Kerze:
-    // hohes Volumen + bullish → leuchtend grün, hohes Volumen + bearish → leuchtend rot
-    // normales Volumen → Standard-Farben, niedriges Volumen → pastell (geringe Conviction)
+    // Volume-basierte Color-Klassifizierung mit klar trennbaren Hue-Familien:
+    //   Klimax (≥2.0×):  GOLD (up)   /  PURPLE (down)  → Institution-Outlier, sticht raus
+    //   Stark  (≥1.3×):  GRÜN (up)   /  ROT    (down)  → klassisch
+    //   Normal (0.7×–1.3×): TÜRKIS    /  ORANGE          → Standard-Aktivität, andere Hue als Stark
+    //   Schwach (≤0.7×): BLAU-GRAU  /  ROSA-GRAU        → kaum Conviction
     const W = 20;
     const out = new Array(rawData.length);
     for (let i = 0; i < rawData.length; i++) {
@@ -18908,10 +18959,10 @@ function _formatDataForCandleType(rawData) {
       const ratio = avgVol > 0 ? vol / avgVol : 1;
       const isBull = c.close >= c.open;
       let color;
-      if (ratio >= 2.0) color = isBull ? '#00ff88' : '#ff0044';      // Klimax (sehr hohes Vol)
-      else if (ratio >= 1.3) color = isBull ? '#22c55e' : '#ef4444'; // Stark
-      else if (ratio <= 0.5) color = isBull ? '#86efac' : '#fca5a5'; // Schwach (pastell)
-      else color = isBull ? '#16a34a' : '#dc2626';                    // Normal
+      if (ratio >= 2.0) color = isBull ? '#fbbf24' : '#a855f7';      // Klimax: GOLD / LILA
+      else if (ratio >= 1.3) color = isBull ? '#22c55e' : '#ef4444'; // Stark: GRÜN / ROT
+      else if (ratio <= 0.7) color = isBull ? '#64748b' : '#9ca3af'; // Schwach: GRAU
+      else color = isBull ? '#06b6d4' : '#f97316';                    // Normal: TÜRKIS / ORANGE
       out[i] = {
         time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
         color: color, borderColor: color, wickColor: color
@@ -18983,10 +19034,10 @@ function _updateMobileSeriesData(rawCandle) {
     const ratio = avgVol > 0 ? vol / avgVol : 1;
     const isBull = rawCandle.close >= rawCandle.open;
     let color;
-    if (ratio >= 2.0) color = isBull ? '#00ff88' : '#ff0044';
+    if (ratio >= 2.0) color = isBull ? '#fbbf24' : '#a855f7';
     else if (ratio >= 1.3) color = isBull ? '#22c55e' : '#ef4444';
-    else if (ratio <= 0.5) color = isBull ? '#86efac' : '#fca5a5';
-    else color = isBull ? '#16a34a' : '#dc2626';
+    else if (ratio <= 0.7) color = isBull ? '#64748b' : '#9ca3af';
+    else color = isBull ? '#06b6d4' : '#f97316';
     formatted = {
       time: rawCandle.time, open: rawCandle.open, high: rawCandle.high, low: rawCandle.low, close: rawCandle.close,
       color: color, borderColor: color, wickColor: color
@@ -19233,6 +19284,56 @@ function renderMobileChart(candles, trades) {
         } catch(_){}
         if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 20);
       }, { passive: false, capture: true });
+
+      // ─── Eigenes Vertikal-Pan auf Chart-Body ───
+      // Weil der Y-Lock LWCs natives Vertikal-Pannen unterdrückt, schieben wir hier den
+      // gelockten Mittelpunkt selbst bei Drag auf dem Chart-Body. Reine Horizontal-Drags
+      // (|dx| dominiert) bleiben unangetastet — LWC handhabt X-Pannen wie gewohnt.
+      let _bodyPan = null;
+      container.addEventListener('pointerdown', (e) => {
+        if (!_mobileChart || !_mobileCandleSeries) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (typeof _mobilePlacement !== 'undefined' && _mobilePlacement) return;  // Drawing-Mode → ignorieren
+        const rect2 = container.getBoundingClientRect();
+        let aw2 = 70;
+        try {
+          const w = _mobileChart.priceScale('right').width();
+          if (typeof w === 'number' && w >= 20 && w <= 150) aw2 = w;
+        } catch(_){}
+        const xRel = e.clientX - rect2.left;
+        if (xRel >= rect2.width - aw2) return;  // über Axis → LWC handhabt selbst
+        // Falls noch kein Lock → aus aktuell sichtbarem Bereich initialisieren
+        if (_mobileVZoomCenter == null || _mobileVZoomHalfSpan == null) {
+          const top = _mobileCandleSeries.coordinateToPrice(0);
+          const bot = _mobileCandleSeries.coordinateToPrice(rect2.height);
+          if (top != null && bot != null) {
+            const lo = Math.min(top, bot), hi = Math.max(top, bot);
+            _mobileVZoomCenter = (lo + hi) / 2;
+            _mobileVZoomHalfSpan = (hi - lo) / 2;
+          } else return;
+        }
+        const h = Math.max(1, rect2.height);
+        _bodyPan = {
+          pointerId: e.pointerId,
+          startX: e.clientX, startY: e.clientY,
+          startCenter: _mobileVZoomCenter,
+          pricePerPixel: (_mobileVZoomHalfSpan * 2) / h
+        };
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (!_bodyPan || e.pointerId !== _bodyPan.pointerId) return;
+        const dx = e.clientX - _bodyPan.startX;
+        const dy = e.clientY - _bodyPan.startY;
+        // Nur wenn Geste vertikal-dominant ist → Y verschieben (sonst reines X-Pan über LWC)
+        if (Math.abs(dy) < 3) return;
+        if (Math.abs(dy) < Math.abs(dx) * 0.5) return;
+        // Drag down (dy>0) → höhere Preise oben sichtbar → Center steigt
+        _mobileVZoomCenter = _bodyPan.startCenter + dy * _bodyPan.pricePerPixel;
+        try { _mobileCandleSeries.applyOptions({}); } catch(_){}
+      });
+      const _endBodyPan = (e) => { if (_bodyPan && (!e || e.pointerId === _bodyPan.pointerId)) _bodyPan = null; };
+      window.addEventListener('pointerup', _endBodyPan);
+      window.addEventListener('pointercancel', () => { _bodyPan = null; });
 
       // Doppelklick auf Price-Axis = Lock lösen, einmalig Auto-Fit, dann neu locken
       container.addEventListener('dblclick', (e) => {
@@ -21020,6 +21121,8 @@ function initMobileChartToolbar() {
   // Candle-Type-Dropdown auf gespeicherten Wert setzen
   const ctSel = document.getElementById('mobileCandleTypeSelect');
   if (ctSel && _mobileCandleType) ctSel.value = _mobileCandleType;
+  // Vektor-Legende einblenden falls vector-Type gespeichert war
+  if (typeof _updateMobileVectorLegendVisibility === 'function') _updateMobileVectorLegendVisibility();
 }
 // Beim Laden initialisieren — etwas Delay damit DOM ready ist
 window.addEventListener('DOMContentLoaded', () => {
@@ -40379,7 +40482,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 05:00 UTC';
+const APP_BUILD = '2026-05-17 05:35 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
