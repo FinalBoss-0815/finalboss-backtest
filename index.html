@@ -18903,6 +18903,58 @@ function renderMobileChart(candles, trades) {
         ro.observe(container);
       }
     } catch(e){}
+
+    // ─── Mausrad über Price-Axis = vertikaler Zoom (TradingView-Style) ───
+    // Lightweight Charts hat eingebautes Drag-to-Zoom auf der Axis — wir synthesieren
+    // kurze Drag-Events bei jedem Wheel-Tick. Wheel up = drag up = zoom in,
+    // wheel down = drag down = zoom out.
+    try {
+      container.addEventListener('wheel', (e) => {
+        if (!_mobileChart) return;
+        const rect = container.getBoundingClientRect();
+        const axisWidth = (_mobileChart.priceScale('right').width() || 60);
+        const xRel = e.clientX - rect.left;
+        const overPriceAxis = xRel > (rect.width - axisWidth - 4);
+        if (!overPriceAxis) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Rightmost Canvas in der LWC-Tabellen-Struktur ist die Price-Axis
+        const canvases = container.querySelectorAll('canvas');
+        let axisCanvas = null;
+        for (const c of canvases) {
+          const cr = c.getBoundingClientRect();
+          // Price-Axis-Canvas: rechtsbündig, schmaler als die halbe Container-Breite
+          if (cr.right >= rect.right - 4 && cr.width < rect.width * 0.5 && cr.width > 0) {
+            axisCanvas = c; break;
+          }
+        }
+        if (!axisCanvas) axisCanvas = canvases[canvases.length - 1];
+        if (!axisCanvas) return;
+
+        // Drag-Distanz proportional zum Wheel-Delta — wheel down = drag down = zoom out
+        const dragPx = Math.sign(e.deltaY) * 22;
+        const cx = rect.right - axisWidth / 2;
+        const startY = rect.top + rect.height / 2;
+        const endY = startY + dragPx;
+
+        const init = { bubbles: true, cancelable: true, view: window, clientX: cx, button: 0 };
+        // Pointer-Events (LWC v4 nutzt diese intern auf Touch-Geräten)
+        try {
+          axisCanvas.dispatchEvent(new PointerEvent('pointerdown', { ...init, clientY: startY, buttons: 1, pointerType: 'mouse', isPrimary: true }));
+          axisCanvas.dispatchEvent(new PointerEvent('pointermove', { ...init, clientY: endY, buttons: 1, pointerType: 'mouse', isPrimary: true }));
+          axisCanvas.dispatchEvent(new PointerEvent('pointerup',   { ...init, clientY: endY, buttons: 0, pointerType: 'mouse', isPrimary: true }));
+        } catch(_) {}
+        // Fallback: Mouse-Events (für Desktop-Pfad in LWC)
+        try {
+          axisCanvas.dispatchEvent(new MouseEvent('mousedown', { ...init, clientY: startY, buttons: 1 }));
+          axisCanvas.dispatchEvent(new MouseEvent('mousemove', { ...init, clientY: endY, buttons: 1 }));
+          axisCanvas.dispatchEvent(new MouseEvent('mouseup',   { ...init, clientY: endY, buttons: 0 }));
+        } catch(_) {}
+        // Overlay nachzeichnen — Y-Koordinaten haben sich verschoben
+        if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 0);
+      }, { passive: false });
+    } catch(e){}
   }
   // Bei jedem Render: Container-Grösse syncen falls geändert (CSS-Class war später da als Chart-Init)
   if (_mobileChart && container.clientWidth && container.clientHeight) {
@@ -40024,7 +40076,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 02:30 UTC';
+const APP_BUILD = '2026-05-17 02:50 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
