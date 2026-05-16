@@ -817,12 +817,27 @@ html:not(.is-mobile-device) .mobile-only-chart-fs-btn,
 html:not(.is-mobile-device) #mobileDesktopHint,
 html:not(.is-mobile-device) .mobile-only-chart { display: none !important; }
 
-html.is-mobile-device #tab-chart .tv-toolbar,
-html.is-mobile-device #tab-chart #drawToolbar,
 html.is-mobile-device #tab-chart #tradeChart,
 html.is-mobile-device #tab-chart #tradeChartOverlay,
 html.is-mobile-device #tab-chart #drawSettingsPanel,
 html.is-mobile-device #tab-chart #drawEditBar { display: none !important; }
+/* Desktop-TV-Toolbar auf Mobile sichtbar machen — wird unser einziges Toolbar-UI */
+html.is-mobile-device #tab-chart .tv-toolbar,
+html.is-mobile-device #tab-chart #drawToolbar {
+  display: flex !important;
+  position: absolute !important;
+  left: 4px; top: 56px; bottom: 50px;
+  z-index: 96;
+  flex-direction: column;
+  width: 42px;
+  background: rgba(13,17,23,0.92);
+  border-radius: 6px;
+  border: 1px solid rgba(75,85,99,0.5);
+  padding: 4px 2px;
+  overflow-y: auto;
+}
+/* Mein altes simples Mobile-Toolbar verstecken — wir benutzen jetzt das Desktop-TV-UI */
+html.is-mobile-device #mobileDrawToolbar { display: none !important; }
 html.is-mobile-device .mobile-only-chart { display: block !important; left: 52px !important; }
 html.is-mobile-device .mobile-only-chart-overlay { left: 52px !important; }
 html.is-mobile-device .tab-content#tab-chart .chart-area { min-height: 60vh; }
@@ -16514,6 +16529,33 @@ function tvSelectTool(group, tool) {
   tvGroupActive[group] = tool;
   try { localStorage.setItem('fb_tvGroupActive', JSON.stringify(tvGroupActive)); } catch(e) {}
   setDrawTool(tool);
+  // ─── Mobile-Bridge: Desktop-Tool-Name auf Mobile-Tool-Name mappen + aktivieren ───
+  if (typeof _isMobile === 'function' && _isMobile()) {
+    const TV_TO_MOBILE = {
+      'trendline':'trendline', 'ray':'ray', 'hline':'hline', 'vline':'vline',
+      'rect':'rect', 'fib':'fibo', 'channel':'channel', 'text':'text',
+      'longpos':'longPos', 'shortpos':'shortPos',
+      // Neu portiert aus Canvas-Chart
+      'arrow':'arrow', 'ellipse':'ellipse', 'triangle':'triangle',
+      'infline':'infline', 'trendangle':'trendangle', 'srline':'srline',
+      'flattop':'flattop', 'pitchfork':'pitchfork',
+      'fibext':'fibext', 'fibfan':'fibfan', 'fibtime':'fibtime',
+      'measure':'measure', 'daterange':'daterange'
+    };
+    const mobileToolId = TV_TO_MOBILE[tool];
+    if (mobileToolId && typeof setMobileDrawTool === 'function') {
+      setMobileDrawTool(mobileToolId, null);
+    } else {
+      // Tool noch nicht für Lightweight-Charts portiert
+      try {
+        if (typeof showToast === 'function') {
+          showToast('"' + tool + '" wird auf Mobile noch nicht unterstützt — kommt bald', 'info');
+        }
+      } catch(e){}
+      // Fallback: cursor aktivieren
+      if (typeof setMobileDrawTool === 'function') setMobileDrawTool('cursor', null);
+    }
+  }
   // Flyout schließen nach Auswahl
   tvCloseAllFlyouts();
 }
@@ -16558,6 +16600,10 @@ function setDrawTool(tool) {
     activeDrawTool = tool;
     drawToolState = null;
     closeDrawSettings();
+  }
+  // Mobile-Bridge: Cursor (tool=null) auch im Mobile-System aktivieren
+  if (tool === null && typeof _isMobile === 'function' && _isMobile() && typeof setMobileDrawTool === 'function') {
+    setMobileDrawTool('cursor', null);
   }
   tvUpdateToolbar();
 }
@@ -20584,13 +20630,31 @@ const MDT_COLORS = {
   vline:     '#ef4444',
   longPos:   '#22c55e',
   shortPos:  '#ef4444',
-  text:      '#fbbf24'
+  text:      '#fbbf24',
+  // Neu aus Canvas-Chart portiert
+  arrow:     '#3fb950',
+  ellipse:   '#ffa502',
+  infline:   '#06b6d4',
+  trendangle:'#39d2c0',
+  srline:    '#ffd93d',
+  flattop:   '#06b6d4',
+  fibext:    '#bc8cff',
+  fibfan:    '#bc8cff',
+  fibtime:   '#bc8cff',
+  measure:   '#ffd93d',
+  daterange: '#06b6d4',
+  pitchfork: '#ffa502',
+  triangle:  '#39d2c0'
 };
 // Welches Tool wie viele Punkte braucht (1 = 1× tippen, 2 = 2× tippen, 3 = 3× tippen)
 const MDT_POINT_COUNT = {
   hline: 1, vline: 1, text: 1,
   trendline: 2, ray: 2, rect: 2, fibo: 2,
-  channel: 3, longPos: 3, shortPos: 3
+  channel: 3, longPos: 3, shortPos: 3,
+  // Neu portiert
+  arrow: 2, ellipse: 2, infline: 2, trendangle: 2, srline: 2, flattop: 2,
+  fibext: 2, fibfan: 2, fibtime: 2, measure: 2, daterange: 2,
+  pitchfork: 3, triangle: 3
 };
 
 function setMobileDrawTool(tool, btn) {
@@ -20880,14 +20944,12 @@ function redrawMobileOverlay() {
         const minP = Math.min(d.p1.price, d.p2.price);
         const maxP = Math.max(d.p1.price, d.p2.price);
         const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
-        // Farbpalette: standard farbenfroh, oder uniform-color wenn selektiert/custom
         const stdPalette = ['#22c55e','#06b6d4','#fbbf24','#f59e0b','#ef4444','#a855f7','#22c55e'];
         for (let j = 0; j < levels.length; j++) {
           const lvl = levels[j];
           const price = maxP - (maxP - minP) * lvl;
           const c = _mobileCandleSeries.priceToCoordinate(price);
           if (c == null) continue;
-          // Extension-Level (>1.0 oder <0) = cyan-akzentuiert, Retracement = standard
           const isExt = lvl > 1.0 || lvl < 0;
           const lineCol = isSelected ? color : (isExt ? '#06b6d4' : stdPalette[j % stdPalette.length]);
           ctx.strokeStyle = lineCol; ctx.lineWidth = lw;
@@ -20895,6 +20957,210 @@ function redrawMobileOverlay() {
           ctx.fillStyle = lineCol; ctx.font = (isSelected ? 'bold ' : '') + '10px sans-serif';
           const pct = (lvl * 100).toFixed(lvl % 1 === 0 ? 0 : 1) + '%';
           ctx.fillText(pct + ' (' + price.toFixed(2) + ')', xR + 4, c + 3);
+        }
+      }
+      // ── PORTIERT AUS CANVAS-CHART: arrow, ellipse, triangle, infline, trendangle, srline, fibext, fibchannel, fibfan, fibtime, pitchfork, flattop, measure, daterange, infoline ──
+      else if (d.type === 'arrow') {
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        const angle = Math.atan2(b.y - a.y, b.x - a.x);
+        const hl = d.headSize || 12;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x - hl * Math.cos(angle - Math.PI/6), b.y - hl * Math.sin(angle - Math.PI/6));
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x - hl * Math.cos(angle + Math.PI/6), b.y - hl * Math.sin(angle + Math.PI/6));
+        ctx.stroke();
+      }
+      else if (d.type === 'ellipse') {
+        const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+        const rx = Math.abs(b.x - a.x) / 2, ry = Math.abs(b.y - a.y) / 2;
+        const op = (d.fillOpacity != null) ? d.fillOpacity : 0.06;
+        ctx.fillStyle = color + Math.floor(op * 255).toString(16).padStart(2,'0');
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2); ctx.stroke();
+      }
+      else if (d.type === 'infline') {
+        // Verlängerte Linie — vom p1 durch p2 in beide Richtungen bis Chart-Rand
+        const dx = b.x - a.x, dy = b.y - a.y;
+        if (Math.abs(dx) > 0.001) {
+          const tL = (0 - a.x) / dx;
+          const tR = (w - a.x) / dx;
+          const x1 = a.x + dx * tL, y1 = a.y + dy * tL;
+          const x2 = a.x + dx * tR, y2 = a.y + dy * tR;
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        }
+      }
+      else if (d.type === 'trendangle') {
+        // Trendlinie + Winkel-Anzeige
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        // Horizontale Referenz-Linie ab a
+        ctx.globalAlpha = 0.4; ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, a.y); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.setLineDash([]);
+        // Winkel berechnen
+        const angleDeg = (Math.atan2(-(b.y - a.y), b.x - a.x) * 180 / Math.PI).toFixed(1);
+        ctx.fillStyle = color; ctx.font = 'bold 11px sans-serif';
+        const txt = angleDeg + '°';
+        const tx = a.x + Math.cos((b.x > a.x ? 0 : Math.PI)) * 30;
+        ctx.fillText(txt, tx + 4, a.y + (b.y > a.y ? 14 : -4));
+      }
+      else if (d.type === 'srline') {
+        // Support/Resistance — 2 horizontale Linien zwischen den 2 Punkten
+        const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(xL, a.y); ctx.lineTo(xR, a.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(xL, b.y); ctx.lineTo(xR, b.y); ctx.stroke();
+        // Füllung dazwischen
+        ctx.fillStyle = color + '15';
+        ctx.fillRect(xL, Math.min(a.y, b.y), xR - xL, Math.abs(b.y - a.y));
+      }
+      else if (d.type === 'flattop') {
+        // Flat Top/Bottom Channel — gleicher Top, gleicher Bottom, 2 Punkte definieren Range
+        const xL = Math.min(a.x, b.x), xR = Math.max(a.x, b.x);
+        const yT = Math.min(a.y, b.y), yB = Math.max(a.y, b.y);
+        const op = (d.fillOpacity != null) ? d.fillOpacity : 0.06;
+        ctx.fillStyle = color + Math.floor(op * 255).toString(16).padStart(2,'0');
+        ctx.fillRect(xL, yT, xR - xL, yB - yT);
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(xL, yT); ctx.lineTo(xR, yT); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(xL, yB); ctx.lineTo(xR, yB); ctx.stroke();
+      }
+      else if (d.type === 'fibext') {
+        // Fib Extension — gleiche Geometrie wie fibo aber Extension-Levels
+        const highP = Math.max(d.p1.price, d.p2.price);
+        const lowP = Math.min(d.p1.price, d.p2.price);
+        const range = highP - lowP;
+        const base = d.p1.price < d.p2.price ? d.p2.price : d.p1.price;
+        const dir = d.p1.price < d.p2.price ? 1 : -1;
+        const extLevels = d.levels || [1.0, 1.272, 1.414, 1.618, 2.0, 2.618];
+        const ePalette = ['#06b6d4','#22c55e','#fbbf24','#f59e0b','#ef4444','#a855f7'];
+        const exL = Math.min(a.x, b.x), exR = Math.max(a.x, b.x);
+        for (let li = 0; li < extLevels.length; li++) {
+          const lv = extLevels[li];
+          const p = base + dir * lv * range;
+          const yy = _mobileCandleSeries.priceToCoordinate(p);
+          if (yy == null) continue;
+          ctx.strokeStyle = ePalette[li % ePalette.length]; ctx.globalAlpha = 0.6;
+          ctx.setLineDash([4, 2]);
+          ctx.beginPath(); ctx.moveTo(exL, yy); ctx.lineTo(exR, yy); ctx.stroke();
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+          ctx.fillStyle = ePalette[li % ePalette.length]; ctx.font = '9px sans-serif';
+          ctx.fillText((lv * 100).toFixed(1) + '% ' + p.toFixed(2), exR + 4, yy + 3);
+        }
+      }
+      else if (d.type === 'fibfan') {
+        // Fib Fan — Linien vom p1 zu jedem Level der Diff
+        const fanLevels = d.levels || [0.236, 0.382, 0.5, 0.618, 0.786];
+        const fanPalette = ['#22c55e','#06b6d4','#fbbf24','#f59e0b','#ef4444'];
+        for (let li = 0; li < fanLevels.length; li++) {
+          const lv = fanLevels[li];
+          const yEnd = a.y + (b.y - a.y) * lv;
+          ctx.strokeStyle = fanPalette[li % fanPalette.length]; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, yEnd); ctx.stroke();
+          ctx.fillStyle = fanPalette[li % fanPalette.length]; ctx.font = '9px sans-serif';
+          ctx.fillText((lv * 100).toFixed(1) + '%', b.x + 3, yEnd + 3);
+        }
+      }
+      else if (d.type === 'fibtime') {
+        // Fib Time Zones — vertikale Linien an Fibonacci-Zeitabständen vom p1
+        const timeLevels = d.levels || [1,2,3,5,8,13,21];
+        const dx = b.x - a.x;
+        if (Math.abs(dx) < 0.001) return;
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        for (let li = 0; li < timeLevels.length; li++) {
+          const lv = timeLevels[li];
+          const x = a.x + dx * lv;
+          ctx.globalAlpha = 0.5 + 0.5 / (li + 1);
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+          ctx.fillStyle = color; ctx.font = '9px sans-serif';
+          ctx.fillText('' + lv, x + 3, 12);
+        }
+        ctx.globalAlpha = 1; ctx.setLineDash([]);
+      }
+      else if (d.type === 'measure') {
+        // Preisbereich messen — vertikale Linie + Box mit Preis/% Info
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.setLineDash([4,3]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, a.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(b.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.setLineDash([]);
+        // Box mit Info
+        const diffPrice = d.p2.price - d.p1.price;
+        const diffPct = (diffPrice / d.p1.price * 100).toFixed(2);
+        const bull = diffPrice >= 0;
+        const txt1 = (bull ? '+' : '') + diffPrice.toFixed(2) + ' (' + (bull ? '+' : '') + diffPct + '%)';
+        ctx.font = 'bold 11px sans-serif';
+        const m = ctx.measureText(txt1);
+        const bx = (a.x + b.x) / 2 - m.width / 2 - 6;
+        const by = (a.y + b.y) / 2 - 9;
+        ctx.fillStyle = bull ? 'rgba(34,197,94,0.9)' : 'rgba(239,68,68,0.9)';
+        ctx.fillRect(bx, by, m.width + 12, 18);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(txt1, bx + 6, by + 13);
+      }
+      else if (d.type === 'daterange') {
+        // Zeitbereich — vertikale Linien an p1 und p2, Bar-Count zwischen ihnen
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(a.x, 0); ctx.lineTo(a.x, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(b.x, 0); ctx.lineTo(b.x, h); ctx.stroke();
+        ctx.setLineDash([]);
+        // Pfeile + Label
+        const cy = h / 2;
+        ctx.strokeStyle = color; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(a.x, cy); ctx.lineTo(b.x, cy); ctx.stroke();
+        // Sekunden-Diff → in Stunden/Tage formatieren
+        const diffSec = Math.abs(d.p2.time - d.p1.time);
+        let txt;
+        if (diffSec < 3600) txt = Math.round(diffSec / 60) + ' min';
+        else if (diffSec < 86400) txt = (diffSec / 3600).toFixed(1) + ' h';
+        else txt = (diffSec / 86400).toFixed(1) + ' d';
+        ctx.font = 'bold 11px sans-serif';
+        const m = ctx.measureText(txt);
+        const bx = (a.x + b.x) / 2 - m.width / 2 - 6;
+        ctx.fillStyle = 'rgba(13,17,23,0.9)';
+        ctx.fillRect(bx, cy - 9, m.width + 12, 18);
+        ctx.strokeStyle = color; ctx.strokeRect(bx, cy - 9, m.width + 12, 18);
+        ctx.fillStyle = color;
+        ctx.fillText(txt, bx + 6, cy + 4);
+      }
+    }
+    // ── 3-Punkt Tools mit zusätzlichem p3: pitchfork, triangle ──
+    if (d.p3 && (d.type === 'pitchfork' || d.type === 'triangle')) {
+      const b = tp(d.p2.time, d.p2.price);
+      const c3 = tp(d.p3.time, d.p3.price);
+      if (b.x != null && c3.x != null) {
+        if (d.type === 'pitchfork') {
+          // Andrews Pitchfork — Median + 2 parallele Linien
+          const mx = (b.x + c3.x) / 2, my = (b.y + c3.y) / 2;
+          const mdx = mx - a.x, mdy = my - a.y;
+          const mLen = Math.sqrt(mdx * mdx + mdy * mdy) || 1;
+          const mSc = Math.max(w, h) * 2 / mLen;
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + mdx * mSc, a.y + mdy * mSc); ctx.stroke();
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + mdx * mSc, b.y + mdy * mSc); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(c3.x, c3.y); ctx.lineTo(c3.x + mdx * mSc, c3.y + mdy * mSc); ctx.stroke();
+          ctx.globalAlpha = 1;
+          // Anker-Linien zwischen p2 und p3
+          ctx.setLineDash([3,3]); ctx.globalAlpha = 0.4;
+          ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(c3.x, c3.y); ctx.stroke();
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+        }
+        else if (d.type === 'triangle') {
+          // 3-Punkt-Dreieck mit Füllung
+          const op = (d.fillOpacity != null) ? d.fillOpacity : 0.08;
+          ctx.fillStyle = color + Math.floor(op * 255).toString(16).padStart(2,'0');
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c3.x, c3.y); ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.stroke();
         }
       }
     }
@@ -20968,7 +21234,9 @@ let _mobileIsDragging = false;
 let _mobileChannelStep = null;   // Für Channel: { p1, p2 } warten auf Punkt 3
 
 // Welche Tools nutzen click+drag (statt Tap)? — alle Multi-Punkt-Tools
-const MDT_DRAG_TOOLS = ['trendline','ray','rect','fibo','channel','longPos','shortPos'];
+const MDT_DRAG_TOOLS = ['trendline','ray','rect','fibo','channel','longPos','shortPos',
+  'arrow','ellipse','infline','trendangle','srline','flattop','fibext','fibfan','fibtime',
+  'measure','daterange','pitchfork','triangle'];
 
 function initMobileDrawOverlay() {
   const overlay = document.getElementById('mobileDrawOverlay');
@@ -21352,11 +21620,35 @@ function hitTestMobileDrawings(x, y) {
           const d2 = _distPointToSegment(x, y, a.x, a.y + offsetY, b.x, b.y + offsetY);
           dist = Math.min(d1, d2);
         }
-      } else if (d.type === 'rect') {
+      } else if (d.type === 'rect' || d.type === 'flattop' || d.type === 'srline') {
         const rx = Math.min(a.x, b.x), ry = Math.min(a.y, b.y);
         const rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y);
-        // Inside rect = hit (Distanz 0)
         if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) dist = 0;
+      } else if (d.type === 'arrow' || d.type === 'trendangle' || d.type === 'infline') {
+        dist = _distPointToSegment(x, y, a.x, a.y, b.x, b.y);
+      } else if (d.type === 'ellipse') {
+        const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+        const rx2 = Math.abs(b.x - a.x) / 2, ry2 = Math.abs(b.y - a.y) / 2;
+        if (rx2 > 0 && ry2 > 0) {
+          const nx = (x - cx) / rx2, ny = (y - cy) / ry2;
+          if (nx*nx + ny*ny <= 1.2) dist = 0;
+        }
+      } else if (d.type === 'fibext' || d.type === 'fibfan' || d.type === 'fibtime' || d.type === 'measure' || d.type === 'daterange') {
+        // Bounding box hit
+        const rx = Math.min(a.x, b.x), ry = Math.min(a.y, b.y);
+        const rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y);
+        if (x >= rx - 8 && x <= rx + rw + 8 && y >= ry - 8 && y <= ry + rh + 8) dist = 0;
+      } else if (d.type === 'pitchfork' || d.type === 'triangle') {
+        if (d.p3) {
+          const c3 = { x: ts.timeToCoordinate(d.p3.time), y: _mobileCandleSeries.priceToCoordinate(d.p3.price) };
+          if (c3.x != null && c3.y != null) {
+            // Bounding box check
+            const xs = [a.x, b.x, c3.x], ys = [a.y, b.y, c3.y];
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            if (x >= minX - 8 && x <= maxX + 8 && y >= minY - 8 && y <= maxY + 8) dist = 0;
+          }
+        }
       } else if (d.type === 'fibo') {
         // Pruefe Distanz zu jedem der 7 Levels
         const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
@@ -38521,7 +38813,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 18:30 UTC';
+const APP_BUILD = '2026-05-16 19:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
