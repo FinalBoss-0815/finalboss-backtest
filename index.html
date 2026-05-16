@@ -2554,7 +2554,7 @@ input[type=number] { -moz-appearance:textfield }
           <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
           <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 Overlay</button>
           <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
-          <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ REPLAY</button>
+          <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ Bar Replay</button>
           <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
         </div>
         <!-- Mobile Overlay-Coins Modal -->
@@ -2568,20 +2568,20 @@ input[type=number] { -moz-appearance:textfield }
             <div id="mobileOverlayList" style="flex:1;overflow-y:auto;padding:8px"></div>
           </div>
         </div>
-        <!-- Mobile Bar Replay Control-Panel (sichtbar wenn aktiv) -->
-        <div id="mobileReplayInstruction" style="display:none;background:#fbbf24;color:#0a0a0a;padding:8px 12px;font-size:13px;font-weight:700;text-align:center;border-top:1px solid #f59e0b">👆 Tippe auf eine Kerze zum Starten</div>
-        <div id="mobileReplayPanel" style="display:none;background:#0d1117;border-top:1px solid #1f2937;padding:8px 10px;align-items:center;gap:6px;flex-wrap:wrap">
-          <button id="mobileReplayStepBack" onclick="mobileReplayStep(-1)" aria-label="Schritt zurück" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;min-width:38px">⏮</button>
-          <button id="mobileReplayPlayBtn" onclick="mobileReplayToggle()" aria-label="Play/Pause" style="background:#22c55e;border:1px solid #16a34a;color:#0a0a0a;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;font-weight:700;min-width:38px">▶</button>
-          <button id="mobileReplayStepFwd" onclick="mobileReplayStep(1)" aria-label="Schritt vor" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;min-width:38px">⏭</button>
-          <select id="mobileReplaySpeed" onchange="mobileReplaySpeedChange()" aria-label="Geschwindigkeit" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 8px;font-size:12px;cursor:pointer">
+        <!-- Mobile Bar Replay — Instruction Banner (oben) + Control-Panel (unten) als Floating-Overlays -->
+        <div id="mobileReplayInstruction" style="display:none;position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:98;background:#fbbf24;color:#0a0a0a;padding:8px 14px;font-size:13px;font-weight:700;text-align:center;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.5);white-space:nowrap">👆 Tippe auf eine Kerze zum Starten</div>
+        <div id="mobileReplayPanel" style="display:none;position:absolute;left:8px;right:8px;bottom:8px;z-index:98;background:rgba(13,17,23,0.96);border:1px solid #1f2937;border-radius:8px;padding:8px 10px;align-items:center;gap:6px;flex-wrap:wrap;box-shadow:0 4px 12px rgba(0,0,0,0.5);backdrop-filter:blur(4px)">
+          <button id="mobileReplayStepBack" onclick="mobileReplayStep(-1)" aria-label="Schritt zurück" title="Schritt zurück" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;min-width:38px">⏮</button>
+          <button id="mobileReplayPlayBtn" onclick="mobileReplayToggle()" aria-label="Play/Pause" title="Play / Pause" style="background:#22c55e;border:1px solid #16a34a;color:#0a0a0a;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;font-weight:700;min-width:38px">▶</button>
+          <button id="mobileReplayStepFwd" onclick="mobileReplayStep(1)" aria-label="Schritt vor" title="Schritt vor (oder Klick auf Chart)" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;min-width:38px">⏭</button>
+          <select id="mobileReplaySpeed" onchange="mobileReplaySpeedChange()" aria-label="Geschwindigkeit" title="Wiedergabe-Geschwindigkeit" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:6px 8px;font-size:12px;cursor:pointer">
             <option value="1000">1× (langsam)</option>
             <option value="500" selected>2×</option>
             <option value="200">5×</option>
             <option value="100">10×</option>
             <option value="50">20× (schnell)</option>
           </select>
-          <input id="mobileReplaySlider" type="range" min="0" max="100" value="0" oninput="mobileReplaySeek(this.value)" style="flex:1;min-width:120px;height:24px;accent-color:#22c55e;cursor:pointer">
+          <input id="mobileReplaySlider" type="range" min="0" max="100" value="0" oninput="mobileReplaySeek(this.value)" title="Position im Chart" style="flex:1;min-width:120px;height:24px;accent-color:#22c55e;cursor:pointer">
           <div id="mobileReplayCounter" style="font-size:11px;color:#9ca3af;font-weight:600;min-width:70px;text-align:right">0 / 0</div>
           <button onclick="mobileReplayExit()" aria-label="Replay beenden" title="Replay beenden" style="background:#7f1d1d;border:1px solid #b91c1c;color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;font-weight:700">✕</button>
         </div>
@@ -19380,6 +19380,22 @@ function renderMobileChart(candles, trades) {
         }, 80);
         if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 100);
       });
+
+      // Rechtsklick auf Chart während Bar-Replay → 1 Kerze zurück (wie Desktop-Replay)
+      container.addEventListener('contextmenu', (e) => {
+        if (typeof _mobileReplay !== 'undefined' && _mobileReplay && _mobileReplay.active && !_mobileReplay.waitingForSelection) {
+          // Nicht über der Preis-Axis
+          const rect = container.getBoundingClientRect();
+          let axisW = 70;
+          try {
+            const aw = _mobileChart.priceScale('right').width();
+            if (typeof aw === 'number' && aw >= 20 && aw <= 150) axisW = aw;
+          } catch(_){}
+          if (e.clientX - rect.left >= rect.width - axisW) return; // über Axis → Browser-Menü erlauben
+          e.preventDefault();
+          if (typeof mobileReplayStep === 'function') mobileReplayStep(-1);
+        }
+      });
     } catch(e){}
   }
   // Bei jedem Render: Container-Grösse syncen falls geändert (CSS-Class war später da als Chart-Init)
@@ -21665,7 +21681,7 @@ function mobileReplayStart() {
   const inst = document.getElementById('mobileReplayInstruction');
   if (inst) inst.style.display = 'block';
   const btn = document.getElementById('mobileReplayBtn');
-  if (btn) { btn.textContent = '⏯ WÄHLE'; btn.style.background = '#fbbf24'; btn.style.color = '#0a0a0a'; }
+  if (btn) { btn.textContent = '⏯ Kerze wählen'; btn.style.background = '#fbbf24'; btn.style.color = '#0a0a0a'; }
 
   // Cursor-Mode aktivieren damit Tap nicht ein Zeichentool startet
   try { if (typeof setMobileDrawTool === 'function') setMobileDrawTool('cursor', document.querySelector('.mdt-btn')); } catch(e){}
@@ -21698,7 +21714,7 @@ function _mobileReplaySelectCandle(candleIndex) {
   const inst = document.getElementById('mobileReplayInstruction');
   if (inst) inst.style.display = 'none';
   const btn = document.getElementById('mobileReplayBtn');
-  if (btn) { btn.textContent = '⏯ AKTIV'; btn.style.background = '#22c55e'; btn.style.color = '#0a0a0a'; }
+  if (btn) { btn.textContent = '⏯ Replay aktiv'; btn.style.background = '#22c55e'; btn.style.color = '#0a0a0a'; }
 
   // Slider auf Position
   const slider = document.getElementById('mobileReplaySlider');
@@ -21728,7 +21744,7 @@ function mobileReplayExit() {
   const inst = document.getElementById('mobileReplayInstruction');
   if (inst) inst.style.display = 'none';
   const btn = document.getElementById('mobileReplayBtn');
-  if (btn) { btn.textContent = '⏯ REPLAY'; btn.style.background = ''; btn.style.color = ''; }
+  if (btn) { btn.textContent = '⏯ Bar Replay'; btn.style.background = ''; btn.style.color = ''; }
 
   // Chart komplett zurücksetzen → full setData mit allen Kerzen
   if (candles && _mobileCandleSeries) {
@@ -24366,6 +24382,12 @@ function _hookMobileChartRedraw() {
         if (d < bestDist) { bestDist = d; bestIdx = i; }
       }
       if (bestIdx >= 0) _mobileReplaySelectCandle(bestIdx);
+      return;
+    }
+    // ── Bar Replay AKTIV: Klick auf Chart = nächste Kerze (wie Desktop-Replay) ──
+    if (typeof _mobileReplay !== 'undefined' && _mobileReplay.active && !_mobileReplay.waitingForSelection && _mobileDrawTool === 'cursor') {
+      // Nur wenn user nicht gerade ein Drawing-Tool benutzt
+      if (typeof mobileReplayStep === 'function') mobileReplayStep(1);
       return;
     }
     if (_mobileDrawTool !== 'cursor') return;
@@ -41727,7 +41749,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 11:30 UTC';
+const APP_BUILD = '2026-05-17 12:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
