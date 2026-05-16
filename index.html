@@ -2625,8 +2625,11 @@ input[type=number] { -moz-appearance:textfield }
         </div>
         <!-- Mobile-only Chart-Container (TradingView Lightweight Charts) -->
         <div id="mobileChartContainer" class="mobile-only-chart" style="position:absolute;inset:0;background:#0d1117"></div>
+        <!-- Aktive-Indikatoren-Anzeige (TradingView-style, oben links) -->
+        <div id="mobileActiveIndicatorsBadge" style="display:none;position:absolute;top:48px;left:60px;z-index:97;background:rgba(13,17,23,0.85);border:1px solid #1f2937;border-radius:6px;font-size:11px;color:#e6edf3;box-shadow:0 2px 8px rgba(0,0,0,0.4);user-select:none;max-width:60%;padding:4px 6px;line-height:1.4">
+        </div>
         <!-- Vektor-Candle-Legende — nur sichtbar wenn vector-style aktiv -->
-        <div id="mobileVectorLegend" style="display:none;position:absolute;top:48px;left:60px;z-index:96;background:rgba(13,17,23,0.92);border:1px solid #1f2937;border-radius:8px;font-size:11px;color:#e6edf3;box-shadow:0 2px 8px rgba(0,0,0,0.4);user-select:none;max-width:240px">
+        <div id="mobileVectorLegend" style="display:none;position:absolute;top:80px;left:60px;z-index:96;background:rgba(13,17,23,0.92);border:1px solid #1f2937;border-radius:8px;font-size:11px;color:#e6edf3;box-shadow:0 2px 8px rgba(0,0,0,0.4);user-select:none;max-width:240px">
           <div id="mobileVectorLegendHeader" onclick="toggleMobileVectorLegend()" style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;font-weight:600">
             <span style="font-size:13px">📊</span>
             <span>Vektor-Legende</span>
@@ -20965,7 +20968,6 @@ function _createMobileIndicatorSeries(def) {
   // ── PANEL INDIKATOREN ── (eigene Skala unten)
   if (def.panel) {
     const psId = _mobilePanelScaleId(def.id);
-    _ensureMobilePanelScale(def.id);
     const lineOpts = (l) => ({
       priceScaleId: psId,
       color: l.color,
@@ -20981,31 +20983,38 @@ function _createMobileIndicatorSeries(def) {
       lastValueVisible: false, priceLineVisible: false
     });
 
+    let result;
     // Multi-line: MACD/PPO = 2 Linien + Histogram
     if (def.type === 'macd' || def.type === 'ppo') {
       const a = _mobileChart.addLineSeries(lineOpts(lines[0]));
       const b = _mobileChart.addLineSeries(lineOpts(lines[1]));
       const h = _mobileChart.addHistogramSeries(histOpts(lines[2]));
-      return [a, b, h];
+      result = [a, b, h];
     }
     // 2-Linien-Panels
-    if (def.type === 'stoch' || def.type === 'stochRsi' || def.type === 'kst' || def.type === 'fisher' || def.type === 'rvi' || def.type === 'klinger' || def.type === 'aroon' || def.type === 'vortex') {
-      return [_mobileChart.addLineSeries(lineOpts(lines[0])), _mobileChart.addLineSeries(lineOpts(lines[1]))];
+    else if (def.type === 'stoch' || def.type === 'stochRsi' || def.type === 'kst' || def.type === 'fisher' || def.type === 'rvi' || def.type === 'klinger' || def.type === 'aroon' || def.type === 'vortex') {
+      result = [_mobileChart.addLineSeries(lineOpts(lines[0])), _mobileChart.addLineSeries(lineOpts(lines[1]))];
     }
     // 3-Linien-Panel: ADX
-    if (def.type === 'adx') {
-      return [
+    else if (def.type === 'adx') {
+      result = [
         _mobileChart.addLineSeries(lineOpts(lines[0])),
         _mobileChart.addLineSeries(lineOpts(lines[1])),
         _mobileChart.addLineSeries(lineOpts(lines[2]))
       ];
     }
     // Histogram-Panels (Bar-Farben werden in compute dynamisch gesetzt, nur Default-Farbe hier)
-    if (def.type === 'ao' || def.type === 'squeezeMom') {
-      return _mobileChart.addHistogramSeries(histOpts(lines[0]));
+    else if (def.type === 'ao' || def.type === 'squeezeMom') {
+      result = _mobileChart.addHistogramSeries(histOpts(lines[0]));
     }
     // Single-line panel
-    return _mobileChart.addLineSeries(lineOpts(lines[0]));
+    else {
+      result = _mobileChart.addLineSeries(lineOpts(lines[0]));
+    }
+    // WICHTIG: Skala-Margins NACH Series-Creation setzen — Skala existiert in LWC v4 erst
+    // wenn eine Series sie referenziert. Vorher ist applyOptions ein No-Op.
+    _ensureMobilePanelScale(def.id);
+    return result;
   }
 
   // Standard: Eine Linie auf Hauptskala
@@ -21049,6 +21058,8 @@ function _updateMobileIndicators(candles) {
     const data = _computeMobileIndicator(def, candles);
     _setIndicatorData(def, series, data);
   }
+  // Aktive-Indikatoren-Anzeige aktuell halten (Labels mit aktuellen Periode-Werten)
+  if (typeof _updateMobileActiveIndicatorsBadge === 'function') _updateMobileActiveIndicatorsBadge();
 }
 
 function openMobileIndicators() {
@@ -21121,6 +21132,7 @@ function toggleMobileIndicator(id) {
     const candles = (_mobileLastData && _mobileLastData.candles) || [];
     _updateMobilePatterns(candles);
     openMobileIndicators();
+    _updateMobileActiveIndicatorsBadge();
     return;
   }
   // ── SPECIAL: Chart-Patterns toggle ──
@@ -21136,6 +21148,7 @@ function toggleMobileIndicator(id) {
     const candles = (_mobileLastData && _mobileLastData.candles) || [];
     _updateMobileChartPatterns(candles);
     openMobileIndicators();
+    _updateMobileActiveIndicatorsBadge();
     return;
   }
 
@@ -21173,8 +21186,9 @@ function toggleMobileIndicator(id) {
     _setIndicatorData(effDef, series, data);
   }
 
-  // Modal neu rendern (Toggle-Zustand)
+  // Modal neu rendern (Toggle-Zustand) + Aktive-Anzeige updaten
   openMobileIndicators();
+  _updateMobileActiveIndicatorsBadge();
 }
 
 function clearAllMobileIndicators() {
@@ -21183,6 +21197,7 @@ function clearAllMobileIndicators() {
     if (_mobileIndicators[id]) toggleMobileIndicator(id);
   }
   openMobileIndicators();
+  _updateMobileActiveIndicatorsBadge();
 }
 
 // Modal schliessen bei Klick auf Backdrop
@@ -21370,6 +21385,51 @@ function _refreshMobileIndicator(id) {
   const candles = (_mobileLastData && _mobileLastData.candles) ? _mobileLastData.candles : (window.currentCandles || []);
   const data = _computeMobileIndicator(effDef, candles);
   _setIndicatorData(effDef, newSeries, data);
+  _updateMobileActiveIndicatorsBadge();
+}
+
+// ═══════════════════════════════════════════════
+// AKTIVE-INDIKATOREN-BADGE (TradingView-style)
+// Zeigt oben links eine Liste aller aktiven Indikatoren mit Farb-Swatch,
+// Name (Klick = Settings öffnen), und ✕ (Klick = deaktivieren).
+// ═══════════════════════════════════════════════
+function _updateMobileActiveIndicatorsBadge() {
+  const el = document.getElementById('mobileActiveIndicatorsBadge');
+  if (!el) return;
+  const activeIds = Object.keys(_mobileIndicators).filter(id => _mobileIndicators[id]);
+  if (activeIds.length === 0) {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  let html = '';
+  for (const id of activeIds) {
+    const def = _getMobileIndicatorEffectiveDef(id);
+    if (!def) continue;
+    // Farb-Swatch: erste sichtbare Linie oder Default-Color
+    let swatch = def.color || '#888';
+    if (def.lines && def.lines.length > 0) {
+      const firstVisible = def.lines.find(l => l.visible !== false) || def.lines[0];
+      swatch = firstVisible.color || swatch;
+    }
+    // Label: bei Periode anhängen wenn vorhanden (zeigt User-Override)
+    let label = def.label.replace(/\s*\([^)]*\)\s*$/, ''); // entferne alten Parens-Suffix
+    const periodKeys = ['period','fast','slow','tenkan','kijun','emaPeriod'];
+    const periodPart = periodKeys.map(k => def[k]).filter(v => v != null && typeof v === 'number');
+    if (periodPart.length > 0) label += ' (' + periodPart.slice(0, 3).join(', ') + ')';
+    const isSpecial = def.type === 'patterns' || def.type === 'chart_patterns';
+    html += `
+      <div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+        <div style="width:10px;height:3px;background:${swatch};border-radius:2px;flex-shrink:0"></div>
+        ${isSpecial
+          ? `<span style="cursor:default">${label}</span>`
+          : `<span onclick="openMobileIndicatorSettings('${id}')" style="cursor:pointer;color:#e6edf3" title="Einstellungen">${label}</span>`
+        }
+        <span onclick="toggleMobileIndicator('${id}')" title="Deaktivieren" style="cursor:pointer;color:#6b7280;padding:0 4px;font-size:13px;line-height:1" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</span>
+      </div>`;
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
 }
 
 // ═══════════════════════════════════════════════
@@ -41351,7 +41411,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 08:30 UTC';
+const APP_BUILD = '2026-05-17 09:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
