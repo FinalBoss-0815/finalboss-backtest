@@ -2378,6 +2378,7 @@ input[type=number] { -moz-appearance:textfield }
           <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
           <button id="mobileIndBtn" onclick="openMobileIndicators()" aria-label="Indikatoren">📊</button>
           <button id="mobileOverlayBtn" onclick="openMobileOverlay()" aria-label="Coin-Vergleich" title="Coin als Overlay-Linie">🔀 VS</button>
+          <button id="mobileFitBtn" onclick="mobileChartFit()" aria-label="Chart auf Daten zoomen" title="Chart auto-zoom auf alle Kerzen">⤢</button>
           <button id="mobileReplayBtn" onclick="mobileReplayStart()" aria-label="Bar Replay" title="Bar Replay">⏯ REPLAY</button>
           <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
         </div>
@@ -18534,7 +18535,16 @@ function renderMobileChart(candles, trades) {
       grid: { vertLines: { color: 'rgba(75,85,99,0.18)' }, horzLines: { color: 'rgba(75,85,99,0.18)' } },
       crosshair: { mode: 1 }, // Normal
       rightPriceScale: { borderColor: '#1f2937', scaleMargins: { top: 0.1, bottom: 0.1 } },
-      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#1f2937', rightOffset: 5 },
+      // fixLeftEdge: verhindert dass User links der ersten Kerze panen kann
+      // (sonst entsteht "leerer" Raum links beim Wide-Canvas-Init)
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        borderColor: '#1f2937',
+        rightOffset: 5,
+        fixLeftEdge: true,
+        lockVisibleTimeRangeOnResize: false
+      },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
     });
@@ -18553,10 +18563,36 @@ function renderMobileChart(candles, trades) {
     window.addEventListener('resize', () => {
       if (_mobileChart && container.clientWidth && container.clientHeight) {
         _mobileChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        try { _mobileChart.timeScale().fitContent(); } catch(e){}
       }
       // Overlay auch neu zeichnen
       if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 50);
     });
+    // ResizeObserver fuer Container-Aenderungen (CSS-Class-Changes, Layout-Settle)
+    try {
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+          if (!_mobileChart) return;
+          const w = container.clientWidth, h = container.clientHeight;
+          if (!w || !h) return;
+          if (_mobileChart._lastW === w && _mobileChart._lastH === h) return;
+          _mobileChart._lastW = w; _mobileChart._lastH = h;
+          _mobileChart.applyOptions({ width: w, height: h });
+          // Nach Resize-Auto-Fit (nur wenn der User nicht aktiv gezoomt hat — initial sicher OK)
+          try { _mobileChart.timeScale().fitContent(); } catch(e){}
+          if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 30);
+        });
+        ro.observe(container);
+      }
+    } catch(e){}
+  }
+  // Bei jedem Render: Container-Grösse syncen falls geändert (CSS-Class war später da als Chart-Init)
+  if (_mobileChart && container.clientWidth && container.clientHeight) {
+    const w = container.clientWidth, h = container.clientHeight;
+    if (_mobileChart._lastW !== w || _mobileChart._lastH !== h) {
+      _mobileChart._lastW = w; _mobileChart._lastH = h;
+      _mobileChart.applyOptions({ width: w, height: h });
+    }
   }
 
   // Candle-Daten konvertieren
@@ -18677,6 +18713,14 @@ function resetMobileChart() {
   // Pattern-Marker-Cache leeren — werden nach reload neu berechnet
   _mobileCachedPatternMarkers = [];
   _mobileCachedChartPatternMarkers = [];
+}
+
+// Manueller Fit-Content Trigger fuer Toolbar-Button
+function mobileChartFit() {
+  if (!_mobileChart) return;
+  try { _mobileChart.timeScale().fitContent(); } catch(e){}
+  // Overlay auch neu zeichnen damit Drawings folgen
+  try { if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 30); } catch(e){}
 }
 
 // ═══════════════════════════════════════════════
@@ -37717,7 +37761,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 14:30 UTC';
+const APP_BUILD = '2026-05-16 15:00 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
