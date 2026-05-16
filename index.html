@@ -842,14 +842,8 @@ html.is-mobile-device .mobile-only-chart { display: block !important; left: 52px
 html.is-mobile-device .mobile-only-chart-overlay { left: 52px !important; }
 /* Wichtig: Placement-Cursor muss dasselbe Koordinatensystem wie Chart haben (52px Toolbar-Offset) */
 html.is-mobile-device .mobile-place-cursor { left: 52px !important; }
-/* Während Placement-Mode (NUR Mobile): Scroll sperren damit Finger-Drag nicht die Seite verschiebt.
-   Auf Desktop wird _lockBodyScroll() gar nicht aktiviert → kein Scrollbar-Toggle → kein Layout-Shift */
-html.fb-placement-active,
-body.fb-placement-active {
-  overflow: hidden !important;
-  touch-action: none;
-  overscroll-behavior: none;
-}
+/* Body-Scroll-Lock entfernt — touch-action:none auf .mpc-capture blockt Finger-Scroll
+   ohne dass die Page-Scrollbar verschwindet → kein Chart-Ruckeln beim Tool-Wechsel */
 /* Alter "Tippe auf Chart"-Orange-Hint vom Canvas-Drawing-System ausblenden auf Mobile
    — der neue weisse Cursor-Hint reicht */
 html.is-mobile-device #mobileDrawHint { display: none !important; }
@@ -17226,6 +17220,10 @@ function clearDrawings() {
   chartDrawings = [];
   debHide();
   if (currentCandles && lastResult) drawTradeChart(currentCandles, lastResult.trades);
+  // Auch Mobile-Chart-Zeichnungen leeren (gleicher TV-Toolbar-Button auf Mobile)
+  try {
+    if (typeof clearMobileDrawings === 'function') clearMobileDrawings();
+  } catch(e) {}
 }
 
 function undoDrawing() {
@@ -20805,20 +20803,10 @@ function _updateMobilePlacementInfo() {
   info.textContent = tp.price.toFixed(2) + ' · ' + timeStr;
 }
 
-// Scroll-Sperre NUR auf Mobile — Desktop braucht kein Lock (Maus scrollt nicht über Chart hinaus)
-// → kein Scrollbar-Toggle → kein Layout-Shift → kein Ruckeln
-function _isMobileDevice() {
-  return document.documentElement.classList.contains('is-mobile-device');
-}
-function _lockBodyScroll() {
-  if (!_isMobileDevice()) return;
-  document.documentElement.classList.add('fb-placement-active');
-  document.body.classList.add('fb-placement-active');
-}
-function _unlockBodyScroll() {
-  document.documentElement.classList.remove('fb-placement-active');
-  document.body.classList.remove('fb-placement-active');
-}
+// KEIN Body-Scroll-Lock mehr — touch-action:none auf der Capture-Layer reicht.
+// Damit wird der Scrollbar nie weggenommen → keine Body-Breite-Änderung → kein Chart-Ruckeln.
+function _lockBodyScroll() { /* no-op */ }
+function _unlockBodyScroll() { /* no-op */ }
 
 function startMobilePlacement(tool) {
   _mobilePlacement = { tool, pointsCollected: [] };
@@ -20991,6 +20979,8 @@ const MOBILE_EMOJI_LIST = [
   // Trading-Sentiment
   '📈','📉','🚀','🎯','⚡','🔥','💎','💰','📊','🐂',
   '🐻','💸','💵','🤑','💹','🏦','⛔','✅','❌','⚠️',
+  // Tools / Werkstatt
+  '🔨','🧲','⚒️','🛠️','🪛','🔧','🪓','⚙️','🔩','🪚',
   // Status
   '🔴','🟢','🟡','🔵','⭐','🌟','🌈','☀️','🌙','⚪',
   // Moods
@@ -21002,16 +20992,42 @@ const MOBILE_EMOJI_LIST = [
   '🦋','🐍','🦁','🐺','🐉','🌋','💧','💯','♻️','💤'
 ];
 let _mobileEmojiTargetPoint = null;
+let _mobileEmojiPickerOpenedAt = 0;  // Timestamp für Ignore-Fenster nach Öffnen
 
 function openMobileEmojiPicker(p1) {
   _mobileEmojiTargetPoint = p1 || null;
   const modal = document.getElementById('mobileEmojiPicker');
   const grid = document.getElementById('mobileEmojiGrid');
   if (!modal || !grid) return;
+  // Grid mit Emoji-Buttons aufbauen — pointerdown statt click damit Touch sofort greift
+  // und propagation gestoppt damit der "Placement-Tap"-Click nicht durchsickert
   grid.innerHTML = MOBILE_EMOJI_LIST.map(e =>
-    `<button onclick="pickMobileEmoji('${e}')" style="background:#1c2333;border:1px solid #1f2937;border-radius:6px;padding:8px 4px;font-size:22px;cursor:pointer;transition:all 0.12s" onmouseover="this.style.background='rgba(245,158,11,0.18)';this.style.borderColor='#f59e0b'" onmouseout="this.style.background='#1c2333';this.style.borderColor='#1f2937'" aria-label="Emoji ${e}">${e}</button>`
+    `<button data-emoji="${e}" style="background:#1c2333;border:1px solid #1f2937;border-radius:6px;padding:8px 4px;font-size:22px;cursor:pointer;transition:all 0.12s;touch-action:manipulation;-webkit-tap-highlight-color:transparent" onmouseover="this.style.background='rgba(245,158,11,0.18)';this.style.borderColor='#f59e0b'" onmouseout="this.style.background='#1c2333';this.style.borderColor='#1f2937'" aria-label="Emoji ${e}">${e}</button>`
   ).join('');
-  modal.style.display = 'flex';
+  // pointerdown auf Grid (Event-Delegation) — feuert sofort beim Tippen
+  if (!grid._emojiWired) {
+    grid._emojiWired = true;
+    const pickFromEvent = (ev) => {
+      // Ignore-Fenster: 350ms nach Öffnen jeglichen Pick blockieren damit kein durchsickernder
+      // Tap vom Placement direkt einen Emoji auswählt
+      if (Date.now() - _mobileEmojiPickerOpenedAt < 350) {
+        ev.preventDefault(); ev.stopPropagation(); return;
+      }
+      const btn = ev.target.closest('button[data-emoji]');
+      if (!btn) return;
+      ev.preventDefault(); ev.stopPropagation();
+      pickMobileEmoji(btn.getAttribute('data-emoji'));
+    };
+    grid.addEventListener('pointerdown', pickFromEvent);
+    // click als Fallback (Maus/Tastatur)
+    grid.addEventListener('click', pickFromEvent);
+  }
+  // Picker mit minimalem Delay öffnen damit das current event loop (inkl. Touch-Click)
+  // sauber durchläuft bevor der Modal-Layer erscheint
+  setTimeout(() => {
+    modal.style.display = 'flex';
+    _mobileEmojiPickerOpenedAt = Date.now();
+  }, 80);
 }
 
 function closeMobileEmojiPicker() {
@@ -21028,10 +21044,19 @@ function pickMobileEmoji(emoji) {
   closeMobileEmojiPicker();
 }
 
-// Backdrop schliesst Picker
+// Backdrop schliesst Picker — aber mit Ignore-Fenster damit durchsickernde Taps nicht sofort schliessen
 document.addEventListener('DOMContentLoaded', () => {
   const m = document.getElementById('mobileEmojiPicker');
-  if (m) m.addEventListener('click', (e) => { if (e.target === m) closeMobileEmojiPicker(); });
+  if (!m) return;
+  const onBackdropTap = (e) => {
+    if (e.target !== m) return;
+    if (Date.now() - _mobileEmojiPickerOpenedAt < 350) {
+      e.preventDefault(); e.stopPropagation(); return;
+    }
+    closeMobileEmojiPicker();
+  };
+  m.addEventListener('pointerdown', onBackdropTap);
+  m.addEventListener('click', onBackdropTap);
 });
 
 function onMobileCoinChange() {
@@ -39994,7 +40019,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 01:35 UTC';
+const APP_BUILD = '2026-05-17 02:15 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
