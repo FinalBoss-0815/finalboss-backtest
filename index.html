@@ -16535,12 +16535,18 @@ function tvSelectTool(group, tool) {
       'trendline':'trendline', 'ray':'ray', 'hline':'hline', 'vline':'vline',
       'rect':'rect', 'fib':'fibo', 'channel':'channel', 'text':'text',
       'longpos':'longPos', 'shortpos':'shortPos',
-      // Neu portiert aus Canvas-Chart
+      // Neu portiert aus Canvas-Chart (24 Tools)
       'arrow':'arrow', 'ellipse':'ellipse', 'triangle':'triangle',
       'infline':'infline', 'trendangle':'trendangle', 'srline':'srline',
       'flattop':'flattop', 'pitchfork':'pitchfork',
       'fibext':'fibext', 'fibfan':'fibfan', 'fibtime':'fibtime',
-      'measure':'measure', 'daterange':'daterange'
+      'measure':'measure', 'daterange':'daterange',
+      // Letzte Welle (15 Tools)
+      'infoline':'infoline', 'crossmark':'crossmark', 'disjointchan':'disjointchan',
+      'fibchannel':'fibchannel', 'fibarc':'fibarc', 'highlighter':'highlighter',
+      'anchtext':'anchtext', 'pricelabel':'pricelabel', 'regchannel':'regchannel',
+      'gannfan':'gannfan', 'gannbox':'gannbox', 'callout':'callout',
+      'label':'label', 'emoji':'emoji', 'brush':'brush'
     };
     const mobileToolId = TV_TO_MOBILE[tool];
     if (mobileToolId && typeof setMobileDrawTool === 'function') {
@@ -20644,7 +20650,23 @@ const MDT_COLORS = {
   measure:   '#ffd93d',
   daterange: '#06b6d4',
   pitchfork: '#ffa502',
-  triangle:  '#39d2c0'
+  triangle:  '#39d2c0',
+  // Letzte Welle aus Canvas-Chart portiert
+  infoline:    '#58a6ff',
+  crossmark:   '#58a6ff',
+  disjointchan:'#39d2c0',
+  fibchannel:  '#bc8cff',
+  fibarc:      '#bc8cff',
+  highlighter: '#ffd93d',
+  anchtext:    '#c9d1d9',
+  pricelabel:  '#58a6ff',
+  regchannel:  '#39d2c0',
+  gannfan:     '#ffa502',
+  gannbox:     '#ffa502',
+  callout:     '#c9d1d9',
+  label:       '#58a6ff',
+  emoji:       '#ffffff',
+  brush:       '#ffd93d'
 };
 // Welches Tool wie viele Punkte braucht (1 = 1× tippen, 2 = 2× tippen, 3 = 3× tippen)
 const MDT_POINT_COUNT = {
@@ -20654,7 +20676,12 @@ const MDT_POINT_COUNT = {
   // Neu portiert
   arrow: 2, ellipse: 2, infline: 2, trendangle: 2, srline: 2, flattop: 2,
   fibext: 2, fibfan: 2, fibtime: 2, measure: 2, daterange: 2,
-  pitchfork: 3, triangle: 3
+  pitchfork: 3, triangle: 3,
+  // Letzte Welle
+  infoline: 2, disjointchan: 2, fibchannel: 2, fibarc: 2, highlighter: 2,
+  regchannel: 2, gannfan: 2, gannbox: 2, callout: 2,
+  crossmark: 1, anchtext: 1, pricelabel: 1, label: 1, emoji: 1,
+  brush: 99   // brush = multi-point freihand
 };
 
 function setMobileDrawTool(tool, btn) {
@@ -21164,6 +21191,231 @@ function redrawMobileOverlay() {
         }
       }
     }
+    // ── 1-PUNKT-Tools: Marker, Labels, Emoji, Crossmark, Anchored Text, Price Label ──
+    if (d.type === 'crossmark') {
+      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.globalAlpha = 0.7;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath(); ctx.moveTo(a.x, 0); ctx.lineTo(a.x, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, a.y); ctx.lineTo(w, a.y); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(a.x, a.y, 4, 0, Math.PI*2); ctx.stroke();
+    }
+    else if (d.type === 'label') {
+      const fs = d.fontSize || 11;
+      const txt = d.text || 'Label';
+      ctx.font = 'bold ' + fs + 'px sans-serif'; ctx.textAlign = 'center';
+      const tw = ctx.measureText(txt).width + 14;
+      // Pfeil zum Preis
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(a.x - 6, a.y - 9);
+      ctx.lineTo(a.x + 6, a.y - 9);
+      ctx.closePath(); ctx.fill();
+      // Label-Box
+      ctx.fillRect(a.x - tw/2, a.y - 9 - fs - 6, tw, fs + 6);
+      ctx.fillStyle = '#0d1117';
+      ctx.fillText(txt, a.x, a.y - 13);
+      ctx.textAlign = 'left';
+    }
+    else if (d.type === 'emoji') {
+      const fs = d.fontSize || 24;
+      ctx.font = fs + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(d.text || '😊', a.x, a.y);
+      ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    }
+    else if (d.type === 'anchtext') {
+      const fs = d.fontSize || 11;
+      ctx.fillStyle = color; ctx.font = fs + 'px sans-serif';
+      ctx.fillText(d.text || '', a.x, a.y);
+      ctx.strokeStyle = color; ctx.lineWidth = 0.5; ctx.globalAlpha = 0.4;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y + 4); ctx.lineTo(a.x, h); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    else if (d.type === 'pricelabel') {
+      const txt = d.p1.price.toFixed(2);
+      const fs = d.fontSize || 11;
+      ctx.font = fs + 'px monospace';
+      const tw = ctx.measureText(txt).width + 12;
+      ctx.fillStyle = color; ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      // RoundRect manuell (Safari-Kompat)
+      const bx = a.x - tw/2, by = a.y - 9;
+      ctx.moveTo(bx + 4, by);
+      ctx.arcTo(bx + tw, by, bx + tw, by + 18, 4);
+      ctx.arcTo(bx + tw, by + 18, bx, by + 18, 4);
+      ctx.arcTo(bx, by + 18, bx, by, 4);
+      ctx.arcTo(bx, by, bx + tw, by, 4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+      ctx.fillText(txt, a.x, a.y + 4);
+      ctx.textAlign = 'left'; ctx.globalAlpha = 1;
+    }
+    else if (d.type === 'brush' && d.points && d.points.length > 1) {
+      ctx.strokeStyle = color; ctx.lineWidth = d.width || 2;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      const p0 = tp(d.points[0].time, d.points[0].price);
+      if (p0.x != null && p0.y != null) {
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < d.points.length; i++) {
+          const pi = tp(d.points[i].time, d.points[i].price);
+          if (pi.x != null && pi.y != null) ctx.lineTo(pi.x, pi.y);
+        }
+        ctx.stroke();
+      }
+      ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+    }
+    // ── 2-PUNKT-Tools (zusätzlich): infoline, disjointchan, fibchannel, fibarc, highlighter, regchannel, gannfan, gannbox, callout ──
+    else if (d.p2) {
+      const b = tp(d.p2.time, d.p2.price);
+      if (b.x != null && b.y != null) {
+        if (d.type === 'infoline') {
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          const diff = d.p2.price - d.p1.price;
+          const pct = (diff / d.p1.price * 100).toFixed(2);
+          const txt = (diff >= 0 ? '+' : '') + diff.toFixed(2) + ' (' + (diff >= 0 ? '+' : '') + pct + '%)';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillStyle = diff >= 0 ? '#22c55e' : '#ef4444';
+          ctx.fillText(txt, (a.x + b.x) / 2 + 4, (a.y + b.y) / 2 - 6);
+        }
+        else if (d.type === 'disjointchan') {
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, a.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(a.x, b.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          ctx.globalAlpha = 0.35;
+          ctx.beginPath(); ctx.moveTo(b.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        else if (d.type === 'fibchannel') {
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const levels = d.levels || [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+          const palette = ['#ef4444','#f97316','#fbbf24','#22c55e','#06b6d4','#a855f7','#22d3ee'];
+          const perpX = -dy, perpY = dx;
+          levels.forEach((lv, li) => {
+            ctx.strokeStyle = palette[li % palette.length]; ctx.globalAlpha = 0.5;
+            ctx.setLineDash([4, 2]);
+            const ox = perpX * lv * 0.3, oy = perpY * lv * 0.3;
+            ctx.beginPath();
+            ctx.moveTo(a.x + ox, a.y + oy);
+            ctx.lineTo(b.x + ox, b.y + oy);
+            ctx.stroke();
+          });
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+        }
+        else if (d.type === 'fibarc') {
+          const dist = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+          const arcLevels = d.levels || [0.236, 0.382, 0.5, 0.618, 0.786];
+          const arcPalette = ['#ef4444','#f97316','#fbbf24','#22c55e','#06b6d4'];
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          arcLevels.forEach((lv, li) => {
+            ctx.strokeStyle = arcPalette[li % arcPalette.length]; ctx.globalAlpha = 0.5;
+            ctx.beginPath(); ctx.arc(b.x, b.y, dist * lv, 0, Math.PI*2); ctx.stroke();
+          });
+          ctx.globalAlpha = 1;
+        }
+        else if (d.type === 'highlighter') {
+          ctx.strokeStyle = color; ctx.lineWidth = d.width || 12;
+          ctx.globalAlpha = 0.25; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+        }
+        else if (d.type === 'regchannel') {
+          // Regression-Channel — wir nutzen Linear Regression auf die Y-Punkte
+          // Simplifiziert: einfach eine Linie von p1 zu p2 + parallele Bänder ± Standardabweichung der "Abweichung"
+          const sx1 = a.x, sx2 = b.x;
+          const sy1 = a.y, sy2 = b.y;
+          const dev = Math.abs(sy2 - sy1) * 0.15;
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.setLineDash([4, 2]);
+          ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath(); ctx.moveTo(sx1, sy1 - dev); ctx.lineTo(sx2, sy2 - dev); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(sx1, sy1 + dev); ctx.lineTo(sx2, sy2 + dev); ctx.stroke();
+          ctx.globalAlpha = (d.fillOpacity != null) ? d.fillOpacity : 0.04;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(sx1, sy1 - dev); ctx.lineTo(sx2, sy2 - dev);
+          ctx.lineTo(sx2, sy2 + dev); ctx.lineTo(sx1, sy1 + dev);
+          ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        else if (d.type === 'gannfan') {
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const ratios = [1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8];
+          const gLabels = ['1×8','1×4','1×3','1×2','1×1','2×1','3×1','4×1','8×1'];
+          const gPalette = ['#ef4444','#fb7185','#f97316','#fbbf24','#e6edf3','#22c55e','#06b6d4','#a855f7','#22d3ee'];
+          ratios.forEach((r, ri) => {
+            const fanDy = dy * r;
+            const len = Math.sqrt(dx*dx + fanDy*fanDy) || 1;
+            const sc = Math.max(w, h) * 2 / len;
+            ctx.strokeStyle = gPalette[ri]; ctx.globalAlpha = 0.5; ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(a.x + dx * sc, a.y + fanDy * sc);
+            ctx.stroke();
+            ctx.globalAlpha = 0.9; ctx.font = '8px sans-serif'; ctx.fillStyle = gPalette[ri];
+            ctx.fillText(gLabels[ri], a.x + dx * 0.6 + 3, a.y + fanDy * 0.6 + 3);
+          });
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(a.x, a.y, 4, 0, Math.PI*2); ctx.fill();
+        }
+        else if (d.type === 'gannbox') {
+          const rx = Math.min(a.x, b.x), ry = Math.min(a.y, b.y);
+          const rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y);
+          ctx.strokeStyle = color; ctx.lineWidth = lw;
+          ctx.strokeRect(rx, ry, rw, rh);
+          // Grid lines
+          const ratios = [0.25, 0.382, 0.5, 0.618, 0.75];
+          ctx.globalAlpha = 0.35; ctx.setLineDash([3, 2]);
+          for (const r of ratios) {
+            ctx.beginPath(); ctx.moveTo(rx, ry + rh * r); ctx.lineTo(rx + rw, ry + rh * r); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(rx + rw * r, ry); ctx.lineTo(rx + rw * r, ry + rh); ctx.stroke();
+          }
+          // Diagonals
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + rw, ry + rh); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(rx + rw, ry); ctx.lineTo(rx, ry + rh); ctx.stroke();
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+          ctx.fillStyle = color;
+          ctx.globalAlpha = (d.fillOpacity != null) ? d.fillOpacity : 0.04;
+          ctx.fillRect(rx, ry, rw, rh);
+          ctx.globalAlpha = 1;
+        }
+        else if (d.type === 'callout') {
+          const txt = d.text || 'Callout';
+          const fs = d.fontSize || 11;
+          ctx.font = fs + 'px sans-serif';
+          const lines = txt.split('\n');
+          const maxTW = Math.max.apply(null, lines.map(l => ctx.measureText(l).width)) + 16;
+          const boxH = lines.length * (fs + 4) + 12;
+          const bx = Math.min(a.x, b.x), by = Math.min(a.y, b.y);
+          // Box mit RoundRect manuell
+          ctx.fillStyle = 'rgba(13,17,23,' + (d.fillOpacity || 0.85) + ')';
+          ctx.strokeStyle = color; ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(bx + 6, by);
+          ctx.arcTo(bx + maxTW, by, bx + maxTW, by + boxH, 6);
+          ctx.arcTo(bx + maxTW, by + boxH, bx, by + boxH, 6);
+          ctx.arcTo(bx, by + boxH, bx, by, 6);
+          ctx.arcTo(bx, by, bx + maxTW, by, 6);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = color;
+          lines.forEach((line, li) => ctx.fillText(line, bx + 8, by + 14 + li * (fs + 4)));
+          // Pfeil zur Spitze (p2)
+          ctx.strokeStyle = color; ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(bx + maxTW / 2, by + boxH);
+          ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+    }
     // Selection-Anker — draggable Handles als prominente Kreise (TradingView-Style)
     if (isSelected) {
       ctx.setLineDash([]);
@@ -21187,6 +21439,25 @@ function redrawMobileOverlay() {
   }
   ctx.setLineDash([]);
 
+  // ── BRUSH/HIGHLIGHTER Preview (Live während Drag) ──
+  if (_mobileBrushPreview && _mobileBrushPreview.points && _mobileBrushPreview.points.length > 1) {
+    const pp = _mobileBrushPreview;
+    ctx.strokeStyle = pp.color || '#ffd93d';
+    ctx.lineWidth = pp.width || 2;
+    ctx.globalAlpha = (pp.type === 'highlighter') ? 0.25 : 1;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const p0 = tp(pp.points[0].time, pp.points[0].price);
+    if (p0.x != null) {
+      ctx.moveTo(p0.x, p0.y);
+      for (let i = 1; i < pp.points.length; i++) {
+        const pi = tp(pp.points[i].time, pp.points[i].price);
+        if (pi.x != null) ctx.lineTo(pi.x, pi.y);
+      }
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; ctx.globalAlpha = 1;
+  }
   // ── DRAG-Preview (während User zieht): leichte gestrichelte Linie der pending Zeichnung ──
   if (_mobileIsDragging && _mobileDragStart && _mobileDragCurrent) {
     const tool = _mobileDrawTool;
@@ -21232,11 +21503,14 @@ let _mobileDragStart = null;     // { time, price } — Punkt 1
 let _mobileDragCurrent = null;   // { time, price } — aktuelle Maus/Finger-Position
 let _mobileIsDragging = false;
 let _mobileChannelStep = null;   // Für Channel: { p1, p2 } warten auf Punkt 3
+let _mobileBrushPoints = null;   // Brush/Highlighter: Live-Capture Multi-Punkt-Array
+let _mobileBrushPreview = null;  // Preview-Drawing während Brush-Drag
 
 // Welche Tools nutzen click+drag (statt Tap)? — alle Multi-Punkt-Tools
 const MDT_DRAG_TOOLS = ['trendline','ray','rect','fibo','channel','longPos','shortPos',
   'arrow','ellipse','infline','trendangle','srline','flattop','fibext','fibfan','fibtime',
-  'measure','daterange','pitchfork','triangle'];
+  'measure','daterange','pitchfork','triangle',
+  'infoline','disjointchan','fibchannel','fibarc','highlighter','regchannel','gannfan','gannbox','callout','brush'];
 
 function initMobileDrawOverlay() {
   const overlay = document.getElementById('mobileDrawOverlay');
@@ -21304,6 +21578,46 @@ function initMobileDrawOverlay() {
       setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
       return;
     }
+    // ── NEUE 1-Punkt-Tools aus Canvas-Chart ──
+    if (tool === 'crossmark') {
+      _mobileDrawings.push({ type: 'crossmark', p1: { time: tp.time, price: tp.price }, color: MDT_COLORS.crossmark });
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    if (tool === 'anchtext') {
+      const txt = prompt('Verankerter Text:', '');
+      if (txt && txt.trim()) {
+        _mobileDrawings.push({ type: 'anchtext', p1: { time: tp.time, price: tp.price }, text: txt.trim(), color: MDT_COLORS.anchtext, fontSize: 11 });
+        redrawMobileOverlay();
+      }
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    if (tool === 'pricelabel') {
+      _mobileDrawings.push({ type: 'pricelabel', p1: { time: tp.time, price: tp.price }, color: MDT_COLORS.pricelabel, fontSize: 11 });
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    if (tool === 'label') {
+      const txt = prompt('Label-Text:', 'Label');
+      if (txt && txt.trim()) {
+        _mobileDrawings.push({ type: 'label', p1: { time: tp.time, price: tp.price }, text: txt.trim(), color: MDT_COLORS.label, fontSize: 11 });
+        redrawMobileOverlay();
+      }
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
+    if (tool === 'emoji') {
+      const e = prompt('Emoji eingeben (z.B. 🚀 🎯 ⚡ 🔥):', '🚀');
+      if (e && e.trim()) {
+        _mobileDrawings.push({ type: 'emoji', p1: { time: tp.time, price: tp.price }, text: e.trim(), color: '#fff', fontSize: 24 });
+        redrawMobileOverlay();
+      }
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
   });
 
   // ── DRAG-Tools: Pointer-Events (deckt Mouse + Touch + Pen ab) ──
@@ -21339,6 +21653,14 @@ function initMobileDrawOverlay() {
     if (_mobileDrawTool === 'channel' && _mobileChannelStep) return;
     const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
     if (!tp) return;
+    // ── Brush / Highlighter: Multi-Point-Capture starten ──
+    if (_mobileDrawTool === 'brush' || _mobileDrawTool === 'highlighter') {
+      _mobileBrushPoints = [{ time: tp.time, price: tp.price }];
+      _mobileIsDragging = true;
+      try { overlay.setPointerCapture(e.pointerId); } catch(err){}
+      e.preventDefault();
+      return;
+    }
     _mobileDragStart = { time: tp.time, price: tp.price };
     _mobileDragCurrent = { time: tp.time, price: tp.price };
     _mobileIsDragging = true;
@@ -21369,8 +21691,16 @@ function initMobileDrawOverlay() {
     if (!_mobileIsDragging) return;
     const tp = _mobilePixelToTimePrice(e.clientX, e.clientY);
     if (!tp) return;
+    // ── Brush: Punkt anhaengen ──
+    if (_mobileBrushPoints) {
+      _mobileBrushPoints.push({ time: tp.time, price: tp.price });
+      // Live-Preview: temporäre Brush-Zeichnung als Preview
+      _mobileBrushPreview = { type: _mobileDrawTool, points: _mobileBrushPoints.slice(), color: MDT_COLORS[_mobileDrawTool], width: _mobileDrawTool === 'highlighter' ? 12 : 2 };
+      redrawMobileOverlay();
+      return;
+    }
     _mobileDragCurrent = { time: tp.time, price: tp.price };
-    redrawMobileOverlay();   // zeichnet Preview
+    redrawMobileOverlay();
   });
 
   const endDrag = (e) => {
@@ -21384,8 +21714,27 @@ function initMobileDrawOverlay() {
     if (!_mobileIsDragging) return;
     _mobileIsDragging = false;
     try { overlay.releasePointerCapture(e.pointerId); } catch(err){}
-    _mobileJustFinishedDrag = true;   // verhindert dass das anschliessende 'click' nochmal feuert
+    _mobileJustFinishedDrag = true;
     setTimeout(() => { _mobileJustFinishedDrag = false; }, 50);
+    // ── Brush / Highlighter: Multi-Point-Drawing committen ──
+    if (_mobileBrushPoints) {
+      if (_mobileBrushPoints.length > 1) {
+        _mobileDrawings.push({
+          type: _mobileDrawTool,
+          points: _mobileBrushPoints.slice(),
+          p1: _mobileBrushPoints[0],
+          p2: _mobileBrushPoints[_mobileBrushPoints.length - 1],
+          color: MDT_COLORS[_mobileDrawTool],
+          width: _mobileDrawTool === 'highlighter' ? 12 : 2,
+          lineStyle: 'solid'
+        });
+      }
+      _mobileBrushPoints = null;
+      _mobileBrushPreview = null;
+      redrawMobileOverlay();
+      setMobileDrawTool('cursor', document.querySelector('.mdt-btn'));
+      return;
+    }
     if (!_mobileDragStart || !_mobileDragCurrent) {
       _mobileDragStart = null; _mobileDragCurrent = null;
       return;
@@ -21585,9 +21934,23 @@ function hitTestMobileDrawings(x, y) {
       dist = Math.abs(y - a.y);
     } else if (d.type === 'vline') {
       dist = Math.abs(x - a.x);
-    } else if (d.type === 'text') {
-      // Text: 30x16 Hit-Area um den Ankerpunkt
-      if (Math.abs(x - a.x) < 60 && Math.abs(y - a.y) < 12) dist = 0;
+    } else if (d.type === 'text' || d.type === 'anchtext' || d.type === 'label' ||
+               d.type === 'pricelabel' || d.type === 'emoji' || d.type === 'crossmark') {
+      // 1-Punkt-Tools: kleine Hit-Area um Anker
+      const r = (d.type === 'emoji') ? (d.fontSize || 24) * 0.6 : 18;
+      if (Math.hypot(x - a.x, y - a.y) < r) dist = 0;
+    } else if (d.type === 'brush' && d.points && d.points.length > 1) {
+      // Brush: prüfe Distanz zu jedem Segment
+      let minD = Infinity;
+      for (let i = 1; i < d.points.length; i++) {
+        const pa = { x: ts.timeToCoordinate(d.points[i-1].time), y: _mobileCandleSeries.priceToCoordinate(d.points[i-1].price) };
+        const pb = { x: ts.timeToCoordinate(d.points[i].time), y: _mobileCandleSeries.priceToCoordinate(d.points[i].price) };
+        if (pa.x != null && pb.x != null) {
+          const dd = _distPointToSegment(x, y, pa.x, pa.y, pb.x, pb.y);
+          if (dd < minD) minD = dd;
+        }
+      }
+      dist = minD;
     } else if (d.p2) {
       const b = { x: ts.timeToCoordinate(d.p2.time), y: _mobileCandleSeries.priceToCoordinate(d.p2.price) };
       if (b.x == null || b.y == null) continue;
@@ -38813,7 +39176,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 19:30 UTC';
+const APP_BUILD = '2026-05-16 20:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
