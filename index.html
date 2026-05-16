@@ -840,6 +840,8 @@ html.is-mobile-device #tab-chart #drawToolbar {
 html.is-mobile-device #mobileDrawToolbar { display: none !important; }
 html.is-mobile-device .mobile-only-chart { display: block !important; left: 52px !important; }
 html.is-mobile-device .mobile-only-chart-overlay { left: 52px !important; }
+/* Wichtig: Placement-Cursor muss dasselbe Koordinatensystem wie Chart haben (52px Toolbar-Offset) */
+html.is-mobile-device .mobile-place-cursor { left: 52px !important; }
 html.is-mobile-device .tab-content#tab-chart .chart-area { min-height: 60vh; }
 
 /* Mobile Chart Toolbar (Coin + TF + Live) */
@@ -964,13 +966,13 @@ html.is-mobile-device .mobile-place-cursor.active { display: block; }
   opacity: 0.55;
   pointer-events: none;
 }
-/* Mini-Punkt in der Mitte — 3px für maximale Präzision */
+/* Punkt in der Mitte — 6px mit kontrastreichem Outline für gute Sichtbarkeit */
 .mobile-place-cursor .mpc-center {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  width: 3px; height: 3px;
+  width: 6px; height: 6px;
   background: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.85), 0 0 0 3px rgba(255,255,255,0.4);
   pointer-events: none;
 }
 /* Info-Badge mit Preis + Zeit */
@@ -1008,6 +1010,9 @@ html.is-mobile-device .mobile-place-cursor.active { display: block; }
   inset: 0;
   pointer-events: auto;
   cursor: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 html.is-mobile-device .mobile-only-chart-overlay { display: block; }
 .mobile-only-draw-hint {
@@ -39790,7 +39795,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 23:50 UTC';
+const APP_BUILD = '2026-05-17 00:10 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
