@@ -786,35 +786,42 @@ html, body {
   .coin-chip { font-size: 11px; padding: 6px 10px; }
 }
 
-/* Chart Fullscreen Modus — funktioniert auf allen Bildschirmgrössen */
-#mainChartArea:fullscreen,
-#mainChartArea:-webkit-full-screen { background: #0a0a0a; padding: 8px; }
-#mainChartArea:fullscreen #mobileChartFullscreenBtn,
-#mainChartArea:-webkit-full-screen #mobileChartFullscreenBtn { display: none !important; }
-#mainChartArea:fullscreen #mobileChartFullscreenExitBtn,
-#mainChartArea:-webkit-full-screen #mobileChartFullscreenExitBtn {
+/* Chart Fullscreen Modus — Target ist #chartCard damit Toolbar + Strategy-Chip + Chart
+   alle zusammen ins Vollbild gehen (nach LWC-Migration sitzt Toolbar außerhalb mainChartArea) */
+#chartCard:fullscreen,
+#chartCard:-webkit-full-screen { background: #0a0a0a; padding: 4px 8px 8px; }
+#chartCard:fullscreen #mobileChartFullscreenBtn,
+#chartCard:-webkit-full-screen #mobileChartFullscreenBtn { display: none !important; }
+#chartCard:fullscreen #mobileChartFullscreenExitBtn,
+#chartCard:-webkit-full-screen #mobileChartFullscreenExitBtn {
   display: block !important;
-  position: absolute; top: 8px; right: 8px; z-index: 100;
+  position: fixed; top: 8px; right: 8px; z-index: 100000;
   background: rgba(239,68,68,0.95); color: #fff; border: none;
   padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 800;
   cursor: pointer;
 }
 /* Fallback (JS-Klasse) falls Browser Fullscreen-API nicht unterstützt (z.B. iOS Safari) */
-.mainChartArea-fs {
+.chartCard-fs {
   position: fixed !important; inset: 0 !important;
-  z-index: 99999 !important; background: #0a0a0a !important; padding: 8px !important;
+  z-index: 99999 !important; background: #0a0a0a !important; padding: 4px 8px 8px !important;
 }
-.mainChartArea-fs #mobileChartFullscreenBtn { display: none !important; }
-.mainChartArea-fs #mobileChartFullscreenExitBtn {
+.chartCard-fs #mobileChartFullscreenBtn { display: none !important; }
+.chartCard-fs #mobileChartFullscreenExitBtn {
   display: block !important;
   position: fixed; top: 12px; right: 12px; z-index: 100000;
   background: rgba(239,68,68,0.95); color: #fff; border: none;
   padding: 10px 16px; border-radius: 8px; font-weight: 800; cursor: pointer;
 }
+/* Legacy-Aliasse falls noch alte Klasse irgendwo gesetzt war */
+.mainChartArea-fs {
+  position: fixed !important; inset: 0 !important;
+  z-index: 99999 !important; background: #0a0a0a !important; padding: 8px !important;
+}
 /* Mobile-Spezifika werden via .is-mobile-device Klasse auf <html> kontrolliert
    (statt @media, damit Landscape-Flip auf grossen Handys keinen Wechsel triggert) */
-html:not(.is-mobile-device) .mobile-only-chart-fs-btn,
-html:not(.is-mobile-device) #mobileDesktopHint { display: none !important; }
+html:not(.is-mobile-device) .mobile-only-chart-fs-btn { display: none !important; }
+/* Hinweis "Desktop hat mehr Tools" entfernt — Mobile und Desktop haben jetzt denselben LWC-Chart */
+#mobileDesktopHint { display: none !important; }
 
 /* ── LWC-Chart-Migration: alte Canvas-Toolbar + alten Chart verstecken,
    LWC-Chart + neuen Toolbar auch auf Desktop zeigen. CSS-basiert für leichten Revert. ── */
@@ -2549,11 +2556,6 @@ input[type=number] { -moz-appearance:textfield }
         <!-- OHLC info: last item so it wraps to its own line first when space is tight (toolbar above stays put) -->
         <span id="chartOHLCInfo" style="font-size:11px;color:var(--text-muted);display:none;gap:6px;align-items:center;min-width:340px;font-variant-numeric:tabular-nums;font-feature-settings:'tnum';flex-shrink:0"></span>
       </div>
-      <!-- Backtest Overlay Info (shown after backtest) -->
-      <div id="chartBtOverlayBar" style="display:none;align-items:center;gap:8px;padding:2px 0 2px">
-        <span id="chartBtStatus" style="font-size:10px;color:var(--text-muted)"></span>
-        <button id="chartBtClear" onclick="clearBacktestOverlay()" style="padding:2px 8px;font-size:10px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:3px;cursor:pointer" title="Backtest-Overlay entfernen">✕ Clear</button>
-      </div>
       <!-- Mobile-only Chart-Toolbar — jetzt als richtige Top-Bar (statisch positioniert) -->
       <div id="mobileChartToolbar" class="mobile-only-chart-toolbar">
         <button id="mobileCoinBtn" onclick="openMobileCoinPicker()" aria-label="Coin wählen"><span id="mobileCoinBtnLabel">BTC</span> ▾</button>
@@ -2590,10 +2592,10 @@ input[type=number] { -moz-appearance:textfield }
         <button id="mobileLiveBtn" onclick="onMobileLiveToggle()" aria-label="Live-Chart starten">▶ LIVE</button>
         <button id="mobileChartFullscreenBtn" onclick="enterChartFullscreen()" aria-label="Chart Vollbild" title="Chart im Vollbild öffnen (Querformat)">📱 Vollbild</button>
       </div>
-      <!-- Strategy-Chip: zeigt aktuell ausgewählte Strategy, klickbar zum schnellen Wechseln -->
-      <div id="mobileChartStrategyChip" style="display:flex;align-items:center;gap:8px;padding:4px 6px 6px;font-size:12px;color:#9ca3af">
-        <span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">Strategie</span>
-        <select id="mobileChartStrategySelect" onchange="_mobileSyncStrategyFromChip(this.value)" style="background:#1c2333;border:1px solid #374151;color:#e6edf3;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;cursor:pointer;min-width:200px"></select>
+      <!-- Backtest-Overlay-Info (sichtbar nach Backtest): Strategy-Name + Stats + Clear-Button -->
+      <div id="chartBtOverlayBar" style="display:none;align-items:center;gap:8px;padding:4px 8px 6px">
+        <span id="chartBtStatus" style="font-size:12px;color:var(--text-muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+        <button id="chartBtClear" onclick="clearBacktestOverlay()" style="padding:3px 10px;font-size:11px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:4px;cursor:pointer;flex-shrink:0" title="Backtest-Overlay entfernen">✕ Clear</button>
       </div>
       <div class="chart-area" id="mainChartArea" style="flex:1;min-height:0;position:relative">
         <!-- Exit-Button nur im Vollbild sichtbar -->
@@ -42023,7 +42025,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 13:45 UTC';
+const APP_BUILD = '2026-05-17 14:30 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
@@ -42078,7 +42080,8 @@ function _safeRemoveItem(key) {
 //  CHART FULLSCREEN + LANDSCAPE — Mobile UX Fix
 // ═══════════════════════════════════════════════
 function enterChartFullscreen() {
-  const el = document.getElementById('mainChartArea');
+  // Target ist #chartCard (nicht mainChartArea) damit Toolbar + Strategy-Chip mitgehen
+  const el = document.getElementById('chartCard');
   if (!el) return;
 
   // Versuch 1: native Fullscreen API (Android/Desktop)
@@ -42089,7 +42092,7 @@ function enterChartFullscreen() {
   }
 
   // Versuch 2: JS-Fallback-Klasse (iOS Safari unterstuetzt requestFullscreen oft nicht)
-  el.classList.add('mainChartArea-fs');
+  el.classList.add('chartCard-fs');
 
   // Versuch 3: Landscape-Orientation locken (Android Chrome; auf iOS ignoriert)
   function lockLandscape() {
@@ -42115,11 +42118,16 @@ function enterChartFullscreen() {
 }
 
 function exitChartFullscreen() {
-  const el = document.getElementById('mainChartArea');
+  // Target ist #chartCard (matched mit enterChartFullscreen)
+  const el = document.getElementById('chartCard');
   if (!el) return;
   // User hat manuell geschlossen → nicht mehr auto-triggern in dieser Session
   window._chartAutoFsDisabled = true;
+  el.classList.remove('chartCard-fs');
+  // Legacy: alte Klasse auch entfernen (falls von früher gesetzt)
   el.classList.remove('mainChartArea-fs');
+  const mca = document.getElementById('mainChartArea');
+  if (mca) mca.classList.remove('mainChartArea-fs');
   // Native Fullscreen verlassen
   const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
   if (exitFs && (document.fullscreenElement || document.webkitFullscreenElement)) {
@@ -42144,8 +42152,10 @@ function exitChartFullscreen() {
   document.addEventListener(ev, () => {
     const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
     if (!isFs) {
-      const el = document.getElementById('mainChartArea');
-      if (el) el.classList.remove('mainChartArea-fs');
+      const card = document.getElementById('chartCard');
+      if (card) { card.classList.remove('chartCard-fs'); card.classList.remove('mainChartArea-fs'); }
+      const mca = document.getElementById('mainChartArea');
+      if (mca) mca.classList.remove('mainChartArea-fs');
       // User hat per Back-Button/ESC verlassen → kein Auto-Retrigger
       window._chartAutoFsDisabled = true;
       if (screen.orientation && screen.orientation.unlock) {
