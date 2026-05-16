@@ -1001,12 +1001,13 @@ html.is-mobile-device .mobile-place-cursor.active { display: block; }
   width: 24px; height: 24px; border-radius: 50%;
   cursor: pointer; line-height: 1;
 }
-/* Capture-Layer: nimmt Touch/Maus-Events ab damit Cursor folgt + Tap commitet */
+/* Capture-Layer: nimmt Touch/Maus-Events ab. System-Cursor ausgeblendet damit
+   unser kleiner weisser Punkt die einzige präzise Markierung ist. */
 .mobile-place-cursor .mpc-capture {
   position: absolute;
   inset: 0;
   pointer-events: auto;
-  cursor: crosshair;
+  cursor: none;
 }
 html.is-mobile-device .mobile-only-chart-overlay { display: block; }
 .mobile-only-draw-hint {
@@ -20808,7 +20809,7 @@ function startMobilePlacement(tool) {
   _wireMobilePlacementEvents();
 }
 
-// Pointer-Events — Cursor folgt Maus-Hover oder Touch-Drag, separater Tap committed
+// Pointer-Events — Maus folgt absolut (Hover), Touch verschiebt relativ (Cursor wandert per Delta)
 function _wireMobilePlacementEvents() {
   const cap = document.getElementById('mpcCapture');
   if (!cap || cap._wired) return;
@@ -20818,38 +20819,59 @@ function _wireMobilePlacementEvents() {
     const r = container.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
-  let downPos = null, downTime = 0, moved = false, isDown = false;
+  let downFinger = null;    // Finger-Pos beim Pointerdown
+  let downCursor = null;    // Cursor-Pos beim Pointerdown (für Relative-Drag)
+  let downTime = 0;
+  let moved = false;
+  let isDown = false;
+  let pointerKind = 'mouse';
+
   cap.addEventListener('pointerdown', (e) => {
     if (!_mobilePlacement) return;
     const p = _xy(e);
-    downPos = p; downTime = Date.now(); moved = false; isDown = true;
+    downFinger = p;
+    downCursor = { x: _mobileCursorX || (container.clientWidth / 2), y: _mobileCursorY || (container.clientHeight / 2) };
+    downTime = Date.now();
+    moved = false;
+    isDown = true;
+    pointerKind = e.pointerType || 'mouse';
     try { cap.setPointerCapture(e.pointerId); } catch(err){}
     e.preventDefault();
   });
+
   cap.addEventListener('pointermove', (e) => {
     if (!_mobilePlacement) return;
     const p = _xy(e);
-    // Mouse-Hover (kein Pointerdown) → Cursor folgt sofort
-    // Touch-Drag (mit Pointerdown) → Cursor folgt finger
-    if (!isDown || e.pointerType !== 'touch') {
+    if (pointerKind === 'mouse' && !isDown) {
+      // Maus-Hover (kein Click) → Cursor folgt absolut
       _setCursorPos(p.x, p.y);
-    } else if (isDown) {
-      // Touch + Drag → Cursor folgt finger, Bewegungs-Flag setzen
+      return;
+    }
+    if (isDown && pointerKind === 'touch') {
+      // Touch + Drag → RELATIV: Cursor verschoben um Finger-Delta
+      // Vorteil: Finger ist nicht auf Cursor, Cursor wandert "neben" Finger her
+      const dx = p.x - downFinger.x;
+      const dy = p.y - downFinger.y;
+      _setCursorPos(downCursor.x + dx, downCursor.y + dy);
+      if (Math.hypot(dx, dy) > 5) moved = true;
+    } else if (isDown && pointerKind === 'mouse') {
+      // Maus mit gedrücktem Button → wie Hover, absolute Position
       _setCursorPos(p.x, p.y);
-      if (downPos && Math.hypot(p.x - downPos.x, p.y - downPos.y) > 5) moved = true;
+      if (downFinger && Math.hypot(p.x - downFinger.x, p.y - downFinger.y) > 5) moved = true;
     }
   });
+
   cap.addEventListener('pointerup', (e) => {
     if (!_mobilePlacement) return;
     try { cap.releasePointerCapture(e.pointerId); } catch(err){}
     isDown = false;
     const dt = Date.now() - downTime;
-    // Tap (nicht bewegt UND schnell): committen an aktueller Cursor-Position
-    // Drag (bewegt + länger): nur Cursor positioniert, KEIN Commit — User muss extra tippen
+    // Tap (nicht bewegt UND schnell): commit an aktueller Cursor-Position
+    // Drag (bewegt + länger): kein Commit, Cursor bleibt an neuer Position, User tippt extra
     if (!moved && dt < 400) {
       confirmMobilePlacement();
     }
-    downPos = null;
+    downFinger = null; downCursor = null;
   });
 }
 
@@ -39768,7 +39790,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-16 23:30 UTC';
+const APP_BUILD = '2026-05-16 23:50 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
