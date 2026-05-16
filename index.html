@@ -2529,6 +2529,15 @@ input[type=number] { -moz-appearance:textfield }
           <button id="mobileCoinBtn" onclick="openMobileCoinPicker()" aria-label="Coin wählen"><span id="mobileCoinBtnLabel">BTC</span> ▾</button>
           <select id="mobileCoinSelect" onchange="onMobileCoinChange()" aria-label="Coin wählen" style="display:none"></select>
           <select id="mobileTfSelect" onchange="onMobileTfChange()" aria-label="Timeframe wählen"></select>
+          <select id="mobileCandleTypeSelect" onchange="setMobileCandleType(this.value)" aria-label="Kerzen-Stil" title="Kerzen-Darstellung">
+            <option value="candle">Kerzen</option>
+            <option value="heikinashi">Heikin Ashi</option>
+            <option value="hollow">Hollow</option>
+            <option value="bar">OHLC Bars</option>
+            <option value="line">Linie</option>
+            <option value="area">Area</option>
+            <option value="baseline">Baseline</option>
+          </select>
           <select id="mobileTzSelect" onchange="setMobileChartTimezone(this.value)" aria-label="Zeitzone" title="Zeitzone für Chart-Anzeige">
             <option value="local">Lokal</option>
             <option value="UTC">UTC</option>
@@ -18762,6 +18771,184 @@ let _mobileCandleSeries = null;
 let _mobileVZoomCenter = null;     // Preis-Mittelpunkt
 let _mobileVZoomHalfSpan = null;   // halbe Preisspanne (max - center)
 let _mobileVZoom = 1.0;            // Legacy, nicht mehr aktiv genutzt
+// Candle-Type (candle | heikinashi | hollow | bar | line | area | baseline)
+let _mobileCandleType = 'candle';
+try { _mobileCandleType = localStorage.getItem('fb_mobileCandleType') || 'candle'; } catch(e){}
+let _mobileRawData = null;  // Letzte gesetzten Raw-OHLC-Daten (für Type-Switch)
+
+// Series-Factory — erstellt die Haupt-Series passend zum gewählten Candle-Type
+function _createMobileMainSeries(type) {
+  if (!_mobileChart) return null;
+  const t = type || 'candle';
+  if (t === 'candle' || t === 'heikinashi') {
+    return _mobileChart.addCandlestickSeries({
+      upColor: '#22c55e', downColor: '#ef4444',
+      borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+      wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+      priceLineVisible: true, lastValueVisible: true
+    });
+  }
+  if (t === 'hollow') {
+    return _mobileChart.addCandlestickSeries({
+      upColor: 'rgba(0,0,0,0)',  // hohl bei Up
+      downColor: '#ef4444',
+      borderUpColor: '#22c55e',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#22c55e',
+      wickDownColor: '#ef4444',
+      priceLineVisible: true, lastValueVisible: true
+    });
+  }
+  if (t === 'bar') {
+    return _mobileChart.addBarSeries({
+      upColor: '#22c55e', downColor: '#ef4444',
+      openVisible: true, thinBars: false,
+      priceLineVisible: true, lastValueVisible: true
+    });
+  }
+  if (t === 'line') {
+    return _mobileChart.addLineSeries({
+      color: '#06b6d4', lineWidth: 2,
+      priceLineVisible: true, lastValueVisible: true
+    });
+  }
+  if (t === 'area') {
+    return _mobileChart.addAreaSeries({
+      topColor: 'rgba(6,182,212,0.40)',
+      bottomColor: 'rgba(6,182,212,0.02)',
+      lineColor: '#06b6d4', lineWidth: 2,
+      priceLineVisible: true, lastValueVisible: true
+    });
+  }
+  if (t === 'baseline') {
+    return _mobileChart.addBaselineSeries({
+      baseValue: { type: 'price', price: 0 },
+      topLineColor: '#22c55e',
+      topFillColor1: 'rgba(34,197,94,0.3)',
+      topFillColor2: 'rgba(34,197,94,0)',
+      bottomLineColor: '#ef4444',
+      bottomFillColor1: 'rgba(239,68,68,0)',
+      bottomFillColor2: 'rgba(239,68,68,0.3)',
+      lineWidth: 2,
+      priceLineVisible: true, lastValueVisible: true
+    });
+  }
+  // Fallback
+  return _mobileChart.addCandlestickSeries({});
+}
+
+// Type-Wechsel — alte Series entfernen, neue erstellen, Daten neu einspielen
+function setMobileCandleType(type) {
+  if (!_mobileChart) return;
+  if (_mobileCandleType === type) return;
+  _mobileCandleType = type;
+  try { localStorage.setItem('fb_mobileCandleType', type); } catch(e){}
+
+  // Alte Series + ihre PriceLines entfernen
+  if (_mobileCandleSeries) {
+    try { (_mobilePriceLines || []).forEach(pl => { try { _mobileCandleSeries.removePriceLine(pl); } catch(_){} }); } catch(_){}
+    _mobilePriceLines = [];
+    try { _mobileChart.removeSeries(_mobileCandleSeries); } catch(_){}
+    _mobileCandleSeries = null;
+  }
+
+  // Neue Series + Provider wieder anhängen
+  _mobileCandleSeries = _createMobileMainSeries(type);
+  try {
+    _mobileCandleSeries.applyOptions({
+      autoscaleInfoProvider: (originalProvider) => {
+        const res = originalProvider();
+        if (_mobileVZoomCenter != null && _mobileVZoomHalfSpan != null && _mobileVZoomHalfSpan > 0) {
+          return {
+            priceRange: { minValue: _mobileVZoomCenter - _mobileVZoomHalfSpan, maxValue: _mobileVZoomCenter + _mobileVZoomHalfSpan },
+            margins: res ? res.margins : { above: 10, below: 10 }
+          };
+        }
+        return res;
+      }
+    });
+  } catch(_){}
+
+  // Y-Lock zurücksetzen — anderer Type kann andere Preise zeigen (HA-Werte ≠ OHLC)
+  _mobileVZoomCenter = null;
+  _mobileVZoomHalfSpan = null;
+
+  // Daten neu einspielen
+  if (_mobileRawData && _mobileRawData.length) {
+    _setMobileSeriesData(_mobileRawData);
+  }
+
+  // Drawings/Overlays neu zeichnen + Y-Range nach Settling capturen
+  if (typeof redrawMobileOverlay === 'function') setTimeout(redrawMobileOverlay, 50);
+  setTimeout(() => {
+    if (typeof window._captureMobileYLock === 'function') window._captureMobileYLock();
+    try { _mobileCandleSeries.applyOptions({}); } catch(_){}
+  }, 300);
+}
+
+// Daten-Format-Konverter — Raw-OHLC → Format für aktuellen Series-Typ
+function _formatDataForCandleType(rawData) {
+  if (!Array.isArray(rawData) || !rawData.length) return rawData;
+  if (_mobileCandleType === 'heikinashi') {
+    const ha = [];
+    let prevOpen = null, prevClose = null;
+    for (const c of rawData) {
+      const haClose = (c.open + c.high + c.low + c.close) / 4;
+      const haOpen = (prevOpen != null) ? (prevOpen + prevClose) / 2 : (c.open + c.close) / 2;
+      const haHigh = Math.max(c.high, haOpen, haClose);
+      const haLow = Math.min(c.low, haOpen, haClose);
+      ha.push({ time: c.time, open: haOpen, high: haHigh, low: haLow, close: haClose });
+      prevOpen = haOpen; prevClose = haClose;
+    }
+    return ha;
+  }
+  if (_mobileCandleType === 'line' || _mobileCandleType === 'area' || _mobileCandleType === 'baseline') {
+    return rawData.map(c => ({ time: c.time, value: c.close }));
+  }
+  // candle, hollow, bar → OHLC bleibt
+  return rawData;
+}
+
+// Wrapper: ersetzt _mobileCandleSeries.setData(rawData) — speichert raw + transformiert
+function _setMobileSeriesData(rawData) {
+  if (!_mobileCandleSeries) return;
+  _mobileRawData = rawData;
+  const formatted = _formatDataForCandleType(rawData);
+  try { _mobileCandleSeries.setData(formatted); } catch(_){}
+  // Baseline braucht ein baseValue — auf Median-Preis setzen
+  if (_mobileCandleType === 'baseline' && formatted.length) {
+    const mid = formatted[Math.floor(formatted.length / 2)].value;
+    try { _mobileCandleSeries.applyOptions({ baseValue: { type: 'price', price: mid } }); } catch(_){}
+  }
+}
+
+// Wrapper: ersetzt _mobileCandleSeries.update(rawCandle) — transformiert für Type
+function _updateMobileSeriesData(rawCandle) {
+  if (!_mobileCandleSeries || !rawCandle) return;
+  let formatted = rawCandle;
+  if (_mobileCandleType === 'line' || _mobileCandleType === 'area' || _mobileCandleType === 'baseline') {
+    formatted = { time: rawCandle.time, value: rawCandle.close };
+  } else if (_mobileCandleType === 'heikinashi') {
+    // HA-Tick: aus letztem Raw + neuem Raw die HA-Werte berechnen
+    if (_mobileRawData && _mobileRawData.length > 0) {
+      const last = _mobileRawData[_mobileRawData.length - 1];
+      const haClose = (rawCandle.open + rawCandle.high + rawCandle.low + rawCandle.close) / 4;
+      const haOpen = (last.open + last.close) / 2;
+      const haHigh = Math.max(rawCandle.high, haOpen, haClose);
+      const haLow = Math.min(rawCandle.low, haOpen, haClose);
+      formatted = { time: rawCandle.time, open: haOpen, high: haHigh, low: haLow, close: haClose };
+    }
+  }
+  try { _mobileCandleSeries.update(formatted); } catch(_){}
+  // Raw-Cache aktualisieren (für nächste HA-Berechnung)
+  if (_mobileRawData) {
+    if (_mobileRawData.length && _mobileRawData[_mobileRawData.length - 1].time === rawCandle.time) {
+      _mobileRawData[_mobileRawData.length - 1] = rawCandle;
+    } else {
+      _mobileRawData.push(rawCandle);
+    }
+  }
+}
 let _mobileEmaSeries = null;
 let _mobileLastData = null;
 let _mobileChartInitialized = false;
@@ -18870,12 +19057,7 @@ function renderMobileChart(candles, trades) {
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
     });
-    _mobileCandleSeries = _mobileChart.addCandlestickSeries({
-      upColor: '#22c55e', downColor: '#ef4444',
-      borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e', wickDownColor: '#ef4444',
-      priceLineVisible: true, lastValueVisible: true
-    });
+    _mobileCandleSeries = _createMobileMainSeries(_mobileCandleType);
     // Drawing-Overlay aktivieren + Pan/Zoom-Redraw-Hook
     try {
       if (typeof initMobileDrawOverlay === 'function') initMobileDrawOverlay();
@@ -19051,12 +19233,9 @@ function renderMobileChart(candles, trades) {
   if (!_mobileChartInitialized) {
     // ERSTER Render — fresh Auto-Fit, dann Y-Range capturen + locken
     try { _mobileChart.priceScale('right').applyOptions({ autoScale: true }); } catch(e){}
-    // Y-Lock leeren damit Provider erstes Auto-Fit durchlässt
     _mobileVZoomCenter = null; _mobileVZoomHalfSpan = null;
-    _mobileCandleSeries.setData(data);
+    _setMobileSeriesData(data);
     try { _mobileChart.timeScale().fitContent(); } catch(e) {}
-    // Nach Auto-Fit den aktuellen Y-Range einfrieren — autoScale bleibt true,
-    // damit der Provider weiter feuert und den gelockten Range zurückgibt
     setTimeout(() => {
       try {
         if (typeof window._captureMobileYLock === 'function') window._captureMobileYLock();
@@ -19065,41 +19244,30 @@ function renderMobileChart(candles, trades) {
     }, 400);
     _mobileChartInitialized = true;
   } else if (sig !== _mobileLastCandleSig) {
-    // Daten haben sich geaendert — pruefe was sich aendert
     const parts = _mobileLastCandleSig.split('|');
     const oldLen = (parts[0] | 0);
     const oldFirstTime = parts[1] | 0;
     const oldLastTimeClose = parts[2] || '';
     const newLastTimeClose = lastC ? (lastC.time + ':' + lastC.close) : '';
     if (data.length === oldLen && lastC) {
-      // Nur Live-Update der letzten Kerze → incremental, KEIN Zoom-Reset
-      try { _mobileCandleSeries.update(lastC); } catch(e) {
-        _mobileCandleSeries.setData(data);
-      }
+      try { _updateMobileSeriesData(lastC); } catch(e) { _setMobileSeriesData(data); }
     } else if (data.length === oldLen + 1 && lastC) {
-      // Eine neue Kerze dazu (WebSocket close) → incremental
-      try { _mobileCandleSeries.update(lastC); } catch(e) {
-        _mobileCandleSeries.setData(data);
-      }
+      try { _updateMobileSeriesData(lastC); } catch(e) { _setMobileSeriesData(data); }
     } else if (data.length > oldLen && firstC && firstC.time < oldFirstTime &&
                newLastTimeClose === oldLastTimeClose) {
-      // Aeltere Kerzen wurden vorne angehaengt (History-Load)
-      // → setData aber VIEW BEHALTEN damit der User nicht weggeworfen wird
       let savedRange = null;
       try { savedRange = _mobileChart.timeScale().getVisibleRange(); } catch(e){}
-      _mobileCandleSeries.setData(data);
+      _setMobileSeriesData(data);
       if (savedRange) {
         try { _mobileChart.timeScale().setVisibleRange(savedRange); } catch(e){}
       }
     } else {
-      // Komplett anderer Datensatz (neuer Backtest, neuer Coin) → autoScale an, fit, dann wieder lock
       try { _mobileChart.priceScale('right').applyOptions({ autoScale: true }); } catch(e){}
-      _mobileCandleSeries.setData(data);
+      _setMobileSeriesData(data);
       try { _mobileChart.timeScale().fitContent(); } catch(e) {}
       setTimeout(() => {
         try { if (_mobileChart) _mobileChart.priceScale('right').applyOptions({ autoScale: false }); } catch(e){}
       }, 300);
-      // Overlays für neuen Zeitraum refreshen (async, nicht blockierend)
       try { if (typeof _refreshMobileOverlays === 'function') setTimeout(_refreshMobileOverlays, 100); } catch(e) {}
     }
   }
@@ -20405,7 +20573,7 @@ function _mobileReplayDraw(preserveView) {
   if (preserveView && _mobileChart) {
     try { savedRange = _mobileChart.timeScale().getVisibleRange(); } catch(e){}
   }
-  try { _mobileCandleSeries.setData(data); } catch(e){}
+  try { _setMobileSeriesData(data); } catch(e){}
   // View wiederherstellen
   if (preserveView && savedRange && _mobileChart) {
     try { _mobileChart.timeScale().setVisibleRange(savedRange); } catch(e){}
@@ -20427,7 +20595,7 @@ function _mobileReplayStepDraw() {
   const t = Math.floor((c.ts || c.time || 0) / 1000);
   if (!t) return;
   try {
-    _mobileCandleSeries.update({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
+    _updateMobileSeriesData({ time: t, open: c.open, high: c.high, low: c.low, close: c.close });
   } catch(e) {
     // Fallback: full setData
     _mobileReplayDraw();
@@ -20796,6 +20964,9 @@ function initMobileChartToolbar() {
   // Zeitzonen-Dropdown auf gespeicherten Wert setzen
   const tzSel = document.getElementById('mobileTzSelect');
   if (tzSel && _mobileChartTz) tzSel.value = _mobileChartTz;
+  // Candle-Type-Dropdown auf gespeicherten Wert setzen
+  const ctSel = document.getElementById('mobileCandleTypeSelect');
+  if (ctSel && _mobileCandleType) ctSel.value = _mobileCandleType;
 }
 // Beim Laden initialisieren — etwas Delay damit DOM ready ist
 window.addEventListener('DOMContentLoaded', () => {
@@ -40155,7 +40326,7 @@ document.addEventListener('click', (e) => {
 //  APP VERSION + GITHUB LINK
 // ═══════════════════════════════════════════════
 const APP_VERSION = 'v1.8.0-beta';
-const APP_BUILD = '2026-05-17 04:15 UTC';
+const APP_BUILD = '2026-05-17 04:45 UTC';
 
 // ═══════════════════════════════════════════════
 //  SAFE STORAGE HELPERS — funktioniert auch in restriktiven WebViews
